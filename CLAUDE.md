@@ -28,6 +28,7 @@ fixtures/sample-wiki  예시 가족 위키 (개발·시안·테스트용)
 
 - 구현은 `hsh-engineer`, 검토는 `hsh-reviewer`(코드 수정 금지). 결정 기록: `docs/decisions/0001-two-person-harness.md`.
 - 할 일과 통과 여부는 `features.json`, 진행 로그는 `progress.md`. 작업을 시작하기 전에 둘 다 읽는다.
+- 할 일 하나를 끝낼 때마다 `features.json`과 오너용 할 일 문서(https://claude.ai/artifact/2WvLtG1stdnrrsujxbjM2T)의 상태·현황·다음 순서를 함께 갱신한다. 문서를 직접 못 고치는 환경이면 보고서 끝에 "할 일 문서 갱신 필요: #번호 → 상태"를 적는다.
 - 끝내기 전 `pnpm check`(typecheck + lint + test) 통과가 필수다.
 - 위키(`family-wiki`, `WIKI_REPO_PATH`)는 직접 고치지 않는다. 훅이 막는다. 테스트·시안은 `fixtures/sample-wiki`를 쓴다.
 - 오너에게 올릴 것: 스펙 변경, 비용, 계정·키, 되돌리기 어려운 작업, 화면 디자인·캐릭터, 두 번 실패한 문제.
