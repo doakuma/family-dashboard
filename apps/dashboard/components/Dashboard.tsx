@@ -28,7 +28,8 @@ export interface DashboardProps {
 }
 
 export function Dashboard({ initial, at, mode }: DashboardProps) {
-  const now = useNow(at);
+  // 서버 렌더 시각(initial.updatedAt)으로 시작해야 서버 HTML과 첫 클라이언트 렌더가 같다
+  const now = useNow(at, initial.updatedAt);
   const { state, offline } = useDashboardState(initial);
   const today = todayIn(now);
   const time = timeIn(now);
