@@ -5,13 +5,32 @@
 export type MemberId = string;
 export const FAMILY_ID: MemberId = "family";
 
+export type MemberRole = "guardian" | "child";
+
 export interface Member {
   id: MemberId;
   name: string;
+  /** guardian = 쓰기 가능, child = 질문만 */
+  role: MemberRole;
   /** YYYY-MM-DD */
   birth?: string;
   color: string;
   slackId?: string;
+}
+
+/** config.md — 가족 세팅 결과 */
+export interface FamilyConfig {
+  familyName: string;
+  timezone: string;
+  region?: string;
+  kmaNx?: number;
+  kmaNy?: number;
+  kmaMidLandRegId?: string;
+  kmaMidTaRegId?: string;
+  familyColor: string;
+  calendarId?: string;
+  /** ISO 8601. 있으면 세팅 완료 */
+  setupCompletedAt?: string;
 }
 
 export interface Event {
@@ -29,10 +48,12 @@ export interface Event {
   done: boolean;
 }
 
+export type TaskList = "shopping" | "todo";
+
 export interface Task {
   /** task-xxxx */
   id: string;
-  list: "shopping" | "todo";
+  list: TaskList;
   title: string;
   member?: MemberId;
   done: boolean;
@@ -45,16 +66,20 @@ export interface Anniversary {
   member?: MemberId;
 }
 
+export type WeatherIcon = "sunny" | "partly" | "cloudy" | "rain" | "snow" | "shower";
+
 export interface WeatherDay {
   /** YYYY-MM-DD */
   date: string;
-  /** 아이콘 키 (예: 'sunny' | 'cloudy' | 'rain' | 'snow') */
-  icon: string;
+  icon: WeatherIcon;
   max: number;
   min: number;
+  /** 강수확률 % */
+  pop?: number;
 }
 
 export interface DashboardState {
+  config?: FamilyConfig;
   members: Member[];
   events: Event[];
   tasks: Task[];
@@ -75,6 +100,8 @@ export type Change =
   | { kind: "task.done"; payload: { id: string } }
   | { kind: "anniversary.add"; payload: Anniversary };
 
+export type ChangeKind = Change["kind"];
+
 export interface IncomingMessage {
   /** 메신저 종류 (1차: 'slack') */
   source: string;
@@ -83,4 +110,9 @@ export interface IncomingMessage {
   /** 답장을 달 스레드 */
   threadId: string;
   text: string;
+}
+
+/** 가족 세팅이 필요한지: config.md가 없거나 구성원이 없으면 true */
+export function needsSetup(state: Pick<WikiState, "config" | "members">): boolean {
+  return !state.config || state.members.length === 0;
 }
