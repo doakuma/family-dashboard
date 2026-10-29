@@ -1,0 +1,71 @@
+/* 가로 태블릿 한 장. 고정 px 없이 fr·minmax로 나눈다.
+   ┌ 시계 ─────┬ 달력 ───────────────┬ 날씨 ─────┐
+   │ 오늘 일정 │                      │ 장보기·할일 │
+   │           │                      │ 다가오는 날 │
+   └───────────┴──────────────────────┴───────────┘ */
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.95fr) minmax(0, 1.1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "clock    calendar weather"
+    "agenda   calendar checklist"
+    "agenda   calendar dday";
+  gap: var(--gap) calc(var(--gap) * 1.6);
+  height: 100dvh;
+  padding: var(--pad) calc(var(--pad) * 1.2) calc(var(--pad) * 1.4);
+}
+
+.clock {
+  grid-area: clock;
+}
+.weather {
+  grid-area: weather;
+  align-self: start;
+}
+.agenda {
+  grid-area: agenda;
+  display: flex;
+  min-height: 0;
+  padding-top: 0.6rem;
+}
+.agenda > * {
+  flex: 1;
+}
+.calendar {
+  grid-area: calendar;
+  display: grid;
+  min-height: 0;
+}
+.checklist {
+  grid-area: checklist;
+  min-height: 0;
+  overflow: hidden;
+}
+.dday {
+  grid-area: dday;
+  padding-top: var(--gap);
+  border-top: 1px solid var(--line);
+}
+
+.night {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 100dvh;
+  padding: var(--pad);
+}
+
+/* 세로로 세운 태블릿·좁은 화면: 한 열로 접는다 */
+@media (max-aspect-ratio: 1/1) {
+  .board {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "clock    weather"
+      "agenda   checklist"
+      "calendar calendar"
+      "dday     dday";
+  }
+}

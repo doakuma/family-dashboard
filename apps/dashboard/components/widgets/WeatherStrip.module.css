@@ -1,0 +1,63 @@
+.strip {
+  min-width: 0;
+}
+
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+
+.day {
+  display: grid;
+  justify-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0 0.4rem;
+  border-radius: 0.9rem;
+}
+
+.day[data-today] {
+  background: var(--sheet);
+}
+
+.label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.day[data-today] .label {
+  color: var(--ink);
+}
+
+.icon {
+  width: 2.6rem;
+  height: 2.6rem;
+}
+
+.temp {
+  display: grid;
+  justify-items: center;
+  line-height: 1.15;
+}
+
+.max {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.min {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.pop {
+  min-height: 1em;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #3a73d6;
+}
+
+.empty {
+  color: var(--muted);
+}

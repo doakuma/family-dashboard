@@ -1,0 +1,119 @@
+.calendar {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+  padding: 1.1rem 1.2rem 1.2rem;
+  background: var(--sheet);
+  border-radius: 1.6rem;
+}
+
+.month {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.year {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--faint);
+  vertical-align: 0.5rem;
+}
+
+.weekdays,
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.weekdays {
+  margin: 0.7rem 0 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+}
+
+.weekdays [data-dow="0"] {
+  color: var(--sunday);
+}
+
+.weekdays [data-dow="6"] {
+  color: var(--saturday);
+}
+
+.grid {
+  min-height: 0;
+  border-top: 1px solid var(--line);
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.3rem 0.25rem 0.25rem;
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.num {
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 50%;
+}
+
+.cell[data-dow="0"] .num {
+  color: var(--sunday);
+}
+
+.cell[data-dow="6"] .num {
+  color: var(--saturday);
+}
+
+.cell[data-other] .num,
+.cell[data-other] .event {
+  opacity: 0.35;
+}
+
+.cell[data-past]:not([data-other]) .event {
+  opacity: 0.55;
+}
+
+.cell[data-today] .num {
+  background: var(--ink);
+  color: var(--sheet);
+}
+
+.event {
+  display: block;
+  padding: 0.05rem 0.3rem 0.05rem 0.4rem;
+  border-left: 0.28rem solid var(--bar);
+  border-radius: 0.2rem;
+  background: color-mix(in srgb, var(--bar) 13%, transparent);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.event[data-done] {
+  text-decoration: line-through;
+}
+
+.more {
+  padding-left: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}

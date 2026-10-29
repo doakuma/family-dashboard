@@ -1,0 +1,78 @@
+.agenda {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.9rem;
+  line-height: 1;
+  margin-bottom: 0.8rem;
+}
+
+.list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 4.3rem minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.when {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+}
+
+.what {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  min-width: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item[data-past] {
+  opacity: 0.38;
+}
+
+.more,
+.empty {
+  font-size: 1.05rem;
+  color: var(--muted);
+}
+
+.tomorrow {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  margin-top: auto;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+  font-size: 1.05rem;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.tomorrowLabel {
+  flex: none;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.tomorrowWhat {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

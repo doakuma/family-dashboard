@@ -1,0 +1,17 @@
+.dots {
+  display: inline-flex;
+  flex: none;
+  gap: 0.2em;
+  align-items: center;
+}
+
+.dot {
+  width: 0.62em;
+  height: 0.62em;
+  border-radius: 50%;
+}
+
+.dots[data-size="sm"] .dot {
+  width: 0.5em;
+  height: 0.5em;
+}

@@ -1,0 +1,52 @@
+.night {
+  display: grid;
+  justify-items: center;
+  gap: 2.5rem;
+  opacity: 0.8; /* 밝기 낮춤 */
+}
+
+.time {
+  font-family: var(--font-display);
+  font-size: 13rem;
+  line-height: 0.85;
+  letter-spacing: -0.03em;
+}
+
+.next {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+  max-width: 60rem;
+}
+
+.label {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.9rem;
+  color: var(--muted);
+}
+
+.list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.item {
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  font-size: 1.7rem;
+  font-weight: 600;
+}
+
+.when {
+  font-family: var(--font-display);
+  min-width: 5.5rem;
+  color: var(--muted);
+}
+
+.empty {
+  font-size: 1.7rem;
+  color: var(--muted);
+}

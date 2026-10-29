@@ -1,0 +1,62 @@
+.checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  min-height: 0;
+}
+
+.column {
+  min-width: 0;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.45rem;
+  line-height: 1;
+  margin-bottom: 0.65rem;
+}
+
+.count {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--faint);
+}
+
+.items {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  min-width: 0;
+  font-size: 1.08rem;
+  font-weight: 500;
+}
+
+.dot {
+  flex: none;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+}
+
+.dot[data-none] {
+  background: var(--faint);
+}
+
+.text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.more,
+.empty {
+  font-size: 0.95rem;
+  color: var(--muted);
+}

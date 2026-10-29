@@ -1,0 +1,16 @@
+.updated {
+  position: absolute;
+  right: calc(var(--pad) * 1.2);
+  bottom: 0.45rem;
+  font-size: 0.75rem;
+  color: var(--faint);
+}
+
+.updated[data-stale] {
+  color: var(--muted);
+}
+
+.warn {
+  font-weight: 700;
+  color: var(--warn);
+}

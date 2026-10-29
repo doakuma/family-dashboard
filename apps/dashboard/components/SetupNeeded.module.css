@@ -1,0 +1,53 @@
+.setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 4rem;
+  align-items: center;
+  height: 100dvh;
+  padding: 4rem 6rem;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 4rem;
+  line-height: 1.1;
+}
+
+.lead {
+  max-width: 28em;
+  margin-top: 1.2rem;
+  font-size: 1.4rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.steps {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 2rem;
+  padding-left: 1.4rem;
+  list-style: decimal; /* 실제로 순서가 있는 단계 */
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.url {
+  margin-top: 2rem;
+  font-size: 1rem;
+  color: var(--faint);
+}
+
+.qr {
+  justify-self: center;
+  width: min(100%, 26rem);
+  padding: 1.6rem;
+  background: #fff;
+  border-radius: 1.6rem;
+}
+
+.qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}

@@ -1,0 +1,82 @@
+/* HomeSweetHome — 거실 태블릿 화면 토큰.
+   멀리서(2~3m) 한눈에 읽히는 게 기준이라 글자 크기는 화면 크기에 비례(rem = 뷰포트 기준). */
+:root {
+  --paper: #edf2ee; /* 바탕: 차가운 세이지 화이트 */
+  --sheet: #fafcfa; /* 달력 종이 */
+  --ink: #1c2a32; /* 글자: 짙은 슬레이트 */
+  --muted: #5d6e77;
+  --faint: #93a2a8;
+  --line: #d2dcd6;
+  --sunday: #c94c3c;
+  --saturday: #3a68b8;
+  --warn: #c2402e;
+
+  --font-display: "Jua", "Pretendard Variable", sans-serif;
+  --font-body: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+
+  --gap: 1.25rem;
+  --pad: 1.5rem;
+  color-scheme: light;
+}
+
+[data-mode="night"] {
+  --paper: #13232c;
+  --sheet: #182b35;
+  --ink: #b9c9c6;
+  --muted: #74888f;
+  --faint: #4d6068;
+  --line: #24384280;
+  color-scheme: dark;
+}
+
+/* 1280×800 기준 16px. 해상도가 달라도 같은 비율로 늘고 준다. */
+html {
+  font-size: clamp(11px, min(1.25vw, 2vh), 30px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-feature-settings: "tnum";
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all; /* 한글은 어절 단위로 줄바꿈 */
+  overflow: hidden; /* 보기 전용 화면: 스크롤 없음 */
+}
+
+h1,
+h2,
+h3,
+p,
+ol,
+ul {
+  margin: 0;
+}
+
+ol,
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
