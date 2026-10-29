@@ -1,0 +1,300 @@
+{
+  "$comment": "status: todo | partial | done | owner(오너가 할 일). passes는 pnpm check 통과, review는 hsh-reviewer 판정.",
+  "features": [
+    {
+      "id": 1,
+      "title": "family-wiki 비공개 레포, 폴더 구조·CLAUDE.md",
+      "area": "wiki",
+      "deps": [],
+      "status": "done",
+      "passes": true,
+      "review": "pending"
+    },
+    {
+      "id": 2,
+      "title": "config.md·구성원·기념일 파일 형식 확정",
+      "area": "wiki",
+      "deps": [
+        1
+      ],
+      "status": "done",
+      "passes": true,
+      "review": "pending"
+    },
+    {
+      "id": 3,
+      "title": "슬랙 앱 생성(Socket Mode, 봇 토큰, #가족 채널)",
+      "area": "bot",
+      "deps": [],
+      "status": "owner",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 4,
+      "title": "모노레포 세팅",
+      "area": "common",
+      "deps": [],
+      "status": "done",
+      "passes": true,
+      "review": "pending"
+    },
+    {
+      "id": 5,
+      "title": "공통 타입과 Change 유니언",
+      "area": "common",
+      "deps": [
+        4
+      ],
+      "status": "done",
+      "passes": true,
+      "review": "pending"
+    },
+    {
+      "id": 6,
+      "title": "WikiRepository.read: 마크다운 파서 + 테스트",
+      "area": "common",
+      "deps": [
+        2,
+        5
+      ],
+      "status": "done",
+      "passes": true,
+      "review": "pending"
+    },
+    {
+      "id": 7,
+      "title": "WikiRepository.apply: 파일 수정 + commit·push",
+      "area": "common",
+      "deps": [
+        6
+      ],
+      "status": "done",
+      "passes": true,
+      "review": "pending"
+    },
+    {
+      "id": 8,
+      "title": "LLM 의도 추출 프롬프트 + 상대 날짜 변환",
+      "area": "bot",
+      "deps": [
+        5
+      ],
+      "status": "partial",
+      "passes": false,
+      "review": "pending",
+      "note": "가짜 LLM으로 검증. 실제 Ollama/Anthropic 호출 검증 남음"
+    },
+    {
+      "id": 9,
+      "title": "슬랙 확인 버튼 흐름",
+      "area": "bot",
+      "deps": [
+        3,
+        7,
+        8
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 10,
+      "title": "질문 응답",
+      "area": "bot",
+      "deps": [
+        6,
+        8
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 11,
+      "title": "구글 캘린더 단방향 복사 + id 매핑",
+      "area": "integrations",
+      "deps": [
+        7
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 12,
+      "title": "기상청 날씨 어댑터 + 30분 캐시",
+      "area": "integrations",
+      "deps": [
+        5,
+        26
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 13,
+      "title": "/api/state 엔드포인트",
+      "area": "dashboard",
+      "deps": [
+        6,
+        12
+      ],
+      "status": "partial",
+      "passes": false,
+      "review": "pending",
+      "note": "예시 날씨(SampleWeatherSource)로 동작. #12 후 기상청으로 교체"
+    },
+    {
+      "id": 14,
+      "title": "레이아웃 + 위젯 6종",
+      "area": "dashboard",
+      "deps": [
+        13
+      ],
+      "status": "done",
+      "passes": true,
+      "review": "pending",
+      "note": "시안: docs/screens/"
+    },
+    {
+      "id": 15,
+      "title": "오프라인·마지막 갱신, 야간 화면",
+      "area": "dashboard",
+      "deps": [
+        14
+      ],
+      "status": "done",
+      "passes": true,
+      "review": "pending"
+    },
+    {
+      "id": 16,
+      "title": "첫 실행 감지 + 세팅 필요 화면·QR",
+      "area": "setup",
+      "deps": [
+        6
+      ],
+      "status": "done",
+      "passes": true,
+      "review": "pending",
+      "note": "/setup은 자리만 있음(#18)"
+    },
+    {
+      "id": 17,
+      "title": "관리자 PIN, 내부망 접근 제한",
+      "area": "setup",
+      "deps": [
+        4
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 18,
+      "title": "/setup 마법사 6단계",
+      "area": "setup",
+      "deps": [
+        7,
+        17
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 19,
+      "title": "슬랙 연결 코드 + DM 매핑",
+      "area": "setup",
+      "deps": [
+        3,
+        18
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 20,
+      "title": "세팅 완료 처리",
+      "area": "setup",
+      "deps": [
+        16,
+        18,
+        19
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 21,
+      "title": "구성원 권한 체크",
+      "area": "bot",
+      "deps": [
+        9,
+        19
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 22,
+      "title": "/settings + 슬랙 설정 변경",
+      "area": "setup",
+      "deps": [
+        18,
+        21
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 23,
+      "title": "노트북 서버 세팅",
+      "area": "ops",
+      "deps": [
+        4
+      ],
+      "status": "owner",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 24,
+      "title": "태블릿 키오스크 세팅",
+      "area": "ops",
+      "deps": [
+        14,
+        23
+      ],
+      "status": "owner",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 25,
+      "title": "수용 기준 점검 후 오픈",
+      "area": "common",
+      "deps": [
+        "all"
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 26,
+      "title": "기상청 API 활용 신청 + 격자 좌표",
+      "area": "integrations",
+      "deps": [],
+      "status": "owner",
+      "passes": false,
+      "review": null
+    }
+  ]
+}

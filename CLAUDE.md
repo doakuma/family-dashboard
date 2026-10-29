@@ -8,7 +8,9 @@ HomeSweetHome: 가족이 슬랙에 말하면 일정·할 일·기념일이 위�
 ```
 apps/dashboard   Next.js App Router. 태블릿 화면 + /api/state + /setup
 apps/bot         Node + Slack Bolt (Socket Mode)
-packages/core    공통 타입(types.ts), 어댑터 인터페이스(ports.ts), 이후 WikiRepository 구현
+packages/core    공통 타입·어댑터 인터페이스·날짜 유틸·위키 파서/apply (브라우저 안전)
+packages/core/node  FsWikiRepository (Node 전용: 파일 + git)
+fixtures/sample-wiki  예시 가족 위키 (개발·시안·테스트용)
 ```
 
 ## 원칙
@@ -22,6 +24,14 @@ packages/core    공통 타입(types.ts), 어댑터 인터페이스(ports.ts), �
 - 캐릭터·테마는 오리지널만 쓴다. 기존 IP 캐릭터는 금지한다.
 - 비밀값은 `.env`에만 둔다. `.env`를 읽거나 커밋하지 않는다.
 
+## 하네스 (2인 팀)
+
+- 구현은 `hsh-engineer`, 검토는 `hsh-reviewer`(코드 수정 금지). 결정 기록: `docs/decisions/0001-two-person-harness.md`.
+- 할 일과 통과 여부는 `features.json`, 진행 로그는 `progress.md`. 작업을 시작하기 전에 둘 다 읽는다.
+- 끝내기 전 `pnpm check`(typecheck + lint + test) 통과가 필수다.
+- 위키(`family-wiki`, `WIKI_REPO_PATH`)는 직접 고치지 않는다. 훅이 막는다. 테스트·시안은 `fixtures/sample-wiki`를 쓴다.
+- 오너에게 올릴 것: 스펙 변경, 비용, 계정·키, 되돌리기 어려운 작업, 화면 디자인·캐릭터, 두 번 실패한 문제.
+
 ## 명령
 
 ```bash
@@ -29,5 +39,7 @@ pnpm install
 pnpm typecheck          # 전체 타입 체크
 pnpm --filter @hsh/dashboard dev
 pnpm --filter @hsh/bot dev
+pnpm --filter @hsh/bot try "다음 주 화요일 3시 하늘 치과"   # 슬랙 없이 의도 추출 시험
+pnpm check              # typecheck + lint + test
 pnpm build
 ```
