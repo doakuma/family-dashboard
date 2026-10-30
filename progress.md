@@ -130,3 +130,10 @@
 ## 2026-10-30 · #28 후속 리뷰 통과
 - 리뷰어 통과 → #28 passes=true·review=pass (오너 반영).
 - 남은 문제(#31에서 처리): 야간 data-tone/data-mode 서버 렌더(첫 로드 깜빡임), skin e2e theme-color 기대값 시각 의존, config.md 이중 읽기.
+
+## 2026-10-30 · #31 달력 보기 터치 (스펙 rev 50, 결정 0006)
+- 보기 상태 `DashboardViewState`(monthOffset·selectedDate·selectedEventId·lastTouchAt)는 `Screen`의 `useDashboardView`가 폴링과 따로 갖고, 위젯은 `onSelectDate·onSelectEvent·onChangeMonth`만 받는다(없으면 보기 전용). 날짜 칸 탭 -> `Sheet`(role=dialog·포커스 이동/복귀·Esc)에 그날 일정 전부 -> 일정 탭 -> 상세(시간·구성원·공유 그룹·슬랙 안내). ‹ › 48px·좌우 스와이프로 달 이동, 마지막 터치 120초 뒤 자동 복귀(순수 리듀서 `viewReducer`·`isIdleExpired`·`swipeDirection` 단위 테스트).
+- `/api/state?month=YYYY-MM`(없으면 이번 달, 2000-01~2100-12, 잘못되면 400): 그 달 달력 칸 + 오늘·내일 일정만 싣는다. 공개 응답에 `share` 그룹 id만 추가(깨진 원문 토큰은 안 나감). 키오스크: `touch-action: pan-y`·`overscroll-behavior: none`·`user-select: none`(tablet 표식 안에서만), 태블릿 page만 viewport 확대 차단, `useKioskGuards`. 야간 터치 -> 낮 화면 구성 + dim, 120초 뒤 야간 복귀(`displayOf`).
+- #28 후속: layout이 `/`일 때만 서버 시각 기준 data-mode·data-tone 렌더(proxy가 `x-hsh-path` 헤더), skin e2e theme-color를 시각 기준으로, `getSkinForLayout`을 react `cache`로.
+- 검증: pnpm check(490 테스트)·build, e2e 5종(auth·stress·setup·skin·touch 신규 14단계) 통과. 캡처 `docs/screens/touch-*.png`. e2e가 잡은 것: 스와이프 직후 탭 삼킴(에뮬레이션 한정), 야간 깨우는 탭이 날짜 칸을 누름(600ms 클릭 삼킴으로 수정), 합성 핀치는 isMobile에서만 viewport를 따름(대조군 포함).
+- 남은 문제: 실기기 제스처(핀치·뒤로 가기·길게 누르기)는 #24. 야간 첫 HTML의 night 분기는 e2e가 서버 시각을 못 바꿔 단위 테스트로만. 응답이 전체 일정 -> 달 단위로 바뀜. 재리뷰 필요: #13·#14·#15·#16·#17·#27·#28 review=pending으로 돌림(코드를 덧붙여 수정). #31은 passes=false, review=pending.
