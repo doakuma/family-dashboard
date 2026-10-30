@@ -2,10 +2,15 @@
 // 6단계 마법사 본체는 #18.
 import { forbidden } from "next/navigation";
 import { PinForm } from "@/components/PinForm";
-import { authState, readSession } from "@/lib/auth/server";
+import { authState, lockRemainingMs, readSession, retryMinutes } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 
+
+const lockedMinutes = () => {
+  const ms = lockRemainingMs();
+  return ms === undefined ? undefined : retryMinutes(ms);
+};
 
 interface Props {
   searchParams: Promise<{ t?: string; e?: string }>;
@@ -24,5 +29,5 @@ export default async function SetupPage({ searchParams }: Props) {
     );
   }
   if (!authState().tokens.isValid(t)) forbidden();
-  return <PinForm title="가족 세팅" action="/api/auth/setup" token={t} error={e} />;
+  return <PinForm title="가족 세팅" action="/api/auth/setup" token={t} error={e} lockedMinutes={lockedMinutes()} />;
 }
