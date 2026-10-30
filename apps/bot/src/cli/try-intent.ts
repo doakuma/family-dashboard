@@ -3,11 +3,9 @@
 //   pnpm --filter @hsh/bot try "이번 주 토요일 뭐 있어?"   (질문이면 답 문장도 출력)
 //   LLM_PROVIDER=anthropic ANTHROPIC_API_KEY=... pnpm --filter @hsh/bot try "우유랑 사과 사야 돼"
 import { EnvConfigProvider, FsWikiRepository } from "@hsh/core/node";
-import { todayIn } from "@hsh/core";
 import { fileURLToPath } from "node:url";
 import { createLlmAdapter } from "../llm/client";
-import { answerFromQuery } from "../answer/answer";
-import { extractIntent } from "../intent/extract";
+import { answerQuestion } from "../answer/answer";
 
 const text = process.argv.slice(2).join(" ").trim();
 if (!text) {
@@ -21,13 +19,12 @@ const asIdx = process.argv.indexOf("--as");
 const sender = asIdx > 0 ? process.argv[asIdx + 1] : "U00MOM";
 const message = text.replace(/--as\s+\S+/, "").trim();
 
-const wiki = await new FsWikiRepository({ root, readOnly: true, familyId: config.get("familyId") }).read(config.get("familyId"));
+const familyId = config.get("familyId");
+const repo = new FsWikiRepository({ root, readOnly: true, familyId });
 const llm = createLlmAdapter(config.get("llm"));
 const t0 = Date.now();
-const intent = await extractIntent({ text: message, senderSlackId: sender, ...wiki }, llm);
+// 질문이면 답(LLM 실패 되묻기 포함), 아니면 의도 JSON
+const result = await answerQuestion({ text: message, senderSlackId: sender, familyId }, { wiki: repo, llm });
 console.log(`[${llm.name}] ${Date.now() - t0}ms`);
-console.log(JSON.stringify(intent, null, 2));
-if (intent.type === "question") {
-  const answer = answerFromQuery(intent.query, { today: todayIn(), ...wiki });
-  console.log(`\n[답: ${answer.status}]\n${answer.text}`);
-}
+if (result.status === "not_question") console.log(JSON.stringify(result.intent, null, 2));
+else console.log(`[답: ${result.status}]\n${result.text}`);

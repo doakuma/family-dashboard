@@ -75,28 +75,30 @@ export async function answerQuestion(
 
 const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
 
-function detectKinds(text: string, llm?: QuestionKind[]): { kinds: Set<QuestionKind>; explicit: boolean; shopping: boolean; todo: boolean } {
-  const wantShopping = /장보기|사야|살\s*(것|거|게)|쇼핑/.test(text);
-  const wantTodo = /할\s*일/.test(text);
-  const kinds = new Set<QuestionKind>();
-  if (wantShopping || wantTodo) {
-    kinds.add("tasks");
-    if (/일정|약속|스케줄/.test(text)) kinds.add("events").add("anniversaries");
-    return { kinds, explicit: true, shopping: wantShopping, todo: wantTodo };
+/** 한글 단어 안에서 걸리지 않게: 앞에 한글이 붙어 있으면("회사야") 단서로 보지 않는다. */
+const SHOPPING = /(?<![가-힣])(장보기|사야|살\s*(?:것|거|게)|쇼핑)/;
+const TODO = /(?<![가-힣])할\s*일(?!정)/;
+const CALENDAR_WORD = /일정|약속|스케줄/;
+const ANNIV_WORD = /생일|기념일/;
+
+const JOSA = /^(?:이랑|이가|이는|이도|이의|이를|한테|에게|랑|이|가|은|는|의|도|를|을|와|과|에|께|만|네|아|야|일정|생일|기념일|약속|스케줄|할\s*일|장보기)(?![가-힣])/;
+/** 구성원 이름이 글에 나오는가: "하늘이랑"은 맞고 "하늘색"·"새하늘"은 아니다. */
+function nameIn(text: string, name: string): boolean {
+  if (!name) return false;
+  for (let i = text.indexOf(name); i >= 0; i = text.indexOf(name, i + 1)) {
+    const before = text[i - 1];
+    if (before && /[가-힣]/.test(before)) continue;
+    const rest = text.slice(i + name.length);
+    if (rest === "" || !/^[가-힣]/.test(rest) || JOSA.test(rest)) return true;
   }
-  if (/생일|기념일/.test(text) && !/일정|약속/.test(text)) return { kinds: new Set(["anniversaries"]), explicit: true, shopping: false, todo: false };
-  if (llm?.length) {
-    for (const k of llm) kinds.add(k);
-    return { kinds, explicit: true, shopping: false, todo: false };
-  }
-  return { kinds: new Set(["events", "anniversaries"]), explicit: false, shopping: false, todo: false };
+  return false;
 }
 
-function chooseRange(q: QuestionQuery, today: string): DateRange | "too_long" | undefined {
+function chooseRange(q: QuestionQuery, today: string): DateRange | "too_long" | "ambiguous" | undefined {
   const r = resolveRange(q.text, today);
-  if (r && "error" in r) return "too_long";
+  if (r && "error" in r) return r.error;
   if (r) return r;
-  // 코드가 못 읽었을 때만 LLM 값을 쓴다. 검증을 통과해야 한다.
+  // 코드가 못 읽었을 때만 LLM 값을 쓴다(보조 경로). 검증을 통과해야 한다.
   const from = q.from ?? q.to;
   const to = q.to ?? q.from;
   if (!from || !to || !isDate(from) || !isDate(to) || from > to) return undefined;
@@ -119,61 +121,65 @@ const iga = (word: string) => {
   return c >= 0 && c <= 11171 && c % 28 !== 0 ? "이" : "가";
 };
 
-/** 범위(또는 질문의 다른 단서)로 위키 항목을 골라 문장으로 만든다. LLM이 쓴 문장은 쓰지 않는다. */
+/**
+ * 범위(또는 질문의 다른 단서)로 위키 항목을 골라 문장으로 만든다. LLM이 쓴 문장은 쓰지 않는다.
+ * 종류는 글의 단서가 정한다. 날짜 범위가 잡히면 일정+기념일을 항상 넣고, LLM의 qKinds는 날짜가 없을 때
+ * 할 일·장보기를 더하는 데만 쓴다(좁히기·되묻기 판단에는 쓰지 않는다).
+ */
 export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered {
   const { today } = ctx;
-  const { kinds, explicit, shopping, todo } = detectKinds(q.text, q.kinds);
   const nameOf = (id?: string) => ctx.members.find((m) => m.id === id)?.name ?? "";
 
+  const wantShopping = SHOPPING.test(q.text);
+  const wantTodo = TODO.test(q.text);
+  const annivOnly = ANNIV_WORD.test(q.text) && !CALENDAR_WORD.test(q.text);
+  const calendarKinds = new Set<QuestionKind>(annivOnly ? ["anniversaries"] : ["events", "anniversaries"]);
+
   // 구성원: 질문에 이름이 나오거나, LLM이 준 id가 실제 구성원일 때
-  const wanted = new Set<string>(ctx.members.filter((m) => m.id !== "family" && q.text.includes(m.name)).map((m) => m.id));
+  const wanted = new Set<string>(ctx.members.filter((m) => m.id !== "family" && nameIn(q.text, m.name)).map((m) => m.id));
   for (const id of q.memberIds ?? []) if (ctx.members.some((m) => m.id === id && id !== "family")) wanted.add(id);
   const memberPrefix = [...wanted].map(nameOf).join("·");
   // 키워드는 질문에 글자 그대로 있을 때만 쓴다(없는 말로 걸러서 "없어요"라고 잘못 답하지 않게)
   const keyword = q.keyword && norm(q.text).includes(norm(q.keyword)) ? q.keyword : undefined;
   const prefix = `${memberPrefix ? `${memberPrefix} ` : ""}${keyword ? `'${keyword}' ` : ""}`;
 
+  const picked = chooseRange(q, today);
+  if (picked === "too_long") return clarify(`한 번에 보여 드리기엔 기간이 너무 길어요. 두 달 이내로 다시 물어봐 주세요. (${EXAMPLE})`);
+  if (picked === "ambiguous") return clarify(`날짜가 띄엄띄엄 떨어져 있어서 하나로 묶기 어려워요. 하나씩 나눠서 물어봐 주세요. (${EXAMPLE})`);
+  const upcoming = !picked && (!!keyword || annivOnly);
+  const wantsTasks = wantShopping || wantTodo || (!picked && !!q.kinds?.includes("tasks"));
+  if (!picked && !upcoming && !wantsTasks) return clarify(`언제 일정을 볼까요? 날짜를 알려 주세요. (${EXAMPLE})`);
+
   const sections: string[] = [];
   const out: Answered = { status: "empty", text: "", eventIds: [], anniversaries: [], taskIds: [] };
   let any = false;
 
-  const wantsCalendar = kinds.has("events") || kinds.has("anniversaries");
-  if (wantsCalendar) {
-    const picked = chooseRange(q, today);
-    if (picked === "too_long") return clarify(`한 번에 보여 드리기엔 기간이 너무 길어요. 두 달 이내로 다시 물어봐 주세요. (${EXAMPLE})`);
-    const upcoming = !picked && (!!keyword || (explicit && !kinds.has("tasks")));
-    if (!picked && !upcoming && !kinds.has("tasks")) {
-      return clarify(`언제 일정을 볼까요? 날짜를 알려 주세요. (${EXAMPLE})`);
-    }
-    if (picked || upcoming) {
-      const range: DateRange = picked ?? { from: today, to: addDays(today, UPCOMING_DAYS) };
-      const noun = kinds.has("events") ? "일정" : "기념일";
-      let items = collect(ctx, range, kinds, wanted, keyword);
-      if (upcoming) items = items.slice(0, UPCOMING_LIMIT);
-      const label = picked ? (range.from === range.to ? formatDay(range.from) : `${formatDay(range.from)}~${formatDay(range.to)}`) : "";
-      out.range = range;
-      if (!items.length) {
-        sections.push(
-          picked
-            ? `${label}에는 ${prefix}위키에 등록된 ${noun}이 없어요.`
-            : `앞으로 ${UPCOMING_DAYS}일 안에는 ${prefix}위키에 등록된 ${noun}이 없어요.`,
-        );
-      } else {
-        any = true;
-        const shown = items.slice(0, MAX_LINES);
-        const head = `${picked ? `${label} ` : "가까운 "}${prefix}${noun} ${items.length}건이에요.`;
-        const lines = shown.map((i) => i.line);
-        if (items.length > shown.length) lines.push(`…외 ${items.length - shown.length}건`);
-        sections.push([head, ...lines].join("\n"));
-        out.eventIds = items.flatMap((i) => (i.eventId ? [i.eventId] : []));
-        out.anniversaries = items.flatMap((i) => (i.anniversary ? [i.anniversary] : []));
-      }
+  if (picked || upcoming) {
+    const range: DateRange = picked ?? { from: today, to: addDays(today, UPCOMING_DAYS) };
+    const noun = calendarKinds.has("events") ? "일정" : "기념일";
+    const items = collect(ctx, range, calendarKinds, wanted, keyword);
+    const shown = items.slice(0, picked ? MAX_LINES : UPCOMING_LIMIT);
+    const label = picked ? (range.from === range.to ? formatDay(range.from) : `${formatDay(range.from)}~${formatDay(range.to)}`) : "";
+    out.range = range;
+    if (!items.length) {
+      sections.push(
+        picked
+          ? `${label}에는 ${prefix}위키에 등록된 ${noun}이 없어요.`
+          : `앞으로 ${UPCOMING_DAYS}일 안에는 ${prefix}위키에 등록된 ${noun}이 없어요.`,
+      );
+    } else {
+      any = true;
+      const lines = shown.map((i) => i.line);
+      if (items.length > shown.length) lines.push(`…외 ${items.length - shown.length}건`);
+      sections.push([`${picked ? `${label} ` : "가까운 "}${prefix}${noun} ${items.length}건이에요.`, ...lines].join("\n"));
+      out.eventIds = shown.flatMap((i) => (i.eventId ? [i.eventId] : []));
+      out.anniversaries = shown.flatMap((i) => (i.anniversary ? [i.anniversary] : []));
     }
   }
 
-  if (kinds.has("tasks")) {
-    const both = !shopping && !todo;
-    const lists: ("shopping" | "todo")[] = both ? ["shopping", "todo"] : [...(shopping ? (["shopping"] as const) : []), ...(todo ? (["todo"] as const) : [])];
+  if (wantsTasks) {
+    const both = !wantShopping && !wantTodo;
+    const lists: ("shopping" | "todo")[] = both ? ["shopping", "todo"] : [...(wantShopping ? (["shopping"] as const) : []), ...(wantTodo ? (["todo"] as const) : [])];
     for (const list of lists) {
       const label = list === "shopping" ? "장보기" : "할 일";
       const found = ctx.tasks.filter((t) => t.list === list && !t.done && (!wanted.size || (t.member !== undefined && wanted.has(t.member))));

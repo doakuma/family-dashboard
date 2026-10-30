@@ -162,3 +162,8 @@
 - extractIntent 한 번 호출에 question 필드(qFrom·qTo·qKinds·qMembers·qKeyword)를 평평하게 추가, Intent는 `question{query}`. 답 문장은 `answer/answer.ts`의 `answerFromQuery`가 위키 항목에서 결정적으로 만든다(LLM 문장은 안 씀). `answerQuestion`은 `Pick<WikiRepository,"read">`만 받아 쓰기가 타입으로 막힌다.
 - `answer/range.ts` 상대 날짜 해석기(오늘·내일·모레·이번/다음 주 X요일·주말·N월 N일·N월·이번/다음 달, 주=월요일 시작, 최대 62일)가 LLM 범위보다 우선. LLM 키워드는 질문에 글자 그대로 있을 때만, 구성원은 실제 id만 사용. 없으면 "11/1(일)에는 위키에 등록된 일정이 없어요."; LLM 실패·형식 오류·범위 불명은 되묻기. `formatWhen`을 `src/format.ts`로 옮김(extract.ts가 재export), CLI `try`는 위키를 readOnly로 열고 question이면 답도 출력.
 - 검증: pnpm check(564 테스트) 통과. 남은 문제: 실제 Ollama/Anthropic이 q* 필드를 잘 채우는지 미검증(#8과 같음), 슬랙 응답 연결은 #3·#9 이후. #10은 passes=false, review=pending.
+
+## 2026-10-30 · #10 리뷰 되돌림 수정
+- [높음] 종류를 글의 단서(할 일·장보기·생일 등, 한글 단어 경계 적용)로 정함. 날짜가 잡히면 일정+기념일 항상 포함, LLM qKinds는 날짜 없을 때 tasks를 더하는 데만 사용, 되묻기 판단에는 안 씀. "내일 회사야?"·"내일 할 일정"이 장보기·할 일로 걸리던 문제 수정.
+- [중간] 연도 없는 날짜는 오늘에서 가장 가까운 해, "YYYY년 M월 D일"·ISO 읽기, "다음 주 토요일이랑 일요일"은 주 수식 상속, 떨어진 날짜("오늘이랑 모레")는 되묻기. 구성원 이름 조사 경계("하늘색" 제외).
+- [낮음] 이중 캐스팅 제거(matchAll), '가까운' 목록은 전체 건수+"…외 N건", CLI는 answerQuestion 경유. 검증: pnpm check(587 테스트). 주 시작 차이(봇 월요일/대시보드 일요일)는 고치지 않고 features #10 note에 오너 확인으로 남김. #10 review=pending.

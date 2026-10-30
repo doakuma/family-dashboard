@@ -288,3 +288,82 @@ describe("familyId 경계", () => {
     expect(JSON.stringify(r)).not.toMatch(/familyId|default|commit|sha|branch/i);
   });
 });
+
+/** 질문으로 답하는 경우만 쓰는 도우미(not_question이면 실패) */
+const askA = async (text: string, llmOut: unknown, s = state()) => {
+  const x = await ask(text, llmOut, s);
+  if (x.r.status === "not_question") throw new Error("질문이 아니라고 나왔어요");
+  return { ...x, r: x.r };
+};
+
+describe("종류는 글의 단서가 정한다 (LLM qKinds는 좁히지 못한다)", () => {
+  const onlyAnniv = state({ events: [], anniversaries: [{ monthDay: "10-31", title: "결혼기념일", member: "family" }] });
+
+  it("날짜가 있으면 qKinds:[events]여도 그날 기념일이 나온다", async () => {
+    const { r } = await askA("이번 주 토요일 뭐 있어?", { intent: "question", qKinds: ["events"] }, onlyAnniv);
+    expect(r).toMatchObject({ status: "answered", anniversaries: ["결혼기념일"] });
+    expect(r.text).toContain("결혼기념일");
+  });
+
+  it("날짜가 있으면 qKinds:[tasks]여도 그날 항목으로 답한다(할 일을 끼우지 않는다)", async () => {
+    const { r } = await askA("이번 주 토요일 뭐 있어?", { intent: "question", qKinds: ["tasks"] });
+    expect(r.eventIds).toEqual(["evt-1", "evt-2"]);
+    expect(r.taskIds).toEqual([]);
+    expect(r.text).not.toContain("우유");
+  });
+
+  it("날짜가 없으면 qKinds:[events]여도 되묻는다", async () => {
+    const { r } = await askA("뭐 있어?", { intent: "question", qKinds: ["events"] });
+    expect(r.status).toBe("clarify");
+  });
+
+  it("날짜가 없고 글에 단서가 없을 때 LLM의 tasks는 남은 할 일을 더해 보여 준다", async () => {
+    const { r } = await askA("뭐 남았지?", { intent: "question", qKinds: ["tasks"] });
+    expect(r.status).toBe("answered");
+    expect(r.taskIds).toContain("task-1");
+  });
+});
+
+describe("단어 안에서 단서가 걸리지 않는다", () => {
+  it('"내일 회사야?"는 장보기가 아니라 내일 일정', async () => {
+    const { r } = await askA("내일 회사야?", { intent: "question" });
+    expect(r.taskIds).toEqual([]);
+    expect(r.range).toEqual({ from: "2026-10-31", to: "2026-10-31" });
+    expect(r.text).not.toContain("장보기");
+  });
+  it('"내일 할 일정"은 할 일이 아니라 일정', async () => {
+    const { r } = await askA("내일 할 일정 있어?", { intent: "question" });
+    expect(r.taskIds).toEqual([]);
+    expect(r.eventIds).toEqual(["evt-1", "evt-2"]);
+  });
+  it('"내일 할 일"은 달력 항목도 빼지 않고 남은 할 일을 더한다', async () => {
+    const { r } = await askA("내일 할 일 뭐 있어?", { intent: "question" });
+    expect(r.eventIds).toEqual(["evt-1", "evt-2"]);
+    expect(r.taskIds).toEqual(["task-4"]);
+  });
+  it('"하늘색"은 구성원 하늘이 아니고 "하늘이랑"은 구성원', async () => {
+    const a = await askA("이번 주 토요일 하늘색 옷 입을 일정 있어?", { intent: "question" });
+    expect(a.r.text).not.toContain("하늘 일정");
+    expect(a.r.eventIds).toEqual(["evt-1", "evt-2"]);
+    const b = await askA("이번 주 토요일 하늘이랑 일정", { intent: "question" });
+    expect(b.r.text).toContain("하늘 일정");
+  });
+});
+
+describe("목록 길이", () => {
+  it("가까운 목록은 전체 건수를 밝히고 나머지는 외 N건", async () => {
+    const many = Array.from({ length: 8 }, (_, i) => ev(`evt-${i}`, `2026-11-${String(10 + i).padStart(2, "0")}`, "치과"));
+    const { r } = await askA("치과 언제야?", { intent: "question", qKeyword: "치과" }, state({ events: many, anniversaries: [] }));
+    expect(r.text.split("\n")[0]).toBe("가까운 '치과' 일정 8건이에요.");
+    expect(r.text).toContain("…외 3건");
+    expect(r.eventIds).toHaveLength(5);
+  });
+});
+
+describe("떨어진 날짜", () => {
+  it('"오늘이랑 모레"는 하나로 못 정해 되묻는다', async () => {
+    const { r } = await askA("오늘이랑 모레 뭐 있어?", { intent: "question" });
+    expect(r.status).toBe("clarify");
+    expect(r.text).toContain("하나씩");
+  });
+});

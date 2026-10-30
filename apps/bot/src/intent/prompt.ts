@@ -102,5 +102,5 @@ ${tasks || "- (없음)"}
 - "샀어", "했어", "끝났어"는 task.done. 수정·삭제·완료는 위 목록에서 대상 id를 targetIds에 넣는다. 확실하지 않으면 후보를 모두 넣는다. 목록에 없으면 비워 둔다.
 - 생일·기념일처럼 매년 반복되는 날은 anniversary.add, monthDay는 MM-DD.
 - "뭐 있어?", "언제야?" 같은 물음은 question. 일정과 상관없는 말은 unknown.
-- question이면 답을 쓰지 말고 범위만 채운다: qFrom·qTo(YYYY-MM-DD, 위 달력에서 찾기, 하루면 같은 값), qKinds(events 일정 / tasks 할 일·장보기 / anniversaries 생일·기념일), qMembers(구성원 id), qKeyword(메시지에 나온 일정 이름 단어, 없으면 비움).`;
+- question이면 답을 쓰지 말고 범위만 채운다: qFrom·qTo(YYYY-MM-DD, 위 달력에서 찾기, 하루면 같은 값), qKinds(할 일·장보기를 묻는 것이 분명할 때만 tasks를 넣고, 그 밖에는 비운다. 날짜가 있는 질문의 일정·생일·기념일은 코드가 항상 포함한다. 값: events, tasks, anniversaries), qMembers(구성원 id), qKeyword(메시지에 나온 일정 이름 단어, 없으면 비움).`;
 }

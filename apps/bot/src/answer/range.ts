@@ -24,42 +24,50 @@ const DAY_WORDS: [string, number][] = [
 const mondayOf = (d: string) => addDays(d, -((weekdayOf(d) + 6) % 7));
 const monthEnd = (month: string) => addDays(`${addMonths(month, 1)}-01`, -1);
 
-/** 월·일만 말하면 올해로 보되, 이미 두 달 넘게 지난 날짜면 내년으로 본다. */
+/** 해를 말하지 않은 날짜(MM-DD)는 오늘에서 가장 가까운 해(작년·올해·내년)로 본다. 같은 거리면 앞으로 올 쪽. */
 function yearFor(monthDay: string, today: string): string {
   const y = Number(today.slice(0, 4));
-  return diffDays(`${y}-${monthDay}`, today) > 60 ? `${y + 1}-${monthDay}` : `${y}-${monthDay}`;
+  const cands = [y + 1, y, y - 1].map((yy) => `${yy}-${monthDay}`).filter(isDate);
+  let best = cands[0] ?? `${y}-${monthDay}`;
+  for (const c of cands) if (Math.abs(diffDays(today, c)) < Math.abs(diffDays(today, best))) best = c;
+  return best;
 }
 
-/** 해석 결과: 범위 | 너무 김 | 날짜 표현 없음(undefined) */
-export function resolveRange(text: string, today: string): DateRange | { error: "too_long" } | undefined {
+type Found = DateRange | DateRange[] | undefined;
+
+/** 해석 결과: 범위 | 너무 김·띄엄띄엄 | 날짜 표현 없음(undefined) */
+export function resolveRange(text: string, today: string): DateRange | { error: "too_long" | "ambiguous" } | undefined {
   const found: DateRange[] = [];
   let s = text;
-  const take = (re: RegExp, fn: (m: RegExpExecArray) => DateRange | undefined) => {
-    s = s.replace(re, (...args) => {
-      const m = args.slice(0, -2) as unknown as RegExpExecArray;
+  const take = (re: RegExp, fn: (m: RegExpMatchArray) => Found) => {
+    for (const m of s.matchAll(re)) {
       const r = fn(m);
-      if (r) found.push(r);
-      return " ";
-    });
+      if (r) found.push(...(Array.isArray(r) ? r : [r]));
+    }
+    s = s.replace(re, " ");
   };
   const day = (d: string): DateRange => ({ from: d, to: d });
 
-  // 1) 절대 날짜: "11월 3일", "11/3"
-  const md = (mo: string, d: string) => {
+  // 1) 절대 날짜: "2027년 1월 5일", "2027-01-05", "11월 3일", "11/3" (해가 없으면 가장 가까운 해)
+  const ymd = (y: string | undefined, mo: string, d: string): Found => {
     const k = `${String(Number(mo)).padStart(2, "0")}-${String(Number(d)).padStart(2, "0")}`;
-    const full = yearFor(k, today);
+    const full = y ? `${y}-${k}` : yearFor(k, today);
     return isDate(full) && full.slice(5) === k ? day(full) : undefined;
   };
-  take(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/g, (m) => md(m[1] ?? "", m[2] ?? ""));
-  take(/(?<![\d/])(\d{1,2})\/(\d{1,2})(?![\d/])/g, (m) => md(m[1] ?? "", m[2] ?? ""));
+  take(/(\d{4})-(\d{2})-(\d{2})/g, (m) => ymd(m[1], m[2] ?? "", m[3] ?? ""));
+  take(/(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일/g, (m) => ymd(m[1], m[2] ?? "", m[3] ?? ""));
+  take(/(?<![\d/])(\d{1,2})\/(\d{1,2})(?![\d/])/g, (m) => ymd(undefined, m[1] ?? "", m[2] ?? ""));
 
-  // 2) 이번/다음 주(말), 요일 지정
-  take(/(다다음|다음|이번|지난|저번)\s*주(말)?(?:\s*([일월화수목금토])요일)?/g, (m) => {
-    const monday = addDays(mondayOf(today), 7 * (WEEK_OFFSET[m[1] ?? ""] ?? 0));
-    if (m[2]) return { from: addDays(monday, 5), to: addDays(monday, 6) };
-    if (m[3]) return day(addDays(monday, ((WEEKDAY_INDEX[m[3]] ?? 0) + 6) % 7));
-    return { from: monday, to: addDays(monday, 6) };
-  });
+  // 2) 이번/다음 주(말), 요일 지정. 이어지는 요일("토요일이랑 일요일")은 앞의 주 수식을 물려받는다.
+  take(
+    /(다다음|다음|이번|지난|저번)\s*주(말)?(?:에|의)?((?:\s*(?:,|와|과|이랑|랑|하고|및|그리고|이나|나)?\s*[일월화수목금토]요일)+)?/g,
+    (m) => {
+      const monday = addDays(mondayOf(today), 7 * (WEEK_OFFSET[m[1] ?? ""] ?? 0));
+      if (m[2]) return { from: addDays(monday, 5), to: addDays(monday, 6) };
+      if (m[3]) return [...m[3].matchAll(/([일월화수목금토])요일/g)].map((w) => day(addDays(monday, ((WEEKDAY_INDEX[w[1] ?? ""] ?? 0) + 6) % 7)));
+      return { from: monday, to: addDays(monday, 6) };
+    },
+  );
 
   // 3) 달
   take(/(다다음|다음|이번|지난|저번)\s*달/g, (m) => {
@@ -67,11 +75,12 @@ export function resolveRange(text: string, today: string): DateRange | { error: 
     const month = addMonths(today.slice(0, 7), off);
     return { from: `${month}-01`, to: monthEnd(month) };
   });
-  take(/(\d{1,2})\s*월/g, (m) => {
-    const mo = Number(m[1]);
+  take(/(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월/g, (m) => {
+    const mo = Number(m[2]);
     if (mo < 1 || mo > 12) return undefined;
-    const first = yearFor(`${String(mo).padStart(2, "0")}-01`, today);
-    return { from: first, to: monthEnd(first.slice(0, 7)) };
+    const mm = String(mo).padStart(2, "0");
+    const first = m[1] ? `${m[1]}-${mm}-01` : yearFor(`${mm}-01`, today);
+    return isDate(first) ? { from: first, to: monthEnd(first.slice(0, 7)) } : undefined;
   });
 
   // 4) 오늘·내일·모레 …
@@ -90,8 +99,15 @@ export function resolveRange(text: string, today: string): DateRange | { error: 
   take(/([일월화수목금토])요일/g, (m) => day(addDays(today, (((WEEKDAY_INDEX[m[1] ?? ""] ?? 0) - weekdayOf(today)) + 7) % 7)));
 
   if (!found.length) return undefined;
-  const from = found.map((r) => r.from).sort()[0] ?? today;
+  const sorted = [...found].sort((a, b) => a.from.localeCompare(b.from));
+  const from = sorted[0]?.from ?? today;
   const to = found.map((r) => r.to).sort().at(-1) ?? from;
   if (diffDays(from, to) + 1 > MAX_SPAN_DAYS) return { error: "too_long" };
+  // 떨어진 날짜들은 하나의 범위로 묶으면 묻지 않은 날이 끼므로 이어질 때만 받는다
+  let end = sorted[0]?.to ?? from;
+  for (const r of sorted) {
+    if (diffDays(end, r.from) > 1) return { error: "ambiguous" };
+    if (r.to > end) end = r.to;
+  }
   return { from, to };
 }
