@@ -2,7 +2,10 @@
   display: grid;
   justify-items: center;
   gap: 2.5rem;
-  opacity: 0.8; /* 밝기 낮춤 */
+  width: 100%; /* 부모 칸을 넘지 않는다: 긴 제목은 아래 .what에서 말줄임 */
+  max-width: 64rem;
+  min-width: 0;
+  opacity: 0.8; /* 밝기 낮춤 (명암비 테스트가 이 값을 반영해 계산한다) */
 }
 
 .time {
@@ -17,7 +20,8 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
-  max-width: 60rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .label {
@@ -32,15 +36,28 @@
   gap: 0.6rem;
 }
 
+.list {
+  min-width: 0;
+}
+
 .item {
   display: flex;
   gap: 0.9rem;
   align-items: center;
+  min-width: 0;
   font-size: 1.7rem;
   font-weight: 600;
 }
 
+.what {
+  min-width: 0; /* flex 자식이 내용보다 줄어들 수 있게 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .when {
+  flex: none;
   font-family: var(--font-display);
   min-width: 5.5rem;
   color: var(--muted);

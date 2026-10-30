@@ -34,13 +34,18 @@ export function Dashboard({ state, offline, at, mode }: DashboardProps) {
   // 고정 시각(시안)이어도 갱신 지연 판정은 실제 시각으로 한다
   const clockNow = at ? new Date(state.updatedAt) : now;
 
-  // body 배경까지 야간 색으로
+  // body 배경까지 반영하려고 html에 건다. 모드(day/night)와 톤(normal/dim)은 따로다:
+  // 지금은 야간 = 어두운 톤이지만, 나중에 "야간 화면을 만졌을 때 어두운 톤의 낮 화면"처럼 둘을 따로 고를 수 있게 축을 나눠 둔다.
+  const tone = night ? "dim" : "normal";
   useEffect(() => {
-    document.documentElement.dataset.mode = night ? "night" : "day";
+    const root = document.documentElement;
+    root.dataset.mode = night ? "night" : "day";
+    root.dataset.tone = tone;
     return () => {
-      document.documentElement.dataset.mode = "day";
+      root.dataset.mode = "day";
+      root.dataset.tone = "normal";
     };
-  }, [night]);
+  }, [night, tone]);
 
   if (night) {
     // 자정 전이면 다음 날 아침, 자정 이후면 그날 아침 일정을 보여 준다.

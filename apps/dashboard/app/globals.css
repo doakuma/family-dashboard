@@ -7,8 +7,9 @@
   --muted: #5d6e77;
   --faint: #93a2a8; /* 장식 전용(점·구분). 글자에는 쓰지 않는다 — 명암비 2.3:1 */
   --line: #d2dcd6;
-  --sunday: #c94c3c;
-  --saturday: #3a68b8;
+  --text-sunday: #b8402f; /* 글자색 토큰은 의미 이름으로(스킨별로 값만 바뀐다). 모두 4.5:1 이상 */
+  --text-saturday: #3a68b8;
+  --text-precip: #3a68b8; /* 날씨 강수확률 */
   --warn: #c2402e; /* 밝은 바탕 4.6:1 */
 
   --font-display: "Jua", "Pretendard Variable", sans-serif;
@@ -19,13 +20,17 @@
   color-scheme: light;
 }
 
-[data-mode="night"] {
+/* 톤 축: 어두운 톤. data-mode(day/night)와 별개라 낮 화면에도 걸 수 있다. */
+[data-tone="dim"] {
   --paper: #13232c;
   --sheet: #182b35;
   --ink: #b9c9c6;
-  --muted: #8a9da3; /* 야간 바탕 4.5:1 이상 */
+  --muted: #9db0b6; /* 야간 바탕 4.5:1 이상 (밝기 0.8 적용 후에도) */
   --faint: #4d6068;
-  --warn: #ff8a78; /* 야간 바탕 7:1 */
+  --warn: #ffa090;
+  --text-sunday: #ff9d8c;
+  --text-saturday: #8fb2ff;
+  --text-precip: #8fb2ff;
   --line: #24384280;
   color-scheme: dark;
 }

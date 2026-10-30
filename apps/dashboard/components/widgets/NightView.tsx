@@ -31,7 +31,7 @@ export function NightView({
             {list.map((e) => (
               <li key={e.id} className={s.item}>
                 <span className={s.when}>{e.allDay || !e.start ? "종일" : e.start}</span>
-                <span>{e.title}</span>
+                <span className={s.what}>{e.title}</span>
                 <MemberDots ids={e.members} members={members} size="sm" />
               </li>
             ))}

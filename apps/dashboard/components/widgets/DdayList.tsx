@@ -1,7 +1,6 @@
 import { diffDays, nextOccurrence, weekdayKo, type PublicAnniversary } from "@hsh/core";
-import { colorOf } from "@/lib/palette";
 import { LIMITS } from "@/lib/view";
-import type { MemberMap } from "./MemberDot";
+import { MemberDots, type MemberMap } from "./MemberDot";
 import s from "./DdayList.module.css";
 
 /** 다가오는 기념일 가까운 순 5개. 생일이면 몇 살이 되는지 함께 보여 준다. */
@@ -19,16 +18,21 @@ export function DdayList({ anniversaries, today, members }: { anniversaries: Pub
       <ol className={s.list}>
         {upcoming.map(({ a, date }) => {
           const n = diffDays(today, date);
-          const m = a.member ? members.get(a.member) : undefined;
           // 서버가 계산해 준 나이. 날짜가 어긋나면(자정 직후 갱신 전) 보여 주지 않는다.
           const turning = a.turns?.date === date ? a.turns.age : undefined;
           return (
             <li key={`${a.monthDay}-${a.title}`} className={s.item} data-soon={n <= 30 || undefined}>
-              <span className={s.d} style={n <= 30 && m && m.id !== "family" ? { color: colorOf(m.color) } : undefined}>
+              <span className={s.d}>
                 {n === 0 ? "오늘" : `D-${n}`}
               </span>
               <span className={s.what}>
                 {a.title}
+                {a.member && a.member !== "family" && (
+                  <>
+                    {" "}
+                    <MemberDots ids={[a.member]} members={members} size="sm" />
+                  </>
+                )}
                 {turning !== undefined && <span className={s.age}> {turning}살</span>}
               </span>
               <span className={s.date}>

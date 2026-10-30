@@ -37,11 +37,11 @@
 }
 
 .weekdays [data-dow="0"] {
-  color: var(--sunday);
+  color: var(--text-sunday);
 }
 
 .weekdays [data-dow="6"] {
-  color: var(--saturday);
+  color: var(--text-saturday);
 }
 
 .grid {
@@ -72,11 +72,11 @@
 }
 
 .cell[data-dow="0"] .num {
-  color: var(--sunday);
+  color: var(--text-sunday);
 }
 
 .cell[data-dow="6"] .num {
-  color: var(--saturday);
+  color: var(--text-saturday);
 }
 
 .cell[data-other] .num,
@@ -85,7 +85,7 @@
 }
 
 .cell[data-past]:not([data-other]) .event {
-  opacity: 0.55;
+  opacity: 0.75;
 }
 
 .cell[data-today] .num {
