@@ -141,6 +141,6 @@ describe("extractIntent", () => {
   });
 
   it("질문", async () => {
-    expect(await run({ intent: "question" })).toEqual({ type: "question" });
+    expect(await run({ intent: "question" }, "뭐 있어?")).toEqual({ type: "question", query: { text: "뭐 있어?" } });
   });
 });

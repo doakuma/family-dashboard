@@ -36,6 +36,12 @@ export const llmOutputSchema = z.object({
   targetIds: z.array(z.string()).optional(),
   /** anniversary.add */
   monthDay: z.string().optional(),
+  /** question: 묻는 범위. 답 문장은 코드가 위키에서 만들므로 범위만 뽑는다 */
+  qFrom: z.string().optional(),
+  qTo: z.string().optional(),
+  qKinds: z.array(z.enum(["events", "tasks", "anniversaries"])).optional(),
+  qMembers: z.array(z.string()).optional(),
+  qKeyword: z.string().optional(),
 });
 export type LlmOutput = z.infer<typeof llmOutputSchema>;
 export const llmOutputJsonSchema: Record<string, unknown> = z.toJSONSchema(llmOutputSchema);
@@ -95,5 +101,6 @@ ${tasks || "- (없음)"}
 - "사야 돼", "사 와" 같은 물건은 task.add의 items에 list="shopping"으로, 해야 할 일은 list="todo"로 하나씩 나눈다.
 - "샀어", "했어", "끝났어"는 task.done. 수정·삭제·완료는 위 목록에서 대상 id를 targetIds에 넣는다. 확실하지 않으면 후보를 모두 넣는다. 목록에 없으면 비워 둔다.
 - 생일·기념일처럼 매년 반복되는 날은 anniversary.add, monthDay는 MM-DD.
-- "뭐 있어?", "언제야?" 같은 물음은 question. 일정과 상관없는 말은 unknown.`;
+- "뭐 있어?", "언제야?" 같은 물음은 question. 일정과 상관없는 말은 unknown.
+- question이면 답을 쓰지 말고 범위만 채운다: qFrom·qTo(YYYY-MM-DD, 위 달력에서 찾기, 하루면 같은 값), qKinds(events 일정 / tasks 할 일·장보기 / anniversaries 생일·기념일), qMembers(구성원 id), qKeyword(메시지에 나온 일정 이름 단어, 없으면 비움).`;
 }

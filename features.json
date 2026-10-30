@@ -108,9 +108,10 @@
         6,
         8
       ],
-      "status": "todo",
+      "status": "partial",
       "passes": false,
-      "review": null
+      "review": "pending",
+      "note": "가짜 LLM으로 검증(answerQuestion, 슬랙 연결 제외). 실제 LLM 호출·슬랙 응답 연결은 #3 이후. 상대 날짜는 코드 해석기가 LLM 값보다 우선"
     },
     {
       "id": 11,

@@ -8,13 +8,13 @@ import {
   isTime,
   timeIn,
   todayIn,
-  weekdayKo,
   type Change,
   type LlmAdapter,
   type Event,
   type Member,
   type Task,
 } from "@hsh/core";
+import { formatWhen } from "../format";
 import { buildSystemPrompt, llmOutputJsonSchema, llmOutputSchema, type LlmOutput } from "./prompt";
 
 export type Intent =
@@ -22,8 +22,25 @@ export type Intent =
   | { type: "change"; changes: Change[]; preview: string }
   /** 대상이 여럿이라 골라야 함 */
   | { type: "choose"; kind: "event.update" | "event.remove" | "task.done"; candidates: string[]; patch?: Partial<Event>; preview: string }
-  | { type: "question" }
-  | { type: "unknown"; reason: string };
+  /** 읽기 전용 질문. 답은 코드가 위키에서 만든다(answer/) */
+  | { type: "question"; query: QuestionQuery }
+  /** cause: LLM 호출 자체가 실패했거나 응답 형식이 틀린 경우(메시지 내용 문제가 아님) */
+  | { type: "unknown"; reason: string; cause?: "llm_error" | "bad_format" };
+
+export const QUESTION_KINDS = ["events", "tasks", "anniversaries"] as const;
+export type QuestionKind = (typeof QUESTION_KINDS)[number];
+
+/** 질문의 범위. LLM이 준 값은 검증만 해서 담고, 상대 날짜 해석과 최종 선택은 answer/가 한다. */
+export interface QuestionQuery {
+  /** 사용자가 쓴 원문(결정적 날짜 해석기의 입력) */
+  text: string;
+  /** LLM이 준 범위(보조): 코드 해석이 실패했을 때만 쓴다 */
+  from?: string;
+  to?: string;
+  kinds?: QuestionKind[];
+  memberIds?: string[];
+  keyword?: string;
+}
 
 export interface ExtractInput {
   text: string;
@@ -47,10 +64,10 @@ export async function extractIntent(input: ExtractInput, llm: LlmAdapter): Promi
   try {
     raw = await llm.json({ system, user: input.text, schema: llmOutputJsonSchema });
   } catch (e) {
-    return { type: "unknown", reason: `LLM 호출 실패: ${e instanceof Error ? e.message : String(e)}` };
+    return { type: "unknown", reason: `LLM 호출 실패: ${e instanceof Error ? e.message : String(e)}`, cause: "llm_error" };
   }
   const parsed = llmOutputSchema.safeParse(raw);
-  if (!parsed.success) return { type: "unknown", reason: "LLM 응답 형식 오류" };
+  if (!parsed.success) return { type: "unknown", reason: "LLM 응답 형식 오류", cause: "bad_format" };
   return toIntent(parsed.data, { ...input, today, sender });
 }
 
@@ -75,7 +92,7 @@ function toIntent(o: LlmOutput, ctx: Ctx): Intent {
 
   switch (o.intent) {
     case "question":
-      return { type: "question" };
+      return { type: "question", query: toQuery(o, ctx, memberIds) };
 
     case "event.add": {
       if (!okDate(o.date)) return { type: "unknown", reason: "날짜를 알 수 없어요" };
@@ -153,6 +170,20 @@ function toIntent(o: LlmOutput, ctx: Ctx): Intent {
   }
 }
 
+function toQuery(o: LlmOutput, ctx: Ctx, memberIds: Set<string>): QuestionQuery {
+  const kinds = (o.qKinds ?? []).filter((k, i, a) => a.indexOf(k) === i);
+  const memberIdsOut = [...new Set((o.qMembers ?? []).filter((id) => memberIds.has(id)))];
+  const keyword = o.qKeyword?.trim().slice(0, 30);
+  return {
+    text: ctx.text,
+    from: o.qFrom && isDate(o.qFrom) ? o.qFrom : undefined,
+    to: o.qTo && isDate(o.qTo) ? o.qTo : undefined,
+    kinds: kinds.length ? kinds : undefined,
+    memberIds: memberIdsOut.length ? memberIdsOut : undefined,
+    keyword: keyword || undefined,
+  };
+}
+
 /** event.update / event.remove 하나를 만든다. 대상이 정해진 뒤에 끝 시간을 계산한다. */
 function buildEventChange(
   kind: "event.update" | "event.remove",
@@ -204,11 +235,7 @@ function shiftEnd(orig: Event, newStart: string): string | null | undefined {
   return `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
 }
 
-/** "11/3(화) 15:00 하늘 치과" */
-export function formatWhen(date: string, start?: string, allDay?: boolean): string {
-  const [, m, d] = date.split("-");
-  return `${Number(m)}/${Number(d)}(${weekdayKo(date)})${allDay || !start ? " 종일" : ` ${start}`}`;
-}
+export { formatWhen };
 
 export function previewChange(c: Change, ctx: Pick<Ctx, "members" | "events" | "tasks" | "today">): string {
   const name = (id?: string) => ctx.members.find((m) => m.id === id)?.name ?? "";

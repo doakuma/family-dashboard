@@ -157,3 +157,8 @@
 ## 2026-10-30 · #18 #31 #32 후속 리뷰 통과
 - 리뷰어 통과 → #18 #31 #32 passes=true·review=pass (오너 반영). 남은 낮음은 각 note.
 - 운영 방식 변경: 이후 할 일은 할 일당 새 대화(프로젝트 문서 claude/agent-team.md '대화 운영 방식').
+
+## 2026-10-30 · #10 질문 응답
+- extractIntent 한 번 호출에 question 필드(qFrom·qTo·qKinds·qMembers·qKeyword)를 평평하게 추가, Intent는 `question{query}`. 답 문장은 `answer/answer.ts`의 `answerFromQuery`가 위키 항목에서 결정적으로 만든다(LLM 문장은 안 씀). `answerQuestion`은 `Pick<WikiRepository,"read">`만 받아 쓰기가 타입으로 막힌다.
+- `answer/range.ts` 상대 날짜 해석기(오늘·내일·모레·이번/다음 주 X요일·주말·N월 N일·N월·이번/다음 달, 주=월요일 시작, 최대 62일)가 LLM 범위보다 우선. LLM 키워드는 질문에 글자 그대로 있을 때만, 구성원은 실제 id만 사용. 없으면 "11/1(일)에는 위키에 등록된 일정이 없어요."; LLM 실패·형식 오류·범위 불명은 되묻기. `formatWhen`을 `src/format.ts`로 옮김(extract.ts가 재export), CLI `try`는 위키를 readOnly로 열고 question이면 답도 출력.
+- 검증: pnpm check(564 테스트) 통과. 남은 문제: 실제 Ollama/Anthropic이 q* 필드를 잘 채우는지 미검증(#8과 같음), 슬랙 응답 연결은 #3·#9 이후. #10은 passes=false, review=pending.
