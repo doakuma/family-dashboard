@@ -23,11 +23,11 @@ const DAY_WORDS: [string, number][] = [
 
 /** 과거형으로 묻는 말("뭐 했어?", "있었지?"). 연도 없는 날짜·요일만 말한 경우 가장 최근에 지난 날로 읽는다. */
 const PAST_END = /^(?:어|지|나|니|던|죠|을|는|다|네|[?？]|\s|$)/;
-/** 받침 ㅆ 음절(했·갔·봤·샀·됐·였·었·았…) 뒤에 어미가 오면 과거형. '있'은 현재형("뭐 있어?")이라 뺀다("있었지"는 '었'으로 잡힌다). */
+/** 받침 ㅆ 음절(했·갔·봤·샀·됐·였·었·았…) 뒤에 어미가 오면 과거형. '있'("뭐 있어?")과 '겠'(추측·미래 "비 오겠지?")은 과거형이 아니라 뺀다("있었지"·"있었겠지"는 '었'으로 잡힌다). */
 function isPast(text: string): boolean {
   for (let i = 0; i < text.length; i++) {
     const c = text.charCodeAt(i) - 0xac00;
-    if (c >= 0 && c <= 11171 && c % 28 === 20 && text[i] !== "있" && PAST_END.test(text.slice(i + 1))) return true;
+    if (c >= 0 && c <= 11171 && c % 28 === 20 && text[i] !== "있" && text[i] !== "겠" && PAST_END.test(text.slice(i + 1))) return true;
   }
   return false;
 }
