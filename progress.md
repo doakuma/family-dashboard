@@ -153,3 +153,7 @@
 - #18: core `isWindowsReservedName`을 서버 setupSchema·클라이언트 검증·suggestMemberId가 공유. ReviewStep은 `extraAnniversaryRows`(key 동봉). setup e2e 가림 검사는 `data-testid="setup-footer"`.
 - #31: Sheet `instanceof HTMLElement`, MonthCalendar 상태 문구 2줄 말줄임(‹ › 고정), `monthStatus`를 lib/view 순수 함수로 + 단위 테스트(Dashboard prop이 monthLoaded -> monthStatus).
 - 검증: pnpm check(503 테스트)·build, e2e 5종 통과. 남은 문제: `import * as ns from "node:process"; ns.env`는 lint가 못 잡음. 말줄임은 e2e 단언 없음(CSS만). #18 #31 #32 passes=false, review=pending.
+
+## 2026-10-30 · #18 #31 #32 후속 리뷰 통과
+- 리뷰어 통과 → #18 #31 #32 passes=true·review=pass (오너 반영). 남은 낮음은 각 note.
+- 운영 방식 변경: 이후 할 일은 할 일당 새 대화(프로젝트 문서 claude/agent-team.md '대화 운영 방식').

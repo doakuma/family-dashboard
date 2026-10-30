@@ -205,8 +205,8 @@
         17
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
+      "passes": true,
+      "review": "pass",
       "note": "리뷰 통과(fd94f06, 오너 반영). 결정 0004. 지역표는 기상청 원본 대조 전(#26 때 오너). 후속 [낮음] 3건(별도 처리): schema.ts:150 Windows 예약어를 서버 스키마에서도 거르기, ReviewStep.tsx:29 extraKeys 중복 규칙, setup.e2e 가림 검사 선택자를 data-testid로. 후속 [낮음] 3건 처리(재리뷰 대기): 서버 setupSchema도 Windows 예약어 거부(core isWindowsReservedName, 클라이언트·suggestMemberId 공유), ReviewStep은 extraAnniversaryRows(key 동봉)로 중복 규칙 제거, setup e2e 가림 검사는 data-testid=setup-footer."
     },
     {
@@ -363,9 +363,9 @@
         15
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
-      "note": "수용 기준 충족(e2e touch 14단계: 탭->시트, 일정 상세, 스와이프, 가짜 시계 120초 복귀, 폴링 뒤 유지, 실제 핀치 차단+대조군, 야간 터치). 보기 상태 DashboardViewState는 Screen의 useDashboardView, 위젯은 콜백만(없으면 보기 전용). /api/state?month=YYYY-MM(2000-01~2100-12, 잘못되면 400), 공개 응답에 share 그룹 id 추가. 키오스크: touch-action pan-y·overscroll none·user-select none·page 단위 viewport·useKioskGuards. #28 후속 3건 함께 처리. 결정 0006. 실기기 제스처는 #24. 후속 [낮음] 3건 처리(재리뷰 대기): Sheet instanceof 좁히기, MonthCalendar 실패 문구 최대 2줄 말줄임(‹ › 고정), loadedMonth/status 분기를 순수 함수 monthStatus로 빼고 단위 테스트."
+      "passes": true,
+      "review": "pass",
+      "note": "수용 기준 충족(e2e touch 14단계: 탭->시트, 일정 상세, 스와이프, 가짜 시계 120초 복귀, 폴링 뒤 유지, 실제 핀치 차단+대조군, 야간 터치). 보기 상태 DashboardViewState는 Screen의 useDashboardView, 위젯은 콜백만(없으면 보기 전용). /api/state?month=YYYY-MM(2000-01~2100-12, 잘못되면 400), 공개 응답에 share 그룹 id 추가. 키오스크: touch-action pan-y·overscroll none·user-select none·page 단위 viewport·useKioskGuards. #28 후속 3건 함께 처리. 결정 0006. 실기기 제스처는 #24. 후속 [낮음] 3건 처리(재리뷰 대기): Sheet instanceof 좁히기, MonthCalendar 실패 문구 최대 2줄 말줄임(‹ › 고정), loadedMonth/status 분기를 순수 함수 monthStatus로 빼고 단위 테스트. 후속(낮음): MonthCalendar 실패 문구 2줄 말줄임 e2e 단언."
     },
     {
       "id": 32,
@@ -377,9 +377,9 @@
         18
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
-      "note": "familyId 브랜드 타입, WriteResult{version,synced,syncError?}, ConfigProvider(+EnvConfigProvider, 앱 process.env eslint 금지), LlmAdapter 코어 포트, 슬랙 InstallationStore(authorize 연결). 동작 변경 없음. git-crypt·금지 패턴 필터·DB 저장소·멀티 테넌트 동작은 하지 않음. 리뷰 통과. 후속: [중간] 봇 시작 시 토큰 검증(app.start 전 authorize/whoami, 실패 시 exit 1) — #9 전에. [낮음] whoami 부분값 캐시, installation.ts:26·env-config.ts:27 캐스팅, eslint process.env 우회 패턴, applySetup 가족 불일치 테스트. 후속 처리(재리뷰 대기): 시작 시 auth.test 검증(checkBotToken; 토큰 오류는 exit 78 + PM2 stop_exit_codes, 일시 오류는 exit 1로 재시도), whoami 부분값 캐시 금지·예외 시 재시도 테스트, 캐스팅 제거, eslint process.env 우회 차단, applySetup 가족 불일치 테스트."
+      "passes": true,
+      "review": "pass",
+      "note": "familyId 브랜드 타입, WriteResult{version,synced,syncError?}, ConfigProvider(+EnvConfigProvider, 앱 process.env eslint 금지), LlmAdapter 코어 포트, 슬랙 InstallationStore(authorize 연결). 동작 변경 없음. git-crypt·금지 패턴 필터·DB 저장소·멀티 테넌트 동작은 하지 않음. 리뷰 통과. 후속: [중간] 봇 시작 시 토큰 검증(app.start 전 authorize/whoami, 실패 시 exit 1) — #9 전에. [낮음] whoami 부분값 캐시, installation.ts:26·env-config.ts:27 캐스팅, eslint process.env 우회 패턴, applySetup 가족 불일치 테스트. 후속 처리(재리뷰 대기): 시작 시 auth.test 검증(checkBotToken; 토큰 오류는 exit 78 + PM2 stop_exit_codes, 일시 오류는 exit 1로 재시도), whoami 부분값 캐시 금지·예외 시 재시도 테스트, 캐스팅 제거, eslint process.env 우회 차단, applySetup 가족 불일치 테스트. 후속(낮음): 토큰 없음도 exit 78로, startup 주석을 WebClient 기본 재시도(약 30분)에 맞추기, eslint globalThis/네임스페이스 우회 기록."
     }
   ]
 }
