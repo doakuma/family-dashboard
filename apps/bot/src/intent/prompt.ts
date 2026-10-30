@@ -38,7 +38,7 @@ export const llmOutputSchema = z.object({
   monthDay: z.string().optional(),
 });
 export type LlmOutput = z.infer<typeof llmOutputSchema>;
-export const llmOutputJsonSchema = z.toJSONSchema(llmOutputSchema) as Record<string, unknown>;
+export const llmOutputJsonSchema: Record<string, unknown> = z.toJSONSchema(llmOutputSchema);
 
 function calendarTable(today: string): string {
   // 이번 주 월요일부터 3주

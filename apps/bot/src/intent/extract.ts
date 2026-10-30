@@ -47,7 +47,7 @@ export async function extractIntent(input: ExtractInput, llm: LlmClient): Promis
   try {
     raw = await llm.json({ system, user: input.text, schema: llmOutputJsonSchema });
   } catch (e) {
-    return { type: "unknown", reason: `LLM 호출 실패: ${(e as Error).message}` };
+    return { type: "unknown", reason: `LLM 호출 실패: ${e instanceof Error ? e.message : String(e)}` };
   }
   const parsed = llmOutputSchema.safeParse(raw);
   if (!parsed.success) return { type: "unknown", reason: "LLM 응답 형식 오류" };
@@ -106,9 +106,8 @@ function toIntent(o: LlmOutput, ctx: Ctx): Intent {
         if (okTime(o.start)) {
           patch.start = o.start;
           patch.allDay = false;
-          // 시작만 바꾸면 원래 길이를 유지한다
-          const orig = ctx.events.find((e) => e.id === ids[0]);
-          patch.end = okTime(o.end) ? o.end : orig ? shiftEnd(orig, o.start) : undefined;
+          // 끝 시간은 LLM이 명시했을 때만 넣는다. 안 줬으면 대상이 정해진 뒤에 원래 길이로 계산한다.
+          if (okTime(o.end)) patch.end = o.end;
         } else if (o.allDay) patch.allDay = true;
         if (o.title) patch.title = cleanTitle(o.title);
         if (o.members?.length) patch.members = pickMembers(o.members);
@@ -117,11 +116,7 @@ function toIntent(o: LlmOutput, ctx: Ctx): Intent {
       if (ids.length > 1) {
         return { type: "choose", kind: o.intent, candidates: ids, patch, preview: "어떤 일정인가요?" };
       }
-      const id = ids[0] ?? "";
-      const change: Change =
-        o.intent === "event.update" ? { kind: "event.update", payload: { id, ...patch } } : { kind: "event.remove", payload: { id } };
-      if (!valid(change)) return { type: "unknown", reason: "수정 내용을 알 수 없어요" };
-      return { type: "change", changes: [change], preview: previewChange(change, ctx) };
+      return buildEventChange(o.intent, ids[0] ?? "", patch, ctx);
     }
 
     case "task.add": {
@@ -158,15 +153,54 @@ function toIntent(o: LlmOutput, ctx: Ctx): Intent {
   }
 }
 
+/** event.update / event.remove 하나를 만든다. 대상이 정해진 뒤에 끝 시간을 계산한다. */
+function buildEventChange(
+  kind: "event.update" | "event.remove",
+  id: string,
+  patch: Partial<Event>,
+  ctx: Pick<Ctx, "members" | "events" | "tasks" | "today">,
+): Intent {
+  let change: Change;
+  if (kind === "event.remove") change = { kind, payload: { id } };
+  else {
+    const fixed = { ...patch };
+    const orig = ctx.events.find((e) => e.id === id);
+    if (fixed.start && fixed.end === undefined && orig) {
+      // 시작만 바꾸면 원래 길이를 유지한다
+      const end = shiftEnd(orig, fixed.start);
+      if (end === null) return { type: "unknown", reason: "끝 시간을 계산할 수 없어요. 끝나는 시간도 함께 알려 주세요" };
+      if (end) fixed.end = end;
+    }
+    change = { kind, payload: { id, ...fixed } };
+  }
+  if (!changeSchema.safeParse(change).success) return { type: "unknown", reason: "수정 내용을 알 수 없어요" };
+  return { type: "change", changes: [change], preview: previewChange(change, ctx) };
+}
+
+/** 사용자가 후보 중 하나를 골랐을 때 Change로 마무리한다. 끝 시간도 이때 계산한다. */
+export function resolveChoice(
+  choice: Extract<Intent, { type: "choose" }>,
+  id: string,
+  ctx: Pick<Ctx, "members" | "events" | "tasks" | "today">,
+): Intent {
+  if (!choice.candidates.includes(id)) return { type: "unknown", reason: "고를 수 없는 항목이에요" };
+  if (choice.kind === "task.done") {
+    const change: Change = { kind: "task.done", payload: { id } };
+    return { type: "change", changes: [change], preview: previewChange(change, ctx) };
+  }
+  return buildEventChange(choice.kind, id, choice.patch ?? {}, ctx);
+}
+
 function cleanTitle(t?: string): string {
   return (t ?? "").replace(/[#@\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
-function shiftEnd(orig: Event, newStart: string): string | undefined {
+/** 원래 길이를 유지한 새 끝 시간. 원래 끝이 없으면 undefined, 자정을 넘으면 null(계산 불가) */
+function shiftEnd(orig: Event, newStart: string): string | null | undefined {
   if (!orig.start || !orig.end) return undefined;
   const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
   const end = toMin(newStart) + (toMin(orig.end) - toMin(orig.start));
-  if (end >= 24 * 60) return undefined;
+  if (end >= 24 * 60) return null;
   return `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
 }
 
@@ -187,8 +221,9 @@ export function previewChange(c: Change, ctx: Pick<Ctx, "members" | "events" | "
     }
     case "event.update": {
       const orig = ctx.events.find((e) => e.id === c.payload.id);
-      const next = { ...orig, ...c.payload } as Event;
-      return `${orig?.title ?? "일정"}: ${orig ? formatWhen(orig.date, orig.start, orig.allDay) : ""} → ${formatWhen(next.date, next.start, next.allDay)}`;
+      if (!orig) return `일정 수정: ${c.payload.id}`;
+      const next: Event = { ...orig, ...c.payload };
+      return `${orig.title}: ${formatWhen(orig.date, orig.start, orig.allDay)} → ${formatWhen(next.date, next.start, next.allDay)}`;
     }
     case "event.remove": {
       const e = ctx.events.find((x) => x.id === c.payload.id);

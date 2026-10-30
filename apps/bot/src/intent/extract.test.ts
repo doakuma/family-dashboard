@@ -1,7 +1,7 @@
 import type { Event, Member, Task } from "@hsh/core";
 import { describe, expect, it } from "vitest";
 import type { LlmClient, LlmRequest } from "../llm/client";
-import { extractIntent } from "./extract";
+import { extractIntent, previewChange, resolveChoice } from "./extract";
 import { buildSystemPrompt } from "./prompt";
 
 const members: Member[] = [
@@ -85,6 +85,31 @@ describe("extractIntent", () => {
     const r = await run({ intent: "event.update", targetIds: ["evt-a1b2", "evt-c3d4", "evt-fake"], start: "16:00" });
     expect(r).toMatchObject({ type: "choose", kind: "event.update", candidates: ["evt-a1b2", "evt-c3d4"] });
     expect((await run({ intent: "event.remove", targetIds: ["evt-fake"] })).type).toBe("unknown");
+  });
+
+  it("후보가 여럿이면 patch에 끝 시간을 넣지 않고, 고른 뒤 그 일정 길이로 계산한다", async () => {
+    const r = await run({ intent: "event.update", targetIds: ["evt-a1b2", "evt-c3d4"], start: "16:00" });
+    if (r.type !== "choose") throw new Error("choose 아님");
+    expect(r.patch).toEqual({ start: "16:00", allDay: false });
+
+    const ctx = { members, events, tasks, today: "2026-10-29" };
+    // a1b2는 15:00-16:00(1시간) → 17:00, c3d4는 끝 시간이 없다 → end 없음
+    expect(resolveChoice(r, "evt-a1b2", ctx)).toMatchObject({ changes: [{ payload: { id: "evt-a1b2", start: "16:00", end: "17:00" } }] });
+    const other = resolveChoice(r, "evt-c3d4", ctx);
+    expect(other.type === "change" && other.changes[0]).toEqual({ kind: "event.update", payload: { id: "evt-c3d4", start: "16:00", allDay: false } });
+    expect(resolveChoice(r, "evt-zzzz", ctx).type).toBe("unknown");
+  });
+
+  it("후보 선택 후에도 자정을 넘는 길이는 계산하지 않고 되묻는다", async () => {
+    const r = await run({ intent: "event.update", targetIds: ["evt-a1b2", "evt-c3d4"], start: "23:30" });
+    if (r.type !== "choose") throw new Error("choose 아님");
+    expect(resolveChoice(r, "evt-a1b2", { members, events, tasks, today: "2026-10-29" })).toMatchObject({ type: "unknown" });
+  });
+
+  it("미리보기: 원본 일정을 못 찾아도 죽지 않는다", () => {
+    expect(previewChange({ kind: "event.update", payload: { id: "evt-none", title: "x" } }, { members, events, tasks, today: "2026-10-29" })).toBe(
+      "일정 수정: evt-none",
+    );
   });
 
   it("장보기 여러 개", async () => {
