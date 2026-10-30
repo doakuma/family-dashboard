@@ -71,7 +71,8 @@
       ],
       "status": "done",
       "passes": true,
-      "review": "pending"
+      "review": "pending",
+      "note": "리뷰 반영: pull 큐잉, commit 실패 롤백, pushed 분리, 형식 검증. PIN·Change 확장은 오너 결정 대기"
     },
     {
       "id": 8,
@@ -144,7 +145,7 @@
       "status": "partial",
       "passes": false,
       "review": "pending",
-      "note": "예시 날씨(SampleWeatherSource)로 동작. #12 후 기상청으로 교체"
+      "note": "예시 날씨(SampleWeatherSource). 응답 zod 검증·needsSetup 포함. #12 후 기상청으로 교체"
     },
     {
       "id": 14,
@@ -179,7 +180,7 @@
       "status": "done",
       "passes": true,
       "review": "pending",
-      "note": "/setup은 자리만 있음(#18)"
+      "note": "/setup은 자리만 있음(#18). 세팅 화면↔대시보드 폴링 전환 추가"
     },
     {
       "id": 17,
