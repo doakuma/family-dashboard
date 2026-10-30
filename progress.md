@@ -82,3 +82,4 @@
 - 그룹 id를 구성원 id와 같은 형식(`^[A-Za-z0-9_-]+$`)으로, 비교 헬퍼 `sameShareGroup`(대소문자 무시) 추가. 깨진 `&`토큰(2개 이상·`&`단독·`&bad!`)은 파서가 심볼 키 내부 필드로 원문을 들고 있다가 formatEventLine이 그대로 재기록(state·Change·JSON에는 안 나감), apply 테스트 추가.
 - 꼬리의 `@`/`&` 토큰은 순서 무관하게 읽고 정규 순서로 재기록, 꼬리 밖 `&x` 토큰이 제목에 남으면 경고. cleanTitle `&+`, auth.e2e 제외 키에 "share", docs/wiki-format.md 갱신.
 - 남은 문제: docs의 day-nov.png 재캡처는 메인(#18)과 충돌 방지로 하지 않음 — 메인 반영 후 재캡처 필요.
+- 리뷰 통과 후 보강: ParsedEvent 타입(캐스팅 제거), 다른 달 이동 시 원문 보존 테스트, 원문 유실 주의 주석. features #27 passes=true·review=pass(오너 반영).

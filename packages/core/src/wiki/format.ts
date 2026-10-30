@@ -55,6 +55,8 @@ function parseCheckLine(line: string): { done: boolean; body: string; id?: strin
  */
 export const SHARE_RAW = Symbol.for("hsh.event.shareRaw");
 type WithShareRaw = { [SHARE_RAW]?: string[] };
+/** parseEventLine의 반환형: Event + (깨진 토큰이 있을 때만) 내부 원문. 주의: 새 객체를 만들거나 clone·JSON·schema.parse를 거치면 원문이 유실된다. 스프레드({...e, ...patch})만 안전하다. */
+export type ParsedEvent = Event & WithShareRaw;
 
 /**
  * 줄 꼬리의 @구성원·&그룹 토큰을 순서와 무관하게 떼어 낸다.
@@ -81,7 +83,7 @@ function takeTail(rest: string, warn?: (m: string) => void): { text: string; mem
   return { text, members, raw: shares };
 }
 
-export function parseEventLine(line: string, warn?: (m: string) => void): Event | null {
+export function parseEventLine(line: string, warn?: (m: string) => void): ParsedEvent | null {
   const c = parseCheckLine(line);
   if (!c?.id?.startsWith("evt-")) return null;
   const [date, when, ...restParts] = c.body.split(/\s+/);
@@ -98,15 +100,15 @@ export function parseEventLine(line: string, warn?: (m: string) => void): Event 
   }
   const { text, members, share, raw } = takeTail(` ${restParts.join(" ")}`, warn);
   if (!text) return null;
-  const ev: Event & WithShareRaw = { id: c.id, date, start, end, allDay, title: text, members, ...(share ? { share } : {}), done: c.done };
+  const ev: ParsedEvent = { id: c.id, date, start, end, allDay, title: text, members, ...(share ? { share } : {}), done: c.done };
   if (raw) ev[SHARE_RAW] = raw;
   return ev;
 }
 
-export function formatEventLine(e: Event): string {
+export function formatEventLine(e: ParsedEvent): string {
   const when = e.allDay || !e.start ? ALL_DAY : e.end ? `${e.start}-${e.end}` : e.start;
   const members = e.members.map((m) => ` @${m}`).join("");
-  const raw = (e as WithShareRaw)[SHARE_RAW];
+  const raw = e[SHARE_RAW];
   const share = e.share ? ` &${shareGroupIdSchema.parse(e.share)}` : (raw ?? []).map((t) => ` &${t}`).join("");
   return `- [${e.done ? "x" : " "}] ${e.date} ${when} ${e.title}${members}${share} #${e.id}`;
 }
