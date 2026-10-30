@@ -8,6 +8,8 @@ import { isPrivateIp } from "./ip.ts";
 
 export const PEER_HEADER = "x-hsh-peer";
 export const PEER_PROOF_HEADER = "x-hsh-peer-proof";
+/** proxy.ts가 요청 경로를 레이아웃에 알려 주는 헤더(밖에서 온 값은 proxy가 덮어쓴다) */
+export const PATH_HEADER = "x-hsh-path";
 export const PEER_SECRET_ENV = "HSH_PEER_SECRET";
 
 export const createPeerSecret = () => randomBytes(32).toString("hex");
