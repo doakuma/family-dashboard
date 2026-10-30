@@ -1,20 +1,9 @@
-// LLM 호출부. 의도 추출은 "시스템 프롬프트 + 메시지 → JSON 한 개"만 필요하므로 인터페이스를 이만큼으로 좁힌다.
-// LLM_PROVIDER=ollama(로컬) | anthropic 으로 고른다.
+// LlmAdapter(@hsh/core 포트)의 구현들. 봇의 나머지 코드는 포트만 안다.
+// 구현을 core가 아니라 봇에 둔 이유: SDK(@anthropic-ai/sdk)·로컬 모델 호출은 봇만 쓰고, core는 브라우저에서도 불러서 무거운 의존을 피한다.
+// 서비스에서 BYOK·서비스 키 과금을 하려면 LlmConfig만 가족별로 다르게 만들어 createLlmAdapter에 넘기면 된다.
 import Anthropic from "@anthropic-ai/sdk";
+import type { LlmAdapter, LlmConfig, LlmRequest } from "@hsh/core";
 import { z } from "zod";
-
-export interface LlmRequest {
-  system: string;
-  user: string;
-  /** 응답 JSON 스키마 (Ollama structured output에 그대로 전달) */
-  schema: Record<string, unknown>;
-}
-
-export interface LlmClient {
-  readonly name: string;
-  /** 응답 본문을 JSON으로 파싱한 값. 검증은 호출하는 쪽에서 한다. */
-  json(req: LlmRequest): Promise<unknown>;
-}
 
 /** 응답에서 첫 JSON 객체를 꺼낸다 (모델이 앞뒤에 말을 붙여도 견딘다) */
 export function extractJson(text: string): unknown {
@@ -26,7 +15,7 @@ export function extractJson(text: string): unknown {
 
 const ollamaResponse = z.object({ message: z.object({ content: z.string() }) });
 
-export class OllamaClient implements LlmClient {
+export class OllamaClient implements LlmAdapter {
   readonly name: string;
   constructor(
     private readonly baseUrl = "http://localhost:11434",
@@ -60,7 +49,7 @@ export class OllamaClient implements LlmClient {
   }
 }
 
-export class AnthropicClient implements LlmClient {
+export class AnthropicClient implements LlmAdapter {
   readonly name: string;
   private readonly client: Anthropic;
   constructor(
@@ -84,12 +73,7 @@ export class AnthropicClient implements LlmClient {
   }
 }
 
-export function createLlmClient(env: NodeJS.ProcessEnv = process.env): LlmClient {
-  const provider = (env.LLM_PROVIDER ?? "ollama").toLowerCase();
-  if (provider === "anthropic") {
-    if (!env.ANTHROPIC_API_KEY) throw new Error("LLM_PROVIDER=anthropic에는 ANTHROPIC_API_KEY가 필요합니다");
-    return new AnthropicClient(env.ANTHROPIC_API_KEY, env.ANTHROPIC_MODEL || undefined);
-  }
-  if (provider === "ollama") return new OllamaClient(env.OLLAMA_BASE_URL || undefined, env.OLLAMA_MODEL || undefined);
-  throw new Error(`알 수 없는 LLM_PROVIDER: ${provider}`);
+export function createLlmAdapter(cfg: LlmConfig): LlmAdapter {
+  if (cfg.provider === "anthropic") return new AnthropicClient(cfg.apiKey, cfg.model || undefined);
+  return new OllamaClient(cfg.baseUrl || undefined, cfg.model || undefined);
 }

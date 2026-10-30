@@ -1,6 +1,5 @@
-import type { Event, Member, Task } from "@hsh/core";
+import type { Event, LlmAdapter, LlmRequest, Member, Task } from "@hsh/core";
 import { describe, expect, it } from "vitest";
-import type { LlmClient, LlmRequest } from "../llm/client";
 import { extractIntent, previewChange, resolveChoice } from "./extract";
 import { buildSystemPrompt } from "./prompt";
 
@@ -21,8 +20,8 @@ const tasks: Task[] = [
 const now = new Date("2026-10-29T13:00:00Z");
 
 /** 정해진 JSON을 돌려주고, 받은 프롬프트를 기록하는 가짜 LLM */
-function fake(out: unknown): LlmClient & { last?: LlmRequest } {
-  const c: LlmClient & { last?: LlmRequest } = {
+function fake(out: unknown): LlmAdapter & { last?: LlmRequest } {
+  const c: LlmAdapter & { last?: LlmRequest } = {
     name: "fake",
     async json(req) {
       c.last = req;

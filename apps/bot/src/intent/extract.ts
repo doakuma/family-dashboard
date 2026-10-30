@@ -10,11 +10,11 @@ import {
   todayIn,
   weekdayKo,
   type Change,
+  type LlmAdapter,
   type Event,
   type Member,
   type Task,
 } from "@hsh/core";
-import type { LlmClient } from "../llm/client";
 import { buildSystemPrompt, llmOutputJsonSchema, llmOutputSchema, type LlmOutput } from "./prompt";
 
 export type Intent =
@@ -37,7 +37,7 @@ export interface ExtractInput {
 /** 일정으로 받아들이는 날짜 범위: 오늘-1일 ~ 오늘+400일 */
 const DATE_WINDOW = { past: -1, future: 400 };
 
-export async function extractIntent(input: ExtractInput, llm: LlmClient): Promise<Intent> {
+export async function extractIntent(input: ExtractInput, llm: LlmAdapter): Promise<Intent> {
   const now = input.now ?? new Date();
   const today = todayIn(now);
   const sender = input.members.find((m) => m.slackId && m.slackId === input.senderSlackId);
