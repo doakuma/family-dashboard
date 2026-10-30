@@ -3,8 +3,8 @@ import { execFile, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import type { WikiRepository } from "../ports";
-import type { Change, SetupInput, WikiState } from "../types";
+import type { WikiRepository, WriteResult } from "../ports";
+import { DEFAULT_FAMILY_ID, type Change, type FamilyId, type SetupInput, type WikiState } from "../types";
 import { applyChange, formatLogLine, type ApplyResult, type WikiFiles } from "../wiki/apply";
 import { readWiki } from "../wiki/read";
 import { SetupError, buildSetupFiles } from "../wiki/setup";
@@ -12,6 +12,8 @@ import { SetupError, buildSetupFiles } from "../wiki/setup";
 const run = promisify(execFile);
 
 export interface FsWikiOptions {
+  /** 이 저장소가 맡은 가족. 기본 DEFAULT_FAMILY_ID. 메서드가 다른 가족 id로 불리면 거부한다(한 폴더 = 한 가족). */
+  familyId?: FamilyId;
   /** 위키 레포 경로 (WIKI_REPO_PATH) */
   root: string;
   /** commit 후 push할지. 원격이 없으면 건너뛴다. 기본 true */
@@ -26,21 +28,24 @@ export interface FsWikiOptions {
   random?: () => number;
 }
 
-/** apply 결과: 커밋은 항상 만들어졌고, push는 실패할 수 있다(다음 apply 때 같이 올라간다). */
-export interface ApplyOutcome extends ApplyResult {
-  commit: string;
-  /** 원격에 올렸는지. 원격이 없거나 push 옵션이 꺼져 있거나 push가 실패하면 false */
-  pushed: boolean;
-  /** push가 실패했으면 그 원인(git이 낸 메시지 요약). 성공·건너뜀이면 없음 */
-  pushError?: string;
+/**
+ * apply 결과. 포트 결과(WriteResult)에 이 구현의 정보를 더한다.
+ * version = 이번 커밋의 sha. 커밋은 항상 만들어졌고, push는 실패할 수 있다(synced:false, 다음 쓰기 때 같이 올라간다).
+ * synced = 원격에 올렸는지(원격이 없거나 push 옵션이 꺼져 있거나 push가 실패하면 false), syncError = push 실패 원인(git 메시지 요약).
+ */
+export interface ApplyOutcome extends ApplyResult, WriteResult {}
+
+/** applySetup 결과: 쓰기 결과와 요약 */
+export interface SetupOutcome extends WriteResult {
+  summary: string;
 }
 
-/** applySetup 결과: 커밋 하나와 그 요약 */
-export interface SetupOutcome {
-  summary: string;
-  commit: string;
-  pushed: boolean;
-  pushError?: string;
+/** 이 저장소가 맡지 않은 가족 id로 불렸다 */
+export class FamilyMismatchError extends Error {
+  constructor(expected: FamilyId, got: FamilyId) {
+    super(`이 위키 저장소는 가족 ${expected}의 것이에요(요청: ${got})`);
+    this.name = "FamilyMismatchError";
+  }
 }
 
 /** git 실행 오류에서 사람이 읽을 원인만 뽑는다(stderr의 error·fatal·rejected 줄 우선). */
@@ -67,11 +72,13 @@ export function assertGitRoot(root: string): void {
 
 export class FsWikiRepository implements WikiRepository {
   private readonly root: string;
+  readonly familyId: FamilyId;
   /** 쓰기는 한 번에 하나씩 (같은 파일 동시 수정 방지) */
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly opts: FsWikiOptions) {
     this.root = resolve(opts.root);
+    this.familyId = opts.familyId ?? DEFAULT_FAMILY_ID;
     if (!opts.readOnly) assertGitRoot(this.root);
   }
 
@@ -92,11 +99,17 @@ export class FsWikiRepository implements WikiRepository {
     },
   };
 
-  async read(): Promise<WikiState> {
-    return readWiki(this.files);
+  private assertFamily(familyId: FamilyId) {
+    if (familyId !== this.familyId) throw new FamilyMismatchError(this.familyId, familyId);
   }
 
-  async apply(change: Change, by = this.opts.author ?? "bot"): Promise<ApplyOutcome> {
+  async read(familyId: FamilyId): Promise<WikiState> {
+    this.assertFamily(familyId);
+    return readWiki(this.files, this.familyId);
+  }
+
+  async apply(familyId: FamilyId, change: Change, by = this.opts.author ?? "bot"): Promise<ApplyOutcome> {
+    this.assertFamily(familyId);
     if (this.opts.readOnly) throw new Error("읽기 전용 위키에는 쓸 수 없어요");
     return this.enqueue(() => this.applyNow(change, by));
   }
@@ -177,7 +190,8 @@ export class FsWikiRepository implements WikiRepository {
   }
 
   /** 첫 세팅 전용(WikiRepository.applySetup). 쓰기 큐 안에서 검사하고 커밋 하나로 쓴다. */
-  async applySetup(setup: SetupInput, opts: { overwrite?: boolean } = {}, by = this.opts.author ?? "setup"): Promise<SetupOutcome> {
+  async applySetup(familyId: FamilyId, setup: SetupInput, opts: { overwrite?: boolean } = {}, by = this.opts.author ?? "setup"): Promise<SetupOutcome> {
+    this.assertFamily(familyId);
     if (this.opts.readOnly) throw new SetupError("읽기 전용 위키에는 쓸 수 없어요", "read_only");
     return this.enqueue(async () => {
       await this.assertReady();
@@ -196,7 +210,7 @@ export class FsWikiRepository implements WikiRepository {
    * 파일들을 쓰고(null이면 삭제) 경로를 지정해 커밋 하나로 묶고 push한다. commit까지 못 가면 파일·index를 원래대로 되돌린다.
    * 호출자는 쓰기 큐 안에 있어야 한다.
    */
-  private async commitFiles<R extends { summary: string }>(writes: Map<string, string | null>, message: string, by: string, result: R): Promise<R & { commit: string; pushed: boolean; pushError?: string }> {
+  private async commitFiles<R extends { summary: string }>(writes: Map<string, string | null>, message: string, by: string, result: R): Promise<R & WriteResult> {
     const rels = [...writes.keys()];
     const before = new Map(rels.map((rel) => [rel, this.files.read(rel)]));
     // 사람이 미리 stage해 둔 내용을 롤백이 풀어 버리지 않게, 우리가 건드릴 파일의 index 항목을 기억해 둔다.
@@ -222,21 +236,21 @@ export class FsWikiRepository implements WikiRepository {
       throw e;
     }
 
-    let pushed = false;
-    let pushError: string | undefined;
+    let synced = false;
+    let syncError: string | undefined;
     if (this.opts.push !== false) {
       try {
         if (await this.hasRemote()) {
           await this.git("push");
-          pushed = true;
+          synced = true;
         }
       } catch (e) {
         // 커밋은 이미 로컬에 있다. push는 다음 apply나 점검 때 다시 시도한다. 원인은 남긴다.
-        pushError = gitReason(e);
-        (this.opts.warn ?? console.warn)(`[wiki] push 실패(커밋은 로컬에 남음): ${pushError}`);
+        syncError = gitReason(e);
+        (this.opts.warn ?? console.warn)(`[wiki] push 실패(커밋은 로컬에 남음): ${syncError}`);
       }
     }
-    return { ...result, commit, pushed, ...(pushError ? { pushError } : {}) };
+    return { ...result, version: commit, synced, ...(syncError ? { syncError } : {}) };
   }
 
   /** index(stage) 항목: rel -> "모드 해시" (index에 없으면 항목 없음) */

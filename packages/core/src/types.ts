@@ -1,6 +1,22 @@
 // 공통 도메인 타입 — MVP 스펙 "인터페이스" 절을 그대로 옮긴다.
 // 스펙이 바뀌면 스펙 문서를 먼저 고치고 이 파일을 맞춘다.
 
+/**
+ * 가족(테넌트) id. 브랜드 타입이라 아무 문자열이나 넘길 수 없다(`asFamilyId`로 만든다).
+ * MVP는 값이 하나(`DEFAULT_FAMILY_ID`)지만 저장소 경계는 처음부터 받는다(결정 0003). 위키 파일 형식과 공개 응답에는 넣지 않는다.
+ */
+declare const familyIdBrand: unique symbol;
+export type FamilyId = string & { readonly [familyIdBrand]: true };
+const FAMILY_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+export function isFamilyId(v: unknown): v is FamilyId {
+  return typeof v === "string" && FAMILY_ID_PATTERN.test(v);
+}
+export function asFamilyId(v: string): FamilyId {
+  if (!isFamilyId(v)) throw new Error(`가족 id 형식이 올바르지 않아요(소문자·숫자·-_ 최대 64자): ${v}`);
+  return v;
+}
+export const DEFAULT_FAMILY_ID: FamilyId = asFamilyId("default");
+
 /** 구성원 id. 'family'는 가족 전체를 뜻하는 예약 id. */
 export type MemberId = string;
 export const FAMILY_ID: MemberId = "family";
@@ -84,6 +100,8 @@ export interface WeatherDay {
 }
 
 export interface DashboardState {
+  /** 어느 가족의 상태인가(내부용. toPublicState는 내보내지 않는다) */
+  familyId: FamilyId;
   config?: FamilyConfig;
   members: Member[];
   events: Event[];

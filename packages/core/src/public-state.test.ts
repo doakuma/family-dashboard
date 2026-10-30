@@ -3,9 +3,10 @@ import { describe, expect, it } from "vitest";
 import { FsWikiRepository } from "./node/fs-wiki";
 import { toPublicState } from "./public-state";
 import { apiStateSchema } from "./schema";
+import { DEFAULT_FAMILY_ID } from "./types";
 
 const wiki = new FsWikiRepository({ root: resolve(import.meta.dirname, "../../../fixtures/sample-wiki"), readOnly: true });
-const raw = await wiki.read();
+const raw = await wiki.read(DEFAULT_FAMILY_ID);
 // 민감 필드가 실제 값으로 채워진 상태에서 시험한다
 const state = {
   ...raw,
@@ -19,6 +20,12 @@ const json = JSON.stringify(pub);
 describe("toPublicState", () => {
   it("응답 스키마를 통과한다", () => {
     expect(apiStateSchema.parse(JSON.parse(json))).toMatchObject({ needsSetup: false, familyName: state.config.familyName });
+  });
+
+  it("familyId는 공개 응답에 없다(내부 상태에는 있다)", () => {
+    expect(state.familyId).toBe(DEFAULT_FAMILY_ID);
+    expect(json).not.toContain("familyId");
+    expect(json).not.toContain(`"${DEFAULT_FAMILY_ID}"`);
   });
 
   it("주소·slackId·calendarId·역할·생일 원문이 JSON 어디에도 없다", () => {

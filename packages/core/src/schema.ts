@@ -2,7 +2,7 @@
 // 읽기(파서)와 쓰기(applyChange·format*File)가 같은 스키마를 쓴다.
 import { z } from "zod";
 import { KMA_NX_RANGE, KMA_NY_RANGE, KMA_REG_ID_RE } from "./regions";
-import { FAMILY_ID, type Anniversary, type Change, type DashboardState, type Event, type FamilyConfig, type Member, type SetupInput, type Task, type WeatherDay } from "./types";
+import { FAMILY_ID, isFamilyId, type Anniversary, type Change, type DashboardState, type Event, type FamilyId, type FamilyConfig, type Member, type SetupInput, type Task, type WeatherDay } from "./types";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const date = z.string().regex(DATE_RE, "YYYY-MM-DD").refine(isRealDate, "없는 날짜");
@@ -229,7 +229,10 @@ export type PublicMember = ApiState["members"][number];
 export type PublicAnniversary = ApiState["anniversaries"][number];
 
 // 내부 상태 검증(테스트·어댑터용)
+export const familyIdSchema = z.custom<FamilyId>(isFamilyId, "가족 id 형식이 올바르지 않아요");
+
 export const dashboardStateSchema = z.object({
+  familyId: familyIdSchema,
   config: familyConfigSchema.optional(),
   members: z.array(memberSchema.extend({ id: memberIdSchema })),
   events: z.array(eventSchema),

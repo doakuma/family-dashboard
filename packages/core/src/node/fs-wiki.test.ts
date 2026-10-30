@@ -3,7 +3,8 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { FsWikiRepository } from "./fs-wiki";
+import { DEFAULT_FAMILY_ID as FID, asFamilyId } from "../types";
+import { FamilyMismatchError, FsWikiRepository } from "./fs-wiki";
 
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 
@@ -27,30 +28,46 @@ describe("FsWikiRepository", () => {
 
   it("apply: 파일 수정 + log.md + 커밋 + push", async () => {
     const repo = new FsWikiRepository({ root, author: "U0123", now: () => new Date("2026-11-01T01:02:00Z") });
-    const r = await repo.apply({ kind: "task.add", payload: { list: "shopping", title: "우유" } });
+    const r = await repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "우유" } });
 
     expect(readFileSync(join(root, "tasks.md"), "utf8")).toContain(`- [ ] 우유 #${r.id}`);
     expect(readFileSync(join(root, "log.md"), "utf8")).toContain(`- 2026-11-01 10:02 [task.add] 장보기 추가: 우유 (by U0123) #${r.id}`);
     expect(git(root, "log", "-1", "--format=%s")).toBe("[task.add] 장보기 추가: 우유");
-    expect(git(remote, "rev-parse", "main")).toBe(r.commit);
-    expect(r.pushed).toBe(true);
+    expect(git(remote, "rev-parse", "main")).toBe(r.version);
+    expect(r.synced).toBe(true);
   });
 
-  it("push가 실패해도 예외 없이 커밋은 남고 pushed:false", async () => {
+  it("결과는 git 용어 없이 version·synced만 노출한다", async () => {
+    const repo = new FsWikiRepository({ root });
+    const r = await repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "버터" } });
+    expect(r.version).toBe(git(root, "rev-parse", "HEAD")); // 이 구현의 version은 커밋 sha
+    expect(Object.keys(r)).not.toEqual(expect.arrayContaining(["commit"]));
+    expect(r).not.toHaveProperty("pushed");
+  });
+
+  it("다른 가족 id로 부르면 거부한다", async () => {
+    const repo = new FsWikiRepository({ root, familyId: asFamilyId("kim") });
+    const other = asFamilyId("lee");
+    await expect(repo.read(other)).rejects.toBeInstanceOf(FamilyMismatchError);
+    await expect(repo.apply(other, { kind: "task.add", payload: { list: "shopping", title: "x" } })).rejects.toBeInstanceOf(FamilyMismatchError);
+    expect((await repo.read(asFamilyId("kim"))).familyId).toBe("kim");
+  });
+
+  it("push가 실패해도 예외 없이 커밋은 남고 synced:false", async () => {
     const repo = new FsWikiRepository({ root });
     renameSync(remote, `${remote}.gone`);
-    const r = await repo.apply({ kind: "task.add", payload: { list: "shopping", title: "두부" } });
-    expect(r.pushed).toBe(false);
+    const r = await repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "두부" } });
+    expect(r.synced).toBe(false);
     expect(git(root, "log", "-1", "--format=%s")).toBe("[task.add] 장보기 추가: 두부");
     renameSync(`${remote}.gone`, remote);
-    const r2 = await repo.apply({ kind: "task.add", payload: { list: "shopping", title: "콩나물" } });
-    expect(r2.pushed).toBe(true);
-    expect(git(remote, "rev-parse", "main")).toBe(r2.commit);
+    const r2 = await repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "콩나물" } });
+    expect(r2.synced).toBe(true);
+    expect(git(remote, "rev-parse", "main")).toBe(r2.version);
   });
 
-  it("push 옵션을 끄면 pushed:false", async () => {
+  it("push 옵션을 끄면 synced:false", async () => {
     const repo = new FsWikiRepository({ root, push: false });
-    expect((await repo.apply({ kind: "task.add", payload: { list: "shopping", title: "파" } })).pushed).toBe(false);
+    expect((await repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "파" } })).synced).toBe(false);
   });
 
   it("commit이 실패하면 파일을 원래대로 되돌린다(새로 만든 파일은 삭제)", async () => {
@@ -59,7 +76,7 @@ describe("FsWikiRepository", () => {
     writeFileSync(hook, "#!/bin/sh\nexit 1\n");
     chmodSync(hook, 0o755);
     const head = git(root, "rev-parse", "HEAD");
-    await expect(repo.apply({ kind: "task.add", payload: { list: "shopping", title: "우유" } })).rejects.toThrow();
+    await expect(repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "우유" } })).rejects.toThrow();
 
     expect(readFileSync(join(root, "tasks.md"), "utf8")).toBe("## 장보기\n");
     expect(existsSync(join(root, "log.md"))).toBe(false);
@@ -69,9 +86,9 @@ describe("FsWikiRepository", () => {
 
   it("pull도 쓰기 큐를 탄다: apply 사이에 끼어들어도 모두 성공", async () => {
     const repo = new FsWikiRepository({ root });
-    const add = (title: string) => repo.apply({ kind: "task.add", payload: { list: "shopping", title } });
+    const add = (title: string) => repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title } });
     await Promise.all([add("a"), repo.pull(), add("b"), repo.pull()]);
-    expect((await repo.read()).tasks.map((t) => t.title)).toEqual(["a", "b"]);
+    expect((await repo.read(FID)).tasks.map((t) => t.title)).toEqual(["a", "b"]);
     expect(git(root, "status", "--porcelain")).toBe("");
   });
 
@@ -85,15 +102,15 @@ describe("FsWikiRepository", () => {
 
   it("읽기 전용이면 apply를 거부한다", async () => {
     const repo = new FsWikiRepository({ root, readOnly: true });
-    await expect(repo.apply({ kind: "task.add", payload: { list: "shopping", title: "x" } })).rejects.toThrow(/읽기 전용/);
+    await expect(repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "x" } })).rejects.toThrow(/읽기 전용/);
   });
 
   it("동시에 여러 번 써도 순서대로 커밋된다", async () => {
     const repo = new FsWikiRepository({ root });
     await Promise.all(
-      ["사과", "배", "감"].map((title) => repo.apply({ kind: "task.add", payload: { list: "shopping", title } })),
+      ["사과", "배", "감"].map((title) => repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title } })),
     );
-    const state = await repo.read();
+    const state = await repo.read(FID);
     expect(state.tasks.map((t) => t.title)).toEqual(["사과", "배", "감"]);
     expect(git(root, "rev-list", "--count", "HEAD")).toBe("4");
   });
@@ -114,7 +131,7 @@ describe("FsWikiRepository", () => {
       git(main, "config", "user.email", "m@m");
       git(main, "config", "user.name", "m");
       renameSync(remote, `${remote}.gone`);
-      await repo.apply(addApple); // push 실패 -> 로컬 커밋만
+      await repo.apply(FID, addApple); // push 실패 -> 로컬 커밋만
       renameSync(`${remote}.gone`, remote);
       writeFileSync(join(main, "tasks.md"), "## 장보기\n- [ ] 메인 PC가 넣은 우유 #task-aaaa\n");
       git(main, "commit", "-qam", "main edit");
@@ -134,7 +151,7 @@ describe("FsWikiRepository", () => {
       expect(existsSync(join(root, ".git", "rebase-merge"))).toBe(false);
       expect(readFileSync(join(root, "tasks.md"), "utf8")).not.toContain("<<<<<<<");
       // 읽기는 계속 된다
-      expect((await repo.read()).tasks.map((t) => t.title)).toContain("봇이 넣은 우유");
+      expect((await repo.read(FID)).tasks.map((t) => t.title)).toContain("봇이 넣은 우유");
     });
 
     it("충돌 뒤에도 다음 apply는 정상 커밋(push는 실패로 기록)하고, 반복 pull은 같은 오류", async () => {
@@ -143,9 +160,9 @@ describe("FsWikiRepository", () => {
       await diverge(repo);
       await expect(repo.pull()).rejects.toThrow(/pull 실패/);
 
-      const r = await repo.apply({ kind: "task.add", payload: { list: "shopping", title: "다음 일" } });
-      expect(r.pushed).toBe(false);
-      expect(r.pushError).toMatch(/rejected|fetch first|non-fast-forward/);
+      const r = await repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "다음 일" } });
+      expect(r.synced).toBe(false);
+      expect(r.syncError).toMatch(/rejected|fetch first|non-fast-forward/);
       expect(warns.at(-1)).toMatch(/push 실패/);
       expect(git(root, "log", "-1", "--format=%s")).toBe("[task.add] 장보기 추가: 다음 일");
       await expect(repo.pull()).rejects.toThrow(/pull 실패/);
@@ -191,7 +208,7 @@ describe("FsWikiRepository", () => {
     const repo = new FsWikiRepository({ root });
     mkdirSync(join(root, ".git", "rebase-merge"));
     const head = git(root, "rev-parse", "HEAD");
-    await expect(repo.apply({ kind: "task.add", payload: { list: "shopping", title: "x" } })).rejects.toThrow(/rebase 진행 중/);
+    await expect(repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "x" } })).rejects.toThrow(/rebase 진행 중/);
     await expect(repo.pull()).rejects.toThrow(/rebase 진행 중/);
     expect(git(root, "rev-parse", "HEAD")).toBe(head);
     expect(readFileSync(join(root, "tasks.md"), "utf8")).toBe("## 장보기\n");
@@ -200,11 +217,11 @@ describe("FsWikiRepository", () => {
   it("merge 진행 중이거나 detached HEAD면 apply를 거부한다", async () => {
     const repo = new FsWikiRepository({ root });
     writeFileSync(join(root, ".git", "MERGE_HEAD"), `${git(root, "rev-parse", "HEAD")}\n`);
-    await expect(repo.apply({ kind: "task.add", payload: { list: "shopping", title: "x" } })).rejects.toThrow(/merge 진행 중/);
+    await expect(repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "x" } })).rejects.toThrow(/merge 진행 중/);
     rmSync(join(root, ".git", "MERGE_HEAD"));
 
     git(root, "checkout", "-q", "--detach");
-    await expect(repo.apply({ kind: "task.add", payload: { list: "shopping", title: "x" } })).rejects.toThrow(/detached HEAD/);
+    await expect(repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "x" } })).rejects.toThrow(/detached HEAD/);
     expect(git(root, "rev-list", "--count", "--all")).toBe("1");
   });
 
@@ -212,18 +229,18 @@ describe("FsWikiRepository", () => {
     const warns: string[] = [];
     const repo = new FsWikiRepository({ root, warn: (m) => warns.push(m) });
     renameSync(remote, `${remote}.gone`);
-    const r = await repo.apply({ kind: "task.add", payload: { list: "shopping", title: "두부" } });
-    expect(r.pushed).toBe(false);
-    expect(r.pushError).toBeTruthy();
+    const r = await repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "두부" } });
+    expect(r.synced).toBe(false);
+    expect(r.syncError).toBeTruthy();
     expect(warns).toHaveLength(1);
-    expect(warns[0]).toContain(r.pushError);
+    expect(warns[0]).toContain(r.syncError);
   });
 
   it("사람이 stage해 둔 다른 파일은 apply 커밋에 딸려 들어가지 않는다", async () => {
     const repo = new FsWikiRepository({ root, push: false });
     writeFileSync(join(root, "mine.md"), "내 작업\n");
     git(root, "add", "mine.md");
-    await repo.apply({ kind: "task.add", payload: { list: "shopping", title: "우유" } });
+    await repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "우유" } });
     expect(git(root, "show", "--name-only", "--format=", "HEAD").split("\n").sort()).toEqual(["log.md", "tasks.md"]);
     expect(git(root, "diff", "--cached", "--name-only")).toBe("mine.md");
   });
@@ -238,7 +255,7 @@ describe("FsWikiRepository", () => {
     writeFileSync(hook, "#!/bin/sh\nexit 1\n");
     chmodSync(hook, 0o755);
 
-    await expect(repo.apply({ kind: "task.add", payload: { list: "shopping", title: "우유" } })).rejects.toThrow();
+    await expect(repo.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "우유" } })).rejects.toThrow();
 
     expect(git(root, "diff", "--cached", "--name-only").split("\n").sort()).toEqual(["mine.md", "tasks.md"]);
     expect(git(root, "ls-files", "-s", "tasks.md")).toBe(staged);

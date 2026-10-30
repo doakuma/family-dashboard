@@ -1,6 +1,6 @@
 // 첫 세팅(SetupInput) -> 위키 파일. 파일 시스템 없이 "읽기 함수 -> 바뀐 파일 목록"만 계산하는 순수 로직(apply.ts와 같은 구조).
 import { setupSchema } from "../schema";
-import { needsSetup } from "../types";
+import { DEFAULT_FAMILY_ID, needsSetup } from "../types";
 import type { WikiFiles } from "./apply";
 import { formatAnniversaryLine, formatConfigFile, formatMemberFile, parseAnniversaryLine } from "./format";
 import { readWiki } from "./read";
@@ -60,7 +60,8 @@ export function buildSetupFiles(files: WikiFiles, input: unknown, completedAt: s
   const setup = checked.data;
 
   // 세팅이 끝난 위키에는 쓰지 않는다. 판단은 읽기와 같은 기준(config가 읽히는지 + 구성원 수).
-  if (!needsSetup(readWiki(files))) throw new SetupError("이미 세팅이 끝난 위키예요", "already_done");
+  // 세팅 필요 여부는 가족 id와 무관하므로 읽기 id는 아무 값이나 쓴다.
+  if (!needsSetup(readWiki(files, DEFAULT_FAMILY_ID))) throw new SetupError("이미 세팅이 끝난 위키예요", "already_done");
   if (hasExistingSetupContent(files) && !opts.overwrite) throw new SetupError("세팅 전인데 이전 세팅 파일이 남아 있어요. 덮어쓰기를 확인해 주세요", "needs_confirm");
 
   const out = new Map<string, string | null>();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { needsSetup, type Change } from "../types";
+import { DEFAULT_FAMILY_ID, needsSetup, type Change } from "../types";
 import { ChangeError, applyChange, type WikiFiles } from "./apply";
 import { readWiki } from "./read";
 
@@ -58,7 +58,7 @@ describe("applyChange", () => {
     expect(w.store.get("events/2026-11.md")).toContain("- [ ] 2026-11-15 13:00-15:00 사촌 모임 점심 @family &cousins #evt-i9j0");
     w.commit({ kind: "event.update", payload: { id: "evt-i9j0", date: "2026-12-01", share: "other" } } as unknown as Change);
     expect(w.store.get("events/2026-12.md")).toContain("2026-12-01 13:00-15:00 사촌 모임 점심 @family &cousins #evt-i9j0");
-    expect(readWiki(w.files).events.find((e) => e.id === "evt-i9j0")?.share).toBe("cousins");
+    expect(readWiki(w.files, DEFAULT_FAMILY_ID).events.find((e) => e.id === "evt-i9j0")?.share).toBe("cousins");
   });
 
   it("event.update: 깨진 &토큰도 원문 그대로 남는다", () => {
@@ -127,19 +127,19 @@ describe("applyChange", () => {
   it("쓴 결과를 다시 읽으면 같은 상태가 나온다", () => {
     const w = memWiki(base);
     const r = w.commit({ kind: "event.add", payload: { date: "2026-11-03", start: "09:00", allDay: false, title: "등원", members: ["haneul"] } });
-    const s = readWiki(w.files);
+    const s = readWiki(w.files, DEFAULT_FAMILY_ID);
     expect(s.events.map((e) => e.id)).toEqual([r.id, "evt-a1b2", "evt-c3d4"]);
   });
 });
 
 describe("readWiki", () => {
   it("구성원이 없으면 members는 비어 있다(→ 세팅 화면)", () => {
-    expect(readWiki(memWiki(base).files).members).toEqual([]);
+    expect(readWiki(memWiki(base).files, DEFAULT_FAMILY_ID).members).toEqual([]);
   });
 
   it("구성원이 있으면 '가족'을 덧붙인다", () => {
     const w = memWiki({ ...base, "members/haneul.md": "---\nid: haneul\nname: 하늘\nrole: child\ncolor: blue\n---\n" });
-    expect(readWiki(w.files).members.map((m) => m.id)).toEqual(["haneul", "family"]);
+    expect(readWiki(w.files, DEFAULT_FAMILY_ID).members.map((m) => m.id)).toEqual(["haneul", "family"]);
   });
 
   it("값 하나가 깨져도 구성원·config는 살고, 경고는 파일 이름과 함께 모이며, 세팅 필요로 바뀌지 않는다", () => {
@@ -149,7 +149,7 @@ describe("readWiki", () => {
       "members/haneul.md": "---\nid: haneul\nname: 하늘\nrole: child\ncolor: Blue\nslack: U00-DAD\n---\n",
       "members/bad.md": "---\nname: 아이디 없음\n---\n",
     });
-    const s = readWiki(w.files);
+    const s = readWiki(w.files, DEFAULT_FAMILY_ID);
     expect(s.config).toMatchObject({ familyName: "햇살네", familyColor: "gray", setupCompletedAt: undefined });
     expect(s.members.map((m) => m.id)).toEqual(["haneul", "family"]);
     expect(s.members[0]).toMatchObject({ color: "gray", slackId: undefined });
@@ -160,7 +160,7 @@ describe("readWiki", () => {
   });
 
   it("정상 위키는 경고가 없다", () => {
-    expect(readWiki(memWiki(base).files).warnings).toEqual([]);
+    expect(readWiki(memWiki(base).files, DEFAULT_FAMILY_ID).warnings).toEqual([]);
   });
 
   describe("형식 보호 (applyChange가 스스로 검증한다)", () => {
