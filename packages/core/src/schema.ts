@@ -1,7 +1,8 @@
 // 외부 입력(LLM 응답·세팅 폼 등)과 위키 파일 내용을 도메인 타입으로 받기 전에 검증하는 스키마.
 // 읽기(파서)와 쓰기(applyChange·format*File)가 같은 스키마를 쓴다.
 import { z } from "zod";
-import type { Anniversary, Change, DashboardState, Event, FamilyConfig, Member, Task, WeatherDay } from "./types";
+import { KMA_NX_RANGE, KMA_NY_RANGE, KMA_REG_ID_RE } from "./regions";
+import { FAMILY_ID, type Anniversary, type Change, type DashboardState, type Event, type FamilyConfig, type Member, type SetupInput, type Task, type WeatherDay } from "./types";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const date = z.string().regex(DATE_RE, "YYYY-MM-DD").refine(isRealDate, "없는 날짜");
@@ -107,6 +108,56 @@ export const familyConfigSchema = z.object({
     .refine((s) => !Number.isNaN(Date.parse(s)), "날짜 형식 오류")
     .optional(),
 }) satisfies z.ZodType<FamilyConfig>;
+
+// ---------- /setup 첫 세팅 (WikiRepository.applySetup 입력) ----------
+
+/** 구글 캘린더 ID 형식: 메일 주소 꼴(`abc@group.calendar.google.com`, `me@gmail.com`). 연결 확인이 아니라 형식만 본다. */
+export const CALENDAR_ID_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+export const SETUP_MAX_MEMBERS = 12;
+export const SETUP_MAX_ANNIVERSARIES = 60;
+
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // 매년 반복이라 2월 29일도 허용
+/** 실제로 있는 MM-DD (04-31 같은 날은 거부) */
+export const realMonthDay = monthDay.refine((s) => Number(s.slice(3)) <= (DAYS_IN_MONTH[Number(s.slice(0, 2)) - 1] ?? 0), "없는 날짜");
+
+const kmaRegId = z.string().regex(KMA_REG_ID_RE, "예: 11B00000");
+
+const setupConfigSchema = familyConfigSchema.omit({ setupCompletedAt: true }).extend({
+  kmaNx: z.number().int().min(KMA_NX_RANGE[0]).max(KMA_NX_RANGE[1]).optional(),
+  kmaNy: z.number().int().min(KMA_NY_RANGE[0]).max(KMA_NY_RANGE[1]).optional(),
+  kmaMidLandRegId: kmaRegId.optional(),
+  kmaMidTaRegId: kmaRegId.optional(),
+  calendarId: z.string().max(254).regex(CALENDAR_ID_RE, "메일 주소 모양이어야 해요").optional(),
+});
+
+const setupAnniversarySchema = z.object({ monthDay: realMonthDay, title, member: memberIdSchema.optional() });
+
+/**
+ * 첫 세팅 전체 검증. 개별 스키마(memberSchema·familyConfigSchema)에 더해 묶음 규칙을 본다:
+ * 구성원 id는 대소문자 구분 없이 유일(Windows 파일 이름 충돌 방지), 보호자 1명 이상, 기념일의 구성원은 등록된 id 또는 family,
+ * 격자·지역코드는 네 값이 함께 있거나 함께 없어야 한다.
+ */
+export const setupSchema = z
+  .object({
+    config: setupConfigSchema,
+    members: z.array(memberSchema).min(1, "구성원을 한 명 이상 넣어 주세요").max(SETUP_MAX_MEMBERS, `구성원은 ${SETUP_MAX_MEMBERS}명까지예요`),
+    anniversaries: z.array(setupAnniversarySchema).max(SETUP_MAX_ANNIVERSARIES),
+  })
+  .superRefine((v, ctx) => {
+    const seen = new Set<string>();
+    v.members.forEach((m, i) => {
+      const k = m.id.toLowerCase();
+      if (seen.has(k)) ctx.addIssue({ code: "custom", path: ["members", i, "id"], message: "이미 쓰는 id예요" });
+      seen.add(k);
+    });
+    if (!v.members.some((m) => m.role === "guardian")) ctx.addIssue({ code: "custom", path: ["members"], message: "보호자가 한 명 이상 있어야 해요" });
+    v.anniversaries.forEach((a, i) => {
+      if (a.member && a.member !== FAMILY_ID && !seen.has(a.member.toLowerCase())) ctx.addIssue({ code: "custom", path: ["anniversaries", i, "member"], message: "등록되지 않은 구성원이에요" });
+    });
+    const c = v.config;
+    const grid = [c.kmaNx, c.kmaNy, c.kmaMidLandRegId, c.kmaMidTaRegId];
+    if (grid.some((x) => x !== undefined) && grid.some((x) => x === undefined)) ctx.addIssue({ code: "custom", path: ["config", "kmaNx"], message: "격자(nx, ny)와 지역 코드 2개를 함께 넣어 주세요" });
+  }) satisfies z.ZodType<SetupInput>;
 
 // ---------- /api/state 응답 ----------
 

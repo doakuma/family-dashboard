@@ -4,9 +4,10 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync,
 import { dirname, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { WikiRepository } from "../ports";
-import type { Change, WikiState } from "../types";
+import type { Change, SetupInput, WikiState } from "../types";
 import { applyChange, formatLogLine, type ApplyResult, type WikiFiles } from "../wiki/apply";
 import { readWiki } from "../wiki/read";
+import { SetupError, buildSetupFiles } from "../wiki/setup";
 
 const run = promisify(execFile);
 
@@ -164,20 +165,49 @@ export class FsWikiRepository implements WikiRepository {
     const log = this.files.read("log.md") ?? "# 변경 기록\n";
     result.files.set("log.md", `${log.replace(/\n*$/, "\n")}${formatLogLine(at, change.kind, result.summary, by, result.id)}\n`);
 
-    const rels = [...result.files.keys()];
+    return this.commitFiles(result.files, `[${change.kind}] ${result.summary}`, by, { ...result });
+  }
+
+  /** 첫 세팅 전용(WikiRepository.applySetup). 쓰기 큐 안에서 검사하고 커밋 하나로 쓴다. */
+  async applySetup(setup: SetupInput, opts: { overwrite?: boolean } = {}, by = this.opts.author ?? "setup"): Promise<ApplyOutcome> {
+    if (this.opts.readOnly) throw new SetupError("읽기 전용 위키에는 쓸 수 없어요", "read_only");
+    return this.enqueue(async () => {
+      await this.assertReady();
+      const now = this.opts.now?.() ?? new Date();
+      const at = formatSeoul(now);
+      // 검증·세팅 필요 판정·덮어쓰기 확인은 큐 안에서(동시에 두 번 눌러도 한 번만 쓴다)
+      const built = buildSetupFiles(this.files, setup, `${at.replace(" ", "T")}:00+09:00`, opts);
+      const files = new Map(built.files);
+      const log = this.files.read("log.md") ?? "# 변경 기록\n";
+      files.set("log.md", `${log.replace(/\n*$/, "\n")}${formatLogLine(at, "setup", built.summary, by)}\n`);
+      return this.commitFiles(files, `[setup] ${built.summary}`, by, { summary: built.summary });
+    });
+  }
+
+  /**
+   * 파일들을 쓰고(null이면 삭제) 경로를 지정해 커밋 하나로 묶고 push한다. commit까지 못 가면 파일·index를 원래대로 되돌린다.
+   * 호출자는 쓰기 큐 안에 있어야 한다.
+   */
+  private async commitFiles<R extends { summary: string }>(writes: Map<string, string | null>, message: string, by: string, result: R): Promise<R & { commit: string; pushed: boolean; pushError?: string }> {
+    const rels = [...writes.keys()];
     const before = new Map(rels.map((rel) => [rel, this.files.read(rel)]));
     // 사람이 미리 stage해 둔 내용을 롤백이 풀어 버리지 않게, 우리가 건드릴 파일의 index 항목을 기억해 둔다.
     const index = await this.indexEntries(rels);
     let commit: string;
     try {
-      for (const [rel, content] of result.files) {
+      // 지우기를 먼저(대소문자만 다른 이름이 새 파일을 지우지 않게)
+      for (const [rel, content] of writes) if (content === null) rmSync(this.path(rel), { force: true });
+      for (const [rel, content] of writes) {
+        if (content === null) continue;
         const p = this.path(rel);
         mkdirSync(dirname(p), { recursive: true });
         writeFileSync(p, content, "utf8");
       }
-      await this.git("add", ...rels);
+      // git이 모르는 파일을 지운 경우(untracked였다가 삭제)는 add·commit 대상에서 뺀다 - pathspec 오류가 난다.
+      const gitRels = rels.filter((rel) => writes.get(rel) !== null || index.has(rel) || before.get(rel) === undefined);
+      await this.git("add", "-A", "--", ...gitRels);
       // 경로를 지정해 우리가 쓴 파일만 커밋한다(사람이 stage해 둔 다른 파일이 딸려 들어가지 않게).
-      await this.git("commit", "-m", `[${change.kind}] ${result.summary}`, "--author", `${by} <bot@homesweethome.local>`, "--", ...rels);
+      await this.git("commit", "-m", message, "--author", `${by} <bot@homesweethome.local>`, "--", ...gitRels);
       commit = (await this.git("rev-parse", "HEAD")).stdout.trim();
     } catch (e) {
       await this.rollback(before, index);

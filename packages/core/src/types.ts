@@ -110,6 +110,16 @@ export type Change =
 
 export type ChangeKind = Change["kind"];
 
+/**
+ * /setup 마법사가 한 번에 쓰는 첫 세팅 값. `Change`가 아니다(LLM 경로와 분리): 위키 쓰기는 `WikiRepository.applySetup`만 한다.
+ * setupCompletedAt은 입력이 아니라 applySetup이 쓰는 시각으로 채운다.
+ */
+export interface SetupInput {
+  config: Omit<FamilyConfig, "setupCompletedAt">;
+  members: Member[];
+  anniversaries: Anniversary[];
+}
+
 export interface IncomingMessage {
   /** 메신저 종류 (1차: 'slack') */
   source: string;
