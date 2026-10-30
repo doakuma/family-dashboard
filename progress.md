@@ -147,3 +147,9 @@
 ## 2026-10-30 · #14 #31 리뷰 통과
 - 리뷰어 재검토 통과 → #14 #31 passes=true·review=pass (오너 반영). #13 #15 #16 #17 #27 #28 review=pass는 #31 리뷰 결과를 오너 지시로 반영한 것.
 - 남은 문제(낮음): Sheet.tsx:56 캐스팅, MonthCalendar 실패 문구 말줄임, loadedMonth 분기 단위 테스트. 실기기 터치는 #24.
+
+## 2026-10-30 · #32 #18 #31 리뷰 후속 정리
+- #32: `slack/startup.ts` checkBotToken으로 app.start() 전 auth.test 1회. 토큰 오류(invalid_auth 등)는 exit 78 + ecosystem `stop_exit_codes: [78]`(다시 띄워도 소용없어 PM2 재시작 반복 방지), 네트워크 등 일시 오류는 exit 1(PM2가 5초 간격 재시도). app.client 기본 토큰 없음 주석. whoami 부분값 캐시 금지·예외 시 재시도 테스트, installation.ts·env-config.ts 캐스팅 제거, eslint가 process.env 우회(구조분해·`process["env"]`·`import { env }`) 차단(임시 파일로 확인), applySetup 가족 불일치 테스트.
+- #18: core `isWindowsReservedName`을 서버 setupSchema·클라이언트 검증·suggestMemberId가 공유. ReviewStep은 `extraAnniversaryRows`(key 동봉). setup e2e 가림 검사는 `data-testid="setup-footer"`.
+- #31: Sheet `instanceof HTMLElement`, MonthCalendar 상태 문구 2줄 말줄임(‹ › 고정), `monthStatus`를 lib/view 순수 함수로 + 단위 테스트(Dashboard prop이 monthLoaded -> monthStatus).
+- 검증: pnpm check(503 테스트)·build, e2e 5종 통과. 남은 문제: `import * as ns from "node:process"; ns.env`는 lint가 못 잡음. 말줄임은 e2e 단언 없음(CSS만). #18 #31 #32 passes=false, review=pending.
