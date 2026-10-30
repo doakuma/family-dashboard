@@ -116,7 +116,7 @@ try {
   // 토큰은 PIN이 틀렸을 땐 소모되지 않는다
   await phone.getByLabel("관리자 PIN").fill(PIN);
   await phone.getByRole("button", { name: "확인" }).click();
-  await phone.getByText("확인됐어요").waitFor();
+  await phone.getByRole("heading", { name: "우리 집" }).waitFor(); // 세션이 생기면 6단계 마법사의 1단계(#18)
   assert.equal(new URL(phone.url()).search, "");
   const cookie = (await phoneCtx.cookies()).find((c) => c.name === "hsh_session");
   assert.ok(cookie, "세션 쿠키");
@@ -126,7 +126,7 @@ try {
   assert.equal(await phone.evaluate(() => document.cookie), "");
   ok("PIN 흐름: 오답 -> 정답 -> 세션 쿠키(HttpOnly, SameSite=Strict, 만료)");
   await phone.goto(`${BASE}/setup`);
-  await phone.getByText("확인됐어요").waitFor();
+  await phone.getByRole("heading", { name: "우리 집" }).waitFor(); // 세션이 생기면 6단계 마법사의 1단계(#18)
   await phone.goto(`${BASE}/settings`);
   await phone.getByText("설정 화면은 준비 중").waitFor();
   ok("같은 세션으로 /setup, /settings 열림");
