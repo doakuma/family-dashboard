@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { stringifyFrontmatter } from "./frontmatter";
 import {
   formatEventLine,
   formatTaskLine,
@@ -6,6 +7,8 @@ import {
   parseConfigFile,
   parseEventLine,
   parseEventsFile,
+  formatConfigFile,
+  formatMemberFile,
   parseMemberFile,
   parseTasksFile,
 } from "./format";
@@ -98,5 +101,37 @@ describe("기념일·구성원·config", () => {
     const c = parseConfigFile("---\nfamilyName: 햇살네\nkmaNx: 59\nkmaNy: 127\nsetupCompletedAt: 2026-11-01T10:00:00+09:00\n---\n");
     expect(c).toMatchObject({ familyName: "햇살네", timezone: "Asia/Seoul", kmaNx: 59, kmaNy: 127, familyColor: "gray" });
     expect(parseConfigFile("---\nregion: 서울\n---\n")).toBeNull();
+  });
+});
+
+describe("위키 형식 보호 (구성원·config)", () => {
+  const member = { id: "haneul", name: "하늘", role: "child" as const, color: "blue" };
+
+  it("정상 구성원은 왕복된다", () => {
+    expect(parseMemberFile(formatMemberFile(member))).toEqual({ ...member, birth: undefined, slackId: undefined });
+  });
+
+  it("name에 줄바꿈으로 role을 끼워 넣는 쓰기를 거부한다", () => {
+    expect(() => formatMemberFile({ ...member, name: "하늘\nrole: guardian" })).toThrow();
+    expect(() => formatMemberFile({ ...member, color: "blue\nid: x" })).toThrow();
+  });
+
+  it("공백 있는 id·예약 id를 쓰기·읽기 양쪽에서 거부한다", () => {
+    expect(() => formatMemberFile({ ...member, id: "하늘 이" })).toThrow();
+    expect(() => formatMemberFile({ ...member, id: "family" })).toThrow();
+    expect(parseMemberFile("---\nid: 하늘 이\nname: 하늘\n---\n")).toBeNull();
+  });
+
+  it("스키마를 거치지 않는 stringify도 줄바꿈 값을 거부한다", () => {
+    expect(() => stringifyFrontmatter({ a: "x\nrole: child" })).toThrow(/줄바꿈/);
+    expect(() => stringifyFrontmatter({ a: '"q"' })).toThrow();
+  });
+
+  it("config: 왕복과 잘못된 값 거부", () => {
+    const cfg = { familyName: "햇살네", timezone: "Asia/Seoul", familyColor: "gray", kmaNx: 59, kmaNy: 127 };
+    expect(parseConfigFile(formatConfigFile(cfg))).toMatchObject(cfg);
+    expect(() => formatConfigFile({ ...cfg, familyName: "햇살\nfamilyColor: red" })).toThrow();
+    expect(() => formatConfigFile({ ...cfg, timezone: "Mars/Base" })).toThrow();
+    expect(parseConfigFile("---\nfamilyName: 햇살네\ntimezone: Mars/Base\n---\n")).toBeNull();
   });
 });

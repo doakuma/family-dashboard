@@ -109,4 +109,37 @@ describe("readWiki", () => {
     const w = memWiki({ ...base, "members/haneul.md": "---\nid: haneul\nname: 하늘\nrole: child\ncolor: blue\n---\n" });
     expect(readWiki(w.files).members.map((m) => m.id)).toEqual(["haneul", "family"]);
   });
+
+  describe("형식 보호 (applyChange가 스스로 검증한다)", () => {
+    const bad = (c: unknown) => () => applyChange(memWiki(base).files, c as Change);
+
+    it("제목의 줄바꿈으로 줄을 끼워 넣을 수 없다", () => {
+      const c = { kind: "task.add", payload: { list: "todo", title: "책\n- [ ] 가짜 #task-0001" } };
+      expect(bad(c)).toThrow(ChangeError);
+      expect(bad({ kind: "task.add", payload: { list: "todo", title: "a\u2028b" } })).toThrow(ChangeError);
+    });
+
+    it("제목의 #task-/#evt- id 토큰을 거부한다", () => {
+      expect(bad({ kind: "task.add", payload: { list: "todo", title: "우유 #task-e5f6" } })).toThrow(/올바르지 않은/);
+      expect(bad({ kind: "event.add", payload: { date: "2026-11-05", allDay: true, title: "x #evt-a1b2", members: ["mom"] } })).toThrow(ChangeError);
+    });
+
+    it("allDay=false인데 start가 없으면 거부", () => {
+      expect(bad({ kind: "event.add", payload: { date: "2026-11-05", allDay: false, title: "치과", members: ["mom"] } })).toThrow(/start/);
+    });
+
+    it("end <= start 거부 (추가·수정 모두)", () => {
+      const p = { date: "2026-11-05", allDay: false, start: "10:00", end: "09:00", title: "치과", members: ["mom"] };
+      expect(bad({ kind: "event.add", payload: p })).toThrow(/end/);
+      expect(bad({ kind: "event.add", payload: { ...p, end: "10:00" } })).toThrow(/end/);
+      // 수정: 기존 시작(15:00)보다 이른 끝 시간만 주면 합친 결과가 잘못
+      expect(bad({ kind: "event.update", payload: { id: "evt-a1b2", end: "14:00" } })).toThrow(ChangeError);
+      expect(bad({ kind: "event.update", payload: { id: "evt-c3d4", allDay: false } })).toThrow(/시작 시간/);
+    });
+
+    it("없는 날짜·잘못된 구성원 id 거부", () => {
+      expect(bad({ kind: "event.add", payload: { date: "2026-02-31", allDay: true, title: "x", members: ["mom"] } })).toThrow(ChangeError);
+      expect(bad({ kind: "task.add", payload: { list: "todo", title: "x", member: "하늘 이" } })).toThrow(ChangeError);
+    });
+  });
 });

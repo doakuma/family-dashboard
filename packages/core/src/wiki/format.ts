@@ -1,6 +1,7 @@
 // 위키 마크다운 ↔ 도메인 타입. 형식은 family-wiki/CLAUDE.md와 MVP 스펙이 기준이다.
 // 순수 함수만 둔다(파일 시스템 없음) — 대시보드·봇·테스트가 같이 쓴다.
 import type { Anniversary, Event, FamilyConfig, Member, MemberId, Task, TaskList } from "../types";
+import { familyConfigSchema, memberSchema } from "../schema";
 import { parseFrontmatter, stringifyFrontmatter } from "./frontmatter";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -134,18 +135,21 @@ export function parseMemberFile(text: string): Member | null {
   if (!fm) return null;
   const { id, name, role, birth, color, slack } = fm.data;
   if (!id || !name) return null;
-  return {
+  const parsed = memberSchema.safeParse({
     id,
     name,
     role: role === "child" ? "child" : "guardian",
     birth: birth && isDate(birth) ? birth : undefined,
     color: color || "gray",
     slackId: slack || undefined,
-  };
+  });
+  return parsed.success ? parsed.data : null;
 }
 
+/** 쓰기 전에 같은 스키마로 검증한다(잘못된 값이면 ZodError). */
 export function formatMemberFile(m: Member): string {
-  return stringifyFrontmatter({ id: m.id, name: m.name, role: m.role, birth: m.birth, color: m.color, slack: m.slackId });
+  const v = memberSchema.parse(m);
+  return stringifyFrontmatter({ id: v.id, name: v.name, role: v.role, birth: v.birth, color: v.color, slack: v.slackId });
 }
 
 const num = (s?: string) => (s && /^-?\d+$/.test(s) ? Number(s) : undefined);
@@ -154,8 +158,8 @@ export function parseConfigFile(text: string): FamilyConfig | null {
   const fm = parseFrontmatter(text);
   if (!fm?.data.familyName) return null;
   const d = fm.data;
-  return {
-    familyName: d.familyName ?? "",
+  const parsed = familyConfigSchema.safeParse({
+    familyName: d.familyName,
     timezone: d.timezone || "Asia/Seoul",
     region: d.region || undefined,
     kmaNx: num(d.kmaNx),
@@ -165,11 +169,12 @@ export function parseConfigFile(text: string): FamilyConfig | null {
     familyColor: d.familyColor || "gray",
     calendarId: d.calendarId || undefined,
     setupCompletedAt: d.setupCompletedAt || undefined,
-  };
+  });
+  return parsed.success ? parsed.data : null;
 }
 
 export function formatConfigFile(c: FamilyConfig): string {
-  return stringifyFrontmatter({ ...c });
+  return stringifyFrontmatter({ ...familyConfigSchema.parse(c) });
 }
 
 /** 내장 구성원 '가족 전체' */

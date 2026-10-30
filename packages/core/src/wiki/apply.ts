@@ -1,5 +1,6 @@
 // Change → 위키 파일 수정. 파일 시스템 없이 "읽기 함수 → 바뀐 파일 목록"만 계산하는 순수 로직.
 // 파일 형식을 지키는 책임은 전부 여기에 있다(LLM은 파일을 쓰지 않는다).
+import { changeSchema } from "../schema";
 import type { Anniversary, Change, Event, Task } from "../types";
 import {
   SECTION_TITLE,
@@ -88,7 +89,14 @@ function describeEvent(e: Pick<Event, "date" | "start" | "allDay" | "title">) {
   return `${e.date} ${e.allDay || !e.start ? "종일" : e.start} ${e.title}`;
 }
 
-export function applyChange(files: WikiFiles, change: Change, random?: () => number): ApplyResult {
+export function applyChange(files: WikiFiles, input: Change, random?: () => number): ApplyResult {
+  // 어떤 경로로 들어온 Change든 파일을 만지기 전에 다시 검증한다(형식 보호는 여기서 끝낸다).
+  const checked = changeSchema.safeParse(input);
+  if (!checked.success) {
+    const why = checked.error.issues.map((i) => `${i.path.join(".") || "change"}: ${i.message}`).join(", ");
+    throw new ChangeError(`올바르지 않은 변경이에요 (${why})`, "invalid");
+  }
+  const change: Change = checked.data;
   const out = new Map<string, string>();
   const read = (p: string) => out.get(p) ?? files.read(p);
 
@@ -110,6 +118,9 @@ export function applyChange(files: WikiFiles, change: Change, random?: () => num
         next.start = undefined;
         next.end = undefined;
       }
+      // 합친 결과도 일정 규칙을 지켜야 한다 (patch만으로는 알 수 없는 조합)
+      if (!next.allDay && !next.start) throw new ChangeError("시간이 있는 일정은 시작 시간이 필요해요", "invalid");
+      if (next.start && next.end && next.end <= next.start) throw new ChangeError("끝 시간은 시작 시간보다 늦어야 해요", "invalid");
       const src = lines(read(found.path));
       src.splice(found.index, 1);
       const destPath = eventFileOf(next.date);
