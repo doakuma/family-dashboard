@@ -156,8 +156,8 @@
         13
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
+      "passes": true,
+      "review": "pass",
       "note": "오너 디자인 결정(스펙 rev 52) 반영 후 재리뷰 대기: 자동 넘김 토글, 지난 일정 흐림, D-day 강조 [재리뷰 필요] #31: Dashboard·MonthCalendar에 보기 터치 콜백(없으면 보기 전용) 추가."
     },
     {
@@ -363,8 +363,8 @@
         15
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
+      "passes": true,
+      "review": "pass",
       "note": "수용 기준 충족(e2e touch 14단계: 탭->시트, 일정 상세, 스와이프, 가짜 시계 120초 복귀, 폴링 뒤 유지, 실제 핀치 차단+대조군, 야간 터치). 보기 상태 DashboardViewState는 Screen의 useDashboardView, 위젯은 콜백만(없으면 보기 전용). /api/state?month=YYYY-MM(2000-01~2100-12, 잘못되면 400), 공개 응답에 share 그룹 id 추가. 키오스크: touch-action pan-y·overscroll none·user-select none·page 단위 viewport·useKioskGuards. #28 후속 3건 함께 처리. 결정 0006. 실기기 제스처는 #24."
     },
     {

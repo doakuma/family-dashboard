@@ -143,3 +143,7 @@
 - [중간] `useDashboardState`가 `at`을 `/api/state`에 같이 보냄(서버는 previewQuery일 때만 받고 운영은 무시, parsePreview 규칙). e2e: 달을 넘긴 뒤에도 오늘 일정·내일 줄 유지.
 - [낮음] Sheet Shift+Tab(목록 밖 요소면 last), wiki-format share 문구 정정, useDashboardView 캐스팅 제거. 응답한 달(`loadedMonth`)이 보는 달과 다르면 달력 칸 일정을 비우고 "불러오는 중/가져오지 못했어요" 표시, 날짜 칸은 버튼이 아님.
 - 검증: pnpm check(490 테스트)·build, e2e 5종 통과, touch-*.png 재생성. 남은 문제: 로딩 상태·Shift+Tab은 단위 테스트 없이 e2e로만. #14·#31 passes=false, review=pending(재리뷰 대기).
+
+## 2026-10-30 · #14 #31 리뷰 통과
+- 리뷰어 재검토 통과 → #14 #31 passes=true·review=pass (오너 반영). #13 #15 #16 #17 #27 #28 review=pass는 #31 리뷰 결과를 오너 지시로 반영한 것.
+- 남은 문제(낮음): Sheet.tsx:56 캐스팅, MonthCalendar 실패 문구 말줄임, loadedMonth 분기 단위 테스트. 실기기 터치는 #24.
