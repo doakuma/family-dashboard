@@ -150,7 +150,10 @@ try {
     await noScroll(page, "폴링 전환 뒤");
     const rawPaper = await (await fetch(`${LOCAL}/`)).text();
     assert.match(rawPaper, /<html[^>]*data-skin="paper"/, "첫 HTML이 위키의 skin을 이미 반영해야 해요");
-    assert.match(rawPaper, /<meta name="theme-color" content="#f4ead6"/, "주소창 색이 스킨을 따라야 해요");
+    // 주소창 색은 서버의 실제 시각(서울 23~6시면 어두운 톤) 기준이다 - 테스트를 언제 돌려도 맞게 기대값을 시각으로 고른다
+    const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+    const themeColor = hour >= 23 || hour < 6 ? "#231c15" : "#f4ead6";
+    assert.ok(rawPaper.includes(`<meta name="theme-color" content="${themeColor}"`), `주소창 색이 스킨·시각을 따라야 해요(기대 ${themeColor})`);
     ok("config skin: paper -> 폴링 뒤 새로고침 없이 data-skin=paper, 바탕색 바뀜");
 
     // 모르는 값이면 default로 돌아간다(경고만)

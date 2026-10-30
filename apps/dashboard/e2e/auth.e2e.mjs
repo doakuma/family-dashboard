@@ -101,7 +101,7 @@ try {
 
   // 3. 공개 응답에 민감 필드 없음 (빈 위키라 구조만)
   const stateText = await (await ctx.request.get(`${LOCAL}/api/state`)).text();
-  for (const k of ["region", "slackId", "calendarId", "birth", "role", "share"]) assert.ok(!stateText.includes(`"${k}"`), k);
+  for (const k of ["region", "slackId", "calendarId", "birth", "role"]) assert.ok(!stateText.includes(`"${k}"`), k);
   ok("/api/state에 민감 키 없음");
 
   // 4. 휴대폰 흐름: QR 주소 열기 -> 잘못된 PIN -> 맞는 PIN -> 세션

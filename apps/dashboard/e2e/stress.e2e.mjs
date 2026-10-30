@@ -130,7 +130,7 @@ try {
   }
 
   // 3. 터치: 손으로 스크롤하면 자동 순환이 멈춘다(120초 뒤 재개는 순수 함수 테스트로 확인).
-  //    일정 영역 밖을 밀 때 문서가 스크롤되지 않는 것까지만 본다(핀치 줌 등 전체 제스처 차단은 #31)
+  //    일정 영역 밖을 밀 때 문서가 스크롤되지 않는 것까지만 본다(핀치 줌 등 전체 제스처 차단은 touch.e2e)
   {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, hasTouch: true });
     const page = await ctx.newPage();
