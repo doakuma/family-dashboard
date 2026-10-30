@@ -38,15 +38,43 @@ describe("스킨 구조", () => {
     for (const id of SKIN_IDS) expect(layout).toContain(`import "../skins/${id}/tokens.css"`);
   });
 
-  it("<html>에 기본 data-skin이 있다 (스킨 CSS가 닿기 전에도 토큰이 정의됨)", () => {
-    expect(readFileSync(join(appDir, "app/layout.tsx"), "utf8")).toContain('data-skin="default"');
+  it("<html data-skin>을 서버가 config의 skin으로 렌더한다 (첫 로드 깜빡임 없음, suppressHydrationWarning 없음)", () => {
+    const layout = readFileSync(join(appDir, "app/layout.tsx"), "utf8");
+    expect(layout).toContain("data-skin={getSkinForLayout()}");
+    expect(layout).not.toContain("suppressHydrationWarning");
+  });
+
+  it("manifest의 themeColor가 각 톤의 --paper와 같다 (주소창 색이 화면과 어긋나지 않음)", () => {
+    for (const id of SKIN_IDS) {
+      const t = readSkinTokens(id);
+      expect(SKIN_MANIFESTS[id].themeColor, id).toEqual({ day: t.day.paper, dim: t.dim.paper });
+    }
+  });
+
+  it("배치 불변: tokens.css의 선택자는 낮/dim 둘뿐이고 선언은 --* 와 color-scheme만 (스킨은 배치를 못 바꾼다)", () => {
+    for (const id of SKIN_IDS) {
+      const css = readFileSync(join(SKINS_DIR, id, "tokens.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+      const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)];
+      expect(css.replace(/([^{}]+)\{([^{}]*)\}/g, "").trim(), `${id}: 규칙 밖 내용(@import·@media 등)`).toBe("");
+      expect(rules.map((m) => (m[1] ?? "").trim().replace(/\s+/g, " ")), id).toEqual([`[data-skin="${id}"]`, `[data-skin="${id}"][data-tone="dim"]`]);
+      for (const m of rules) {
+        const props = (m[2] ?? "").split(";").map((d) => d.trim()).filter(Boolean).map((d) => d.slice(0, d.indexOf(":")).trim());
+        const bad = props.filter((p) => !p.startsWith("--") && p !== "color-scheme");
+        expect(bad, `${id}: 허용되지 않은 선언`).toEqual([]);
+      }
+    }
   });
 
   it("character는 아직 none뿐", () => {
     expect([...CHARACTER_IDS]).toEqual(["none"]);
   });
 
-  it("스킨은 글자 크기 하한(공통 토큰)을 덮어쓰지 못한다", () => {
+  it("공통 토큰(text-floor·gap·pad)은 globals.css의 :root에 있다", () => {
+    const globals = readFileSync(join(appDir, "app/globals.css"), "utf8");
+    for (const name of COMMON_TOKENS) expect(globals, name).toMatch(new RegExp(`--${name}:\\s*[\\d.]+rem`));
+  });
+
+  it("스킨은 공통 토큰(글자 크기 하한·간격)을 덮어쓰지 못한다", () => {
     for (const id of SKIN_IDS) {
       const t = readSkinTokens(id);
       for (const name of COMMON_TOKENS) {

@@ -2,5 +2,6 @@
   "id": "paper",
   "name": "따뜻한 종이 (임시 검증용)",
   "description": "구조·전환·대비 테스트용으로 default와 확연히 다르게 만든 임시 스킨. 정식 스킨이 생기면 지운다.",
-  "temporary": true
+  "temporary": true,
+  "themeColor": { "day": "#f4ead6", "dim": "#231c15" }
 }

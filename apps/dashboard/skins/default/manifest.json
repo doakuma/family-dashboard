@@ -1,5 +1,6 @@
 {
   "id": "default",
   "name": "기본 (세이지)",
-  "description": "차가운 세이지 화이트 바탕, 슬레이트 글자, Jua 제목"
+  "description": "차가운 세이지 화이트 바탕, 슬레이트 글자, Jua 제목",
+  "themeColor": { "day": "#edf2ee", "dim": "#13232c" }
 }

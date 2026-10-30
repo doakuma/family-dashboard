@@ -33,8 +33,6 @@
   --radius-md: 0.35rem;
   --radius-lg: 0.6rem;
   --shadow-card: 0 0.1rem 0.4rem rgb(58 44 31 / 14%);
-  --gap: 1.25rem;
-  --pad: 1.5rem;
   --deco-bg: repeating-linear-gradient(0deg, transparent 0 1.9rem, rgb(58 44 31 / 4%) 1.9rem 2rem); /* 줄 노트 느낌 */
 
   color-scheme: light;

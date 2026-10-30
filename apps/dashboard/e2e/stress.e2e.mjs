@@ -31,7 +31,7 @@ g("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "stress");
 
 const server = spawn("node", ["server.ts"], {
   cwd: root,
-  env: { ...process.env, PORT: String(PORT), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: LOCAL, NODE_ENV: undefined },
+  env: { ...process.env, PORT: String(PORT), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: LOCAL, NODE_ENV: undefined, HSH_PREVIEW_QUERY: "1" },
   stdio: "ignore",
 });
 async function waitFor(url) {

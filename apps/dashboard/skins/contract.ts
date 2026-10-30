@@ -22,7 +22,7 @@ export const COLOR_TOKENS = [
   "icon-drop",
 ] as const;
 
-/** 낮 블록에만 정의하면 되는 모양 토큰 (글꼴·모서리·그림자·간격·배경 장식) */
+/** 낮 블록에만 정의하면 되는 모양 토큰 (글꼴·모서리·그림자·배경 장식) */
 export const SHAPE_TOKENS = [
   "font-display",
   "font-body",
@@ -31,13 +31,11 @@ export const SHAPE_TOKENS = [
   "radius-md",
   "radius-lg",
   "shadow-card",
-  "gap",
-  "pad",
   "deco-bg",
 ] as const;
 
-/** 스킨이 정의할 수 없는 공통 토큰(globals.css). 글자 크기 하한은 스킨이 낮출 수 없다. */
-export const COMMON_TOKENS = ["text-floor"] as const;
+/** 스킨이 정의할 수 없는 공통 토큰(globals.css). 글자 크기 하한은 스킨이 낮출 수 없고, 간격(gap·pad)은 스킨이 바꾸면 배치가 달라지므로 공통이다. */
+export const COMMON_TOKENS = ["text-floor", "gap", "pad"] as const;
 
 export interface SkinManifest {
   id: string;
@@ -45,4 +43,6 @@ export interface SkinManifest {
   description?: string;
   /** 임시 검증용 스킨 표시 */
   temporary?: boolean;
+  /** 브라우저 주소창 색(<meta theme-color>). 각 톤의 --paper와 같아야 한다(테스트가 비교). */
+  themeColor: { day: string; dim: string };
 }

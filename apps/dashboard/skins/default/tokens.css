@@ -32,14 +32,12 @@
   --font-display: "Jua", "Pretendard Variable", sans-serif;
   --font-body: "Pretendard Variable", Pretendard, system-ui, sans-serif;
 
-  /* 모서리·그림자·간격·배경 장식 */
+  /* 모서리·그림자·배경 장식 (간격 gap·pad는 globals.css 공통) */
   --radius-xs: 0.25rem;
   --radius-sm: 0.6rem;
   --radius-md: 0.8rem;
   --radius-lg: 1.6rem;
   --shadow-card: none;
-  --gap: 1.25rem;
-  --pad: 1.5rem;
   --deco-bg: none;
 
   color-scheme: light;

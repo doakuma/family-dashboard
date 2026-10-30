@@ -33,6 +33,5 @@ export function toPublicState(state: DashboardState, today: string): ApiState {
     needsSetup: needsSetup(state),
     skin: state.skin,
     character: "none", // #29(캐릭터 층) 전까지 고정
-
   };
 }

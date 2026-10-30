@@ -26,6 +26,7 @@ export class EnvConfigProvider implements ConfigProvider {
     const values: { [P in keyof AppConfig]: () => AppConfig[P] } = {
       familyId: () => (blank(env.HSH_FAMILY_ID) ? asFamilyId(blank(env.HSH_FAMILY_ID) as string) : DEFAULT_FAMILY_ID),
       nodeEnv: () => (env.NODE_ENV === "production" ? "production" : "development"),
+      previewQuery: () => env.NODE_ENV !== "production" || env.HSH_PREVIEW_QUERY === "1",
       port: () => Number(blank(env.PORT) ?? 3000),
       wikiRepoPath: () => env.WIKI_REPO_PATH || undefined,
       dashboardBaseUrl: () => env.DASHBOARD_BASE_URL,

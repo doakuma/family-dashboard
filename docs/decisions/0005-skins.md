@@ -1,21 +1,23 @@
 # 0005. 스킨 토큰 구조와 스킨 2종 전환 (#28)
 
 - 날짜: 2026-10-30
-- 상태: 구현 완료, 리뷰 대기 (스펙 rev 44 기준)
+- 상태: 구현 완료, 리뷰 통과 후 후속 수정 반영(2026-10-30), 재리뷰 대기 (스펙 rev 44 기준)
 
 ## 결정
 
 ### 구조와 위치
 - `apps/dashboard/skins/<id>/tokens.css` + `manifest.json`. 위치는 **대시보드 앱 안**: 토큰은 CSS이고 쓰는 곳이 화면뿐이라 core(브라우저 안전 순수 모듈)에 둘 이유가 없다. 계약(`skins/contract.ts`)·목록(`skins/index.ts`)·테스트 도우미(`color.ts`, `read-tokens.ts`)도 같은 폴더.
 - 선택자는 `[data-skin="<id>"]`(낮)와 `[data-skin="<id>"][data-tone="dim"]`(어두운 톤). `data-mode`(day/night)·`data-tone`(normal/dim) 축은 그대로 두고 `data-skin`을 세 번째 독립 축으로 `<html>`에 둔다. 지금은 야간 = dim이지만 축이 분리되어 있어 스킨 × 톤 조합이 모두 정의되어 있어야 한다(테스트).
-- 계약: 색 토큰(paper·sheet·ink·muted·faint·line·글자 의미색·구성원 슬롯 8·날씨 아이콘 3)은 낮·dim 블록 **둘 다** 정의, 모양 토큰(글꼴·모서리 4단·그림자·gap·pad·배경 장식 `--deco-bg`)은 낮 블록만. 계약 밖 토큰·누락은 테스트가 막는다. 스킨은 배치(grid)를 바꾸지 않는다(레이아웃 프리셋은 2단계).
+- 계약: 색 토큰(paper·sheet·ink·muted·faint·line·글자 의미색·구성원 슬롯 8·날씨 아이콘 3)은 낮·dim 블록 **둘 다** 정의, 모양 토큰(글꼴·모서리 4단·그림자·배경 장식 `--deco-bg`)은 낮 블록만. 계약 밖 토큰·누락은 테스트가 막는다. 스킨은 배치(grid)를 바꾸지 않는다(레이아웃 프리셋은 2단계).
+- **배치 불변 검사(후속)**: `--gap`·`--pad`는 스킨 토큰에서 빼 `globals.css` 공통 토큰으로 옮겼다(스킨이 정의하면 테스트 실패). 테스트가 tokens.css에서 주석을 지운 뒤 선택자가 정해진 둘(낮/dim)뿐이고 선언이 `--*`와 `color-scheme`뿐인지 확인하고(@media·@import 등 규칙 밖 내용도 실패), skin e2e가 두 스킨의 위젯 영역 6개 boundingBox가 같은지(오차 1px) 비교한다. 이 e2e가 실제로 4px 차이를 잡아냈다: 줄 높이가 `normal`인 글꼴 의존 줄(`ClockHeader .family`, `DdayList .d`)이 자동 높이 행을 글꼴 따라 바꿨다 -> `line-height: 1.3` 명시.
 - 공통 토큰 `--text-floor`는 `globals.css`에만 있고 스킨이 덮어쓰면 테스트가 실패한다.
 - **core에는 `SKIN_IDS`·`CHARACTER_IDS` 목록만** 둔다. 이유: `config.md`의 모르는 값 판정·경고가 core 파서(`parseConfigFile`)에서 일어나야 하는데 파서는 대시보드의 폴더를 볼 수 없다. 대신 폴더 = manifest id = `SKIN_IDS`인지 테스트로 묶는다. 새 스킨은 폴더 + `SKIN_IDS` + `layout.tsx` import + `skins/index.ts` 4곳(모두 테스트가 누락을 잡는다).
 
 ### 전환
 - 스킨 CSS는 `layout.tsx`가 전부 import해 번들에 포함(지연 로드 없음). `useSkin(skin)`이 `<html data-skin>`을 바꾼다. `Screen`이 폴링한 `state.skin`을 넘기므로 위키의 `skin`을 바꾸면 다음 폴링(60초) 때 새로고침 없이 바뀐다(e2e: 같은 문서 마커 유지 확인).
-- `<html>`의 서버 렌더 값은 `default` 고정이라 default가 아닌 스킨의 태블릿은 **첫 로드 때 hydration 전까지 default가 잠깐 보인다**(이후 전환은 즉시). 레이아웃이 위키를 읽게 하면 /setup·오류 화면까지 위키 읽기에 묶이므로 하지 않았다. 필요하면 후속.
-- 개발용 `?skin=<id>`: 알려진 id면 위키 값 대신 쓴다(`?at`·`?mode`와 같은 방식, 모르는 값은 무시). 바꾸는 곳(/setup 미리보기·/settings·슬랙 명령)은 #30.
+- **첫 로드 깜빡임 해결(후속)**: 레이아웃이 `getSkinForLayout()`(config.md만 읽어 skin 해석, try/catch로 실패 시 default)로 `<html data-skin>`을 서버에서 렌더한다. 위키 전체를 읽지 않고 실패가 /setup·오류 화면으로 번지지 않는다. 레이아웃은 `force-dynamic`. 폴링 뒤 전환은 기존 `useSkin` 그대로. `suppressHydrationWarning`은 제거(서버·클라이언트가 같은 값을 렌더하고 이후 변경은 effect라 경고 없음). `themeColor`는 manifest의 `themeColor {day, dim}`(각 톤 `--paper`와 같은지 테스트)을 서버 시각 기준 낮/야간(23~6시)으로 골라 `generateViewport`가 낸다. 한계: 첫 로드 때만 반영되고 폴링 뒤 낮밤 전환·`?mode`는 따라가지 않는다.
+- 개발용 `?skin=<id>`: 알려진 id면 위키 값 대신 쓴다(모르는 값은 무시).
+- **미리보기 쿼리 `?skin`·`?at`·`?mode`는 개발 모드에서만 동작(오너 결정)**: `ConfigProvider`의 `previewQuery`(= NODE_ENV !== production 또는 `HSH_PREVIEW_QUERY=1`)가 꺼져 있으면 `parsePreview`가 전부 무시한다(운영 기본값 꺼짐). 이유: 거실 태블릿 주소에 가족이 쿼리를 붙여 시각·스킨이 어긋난 화면이 남는 것을 막는다. **e2e(stress·skin)는 운영 빌드에서 `?at`·`?mode`에 의존**하므로 테스트 전용 env 플래그 `HSH_PREVIEW_QUERY=1`로 켠다(대안으로 dev 서버를 쓰는 안은 빌드 검증과 달라져 버렸다). skin e2e에 플래그 없는 서버가 쿼리를 무시하는 단계를 넣었다. 바꾸는 곳(/setup 미리보기·/settings·슬랙 명령)은 #30.
 
 ### 위키·API
 - `config.md`의 `skin`·`character`는 선택. 없으면 없는 그대로 읽고(다시 쓸 때 줄이 안 생김), **있는데 모르는 값이면** `default`/`none` + 경고(필드 단위 관용, 쓰기 스키마는 엄격 enum). `DashboardState.skin/character`는 해석된 값(없으면 default/none).
@@ -37,4 +39,4 @@
 - 날씨 아이콘 색은 `--icon-*` 토큰으로 옮겼다(SVG 속성 `var()`), `border-radius`는 4단 토큰(`--radius-xs~lg`)으로 바꿨다. 기존 값 중 0.2·0.3rem -> 0.25rem, 0.9rem -> 0.8rem으로 아주 조금 맞췄다.
 
 ## 스펙과 다른 점
-- 없음. (스펙에 없는 판단: core의 `SKIN_IDS` 목록, ΔE 20·3:1·12px 수치, 첫 로드 때 default가 잠깐 보이는 점, 위 색 두 개 조정)
+- 없음. (스펙에 없는 판단: core의 `SKIN_IDS` 목록, ΔE 20·3:1·12px 수치, 위 색 두 개 조정, `previewQuery` 설정 키·`HSH_PREVIEW_QUERY` 테스트 플래그, themeColor를 manifest에 둔 것)

@@ -21,6 +21,8 @@ export interface AppConfig {
   /** production이 아니면 development로 본다(예시 위키·localhost 허용 같은 개발 편의의 기준) */
   nodeEnv: "production" | "development";
   port: number;
+  /** ?at·?mode·?skin 미리보기 쿼리를 받는지. 개발 모드에서만 켜지고, 운영 기본값은 꺼짐(e2e만 HSH_PREVIEW_QUERY=1로 켠다) */
+  previewQuery: boolean;
   /** 위키 저장소 위치(FsWikiRepository 전용). 서비스 저장소에서는 쓰지 않는다 */
   wikiRepoPath?: string;
   /** 태블릿 QR·출처 확인의 기준 주소 */

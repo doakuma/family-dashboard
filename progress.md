@@ -121,3 +121,8 @@
 ## 2026-10-30 · #28 리뷰 통과
 - 리뷰어 통과 → #28 passes=true·review=pass (오너 반영). 오너 승인: default 낮 coral #dc5444·amber #b57000, 리뷰 기준(스킨 3기준) 추가.
 - 오너 결정: [중간] 3건(배치 불변 검사, gap·pad 공통 토큰, 첫 로드 서버 렌더)은 #31 전에 처리. ?skin=·?at=·?mode=는 개발 모드에서만.
+
+## 2026-10-30 · #28 리뷰 후속 수정 (결정 0005 갱신)
+- 배치 불변: tokens.css 선택자 2개·선언 `--*`/`color-scheme`만 검사 테스트, `--gap`·`--pad`를 globals.css 공통 토큰으로(contract COMMON_TOKENS, 스킨 정의 금지 테스트). skin e2e에 위젯 영역 6개 boundingBox 비교 -> 4px 차이 발견, 글꼴 의존 줄 2곳에 line-height 명시로 해결.
+- 첫 로드: layout이 `getSkinForLayout()`(config.md만, 실패 시 default)로 `<html data-skin>` 렌더, suppressHydrationWarning 제거, themeColor는 manifest `themeColor`로 스킨·낮밤 반영(첫 로드 한정). `?skin/?at/?mode`는 `previewQuery`(개발 모드 또는 테스트 전용 `HSH_PREVIEW_QUERY=1`)일 때만; e2e는 플래그로 켜고, 꺼진 서버가 무시하는 단계 추가. public-state 빈 줄 정리.
+- 검증: pnpm check(458 테스트)·build, e2e 4종 통과. 남은 문제: 폴링 뒤 낮밤 전환에는 themeColor가 따라가지 않음, 서버 렌더 data-tone 없음(야간 첫 로드 깜빡임은 별건). #28은 passes=false, review=pending(재리뷰 대기).

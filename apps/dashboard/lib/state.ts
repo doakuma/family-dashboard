@@ -1,5 +1,5 @@
 import "server-only";
-import { SetupError, existingSetupContent, needsSetup, toPublicState, todayIn, type ApiState, type DashboardState, type WikiRepository } from "@hsh/core";
+import { DEFAULT_SKIN, SetupError, existingSetupContent, needsSetup, parseConfigFile, toPublicState, todayIn, type ApiState, type DashboardState, type SkinId, type WikiRepository } from "@hsh/core";
 import { FsWikiRepository } from "@hsh/core/node";
 import { resolve } from "node:path";
 import { config } from "./config";
@@ -46,6 +46,19 @@ export async function getSetupContext() {
     writable: Boolean(config.get("wikiRepoPath")),
     existing: { config: e.config, members: e.memberFiles.length, anniversaries: e.anniversaries },
   };
+}
+
+/**
+ * 레이아웃이 첫 HTML에 data-skin을 넣으려고 config의 skin만 읽는다(위키 전체를 읽지 않는다).
+ * 실패(위키 경로 없음·읽기 오류)하면 default - /setup·오류 화면이 위키 읽기에 묶이지 않게.
+ */
+export function getSkinForLayout(): SkinId {
+  try {
+    const text = getWiki().files.read("config.md");
+    return (text ? parseConfigFile(text, () => {})?.skin : undefined) ?? DEFAULT_SKIN;
+  } catch {
+    return DEFAULT_SKIN;
+  }
 }
 
 let lastWarnings = "";
