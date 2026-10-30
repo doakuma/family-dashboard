@@ -8,7 +8,7 @@ import s from "./AutoScroll.module.css";
  * - 스크롤바·버튼은 없다(누를 수 있어 보이지 않게). 터치하면 순환을 멈추고 손으로 스크롤할 수 있으며,
  *   손을 뗀 뒤 resumeAfterTouchMs(기본 120초)가 지나면 현재 위치에서 다시 순환한다.
  * - prefers-reduced-motion이면 자동 순환하지 않는다(손 스크롤만).
- * - 이 영역은 touch-action: pan-y(세로 스크롤만 허용). 화면 전체의 제스처 차단(핀치 줌 등)은 아직 없고 #31에서 한다.
+ * - 이 영역은 touch-action: pan-y(세로 스크롤만 허용). 화면 전체의 제스처 차단(핀치 줌 등)은 globals.css의 키오스크 규칙과 useKioskGuards.
  * 높이는 부모가 정한다(flex 자식이면 min-height:0 과 함께 쓴다).
  */
 export function AutoScroll({

@@ -1,11 +1,18 @@
 .calendar {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   min-height: 0;
   padding: 1.1rem 1.2rem 1.2rem;
   background: var(--sheet);
   box-shadow: var(--shadow-card);
   border-radius: var(--radius-lg);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
 }
 
 .month {
@@ -59,6 +66,78 @@
   padding: 0.3rem 0.25rem 0.25rem;
   border-bottom: 1px solid var(--line);
   overflow: hidden;
+}
+
+/* 보기 터치: 날짜 칸 전체가 버튼. 칸 모양은 그대로(체크박스처럼 보이지 않게 테두리·채움 없이, 누르는 동안만 살짝 어둡게) */
+.cellBtn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  margin: -0.3rem -0.25rem -0.25rem;
+  padding: 0.3rem 0.25rem 0.25rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cellBtn:active {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.cellBtn:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: -3px;
+}
+
+.nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.navBtn {
+  display: grid;
+  place-items: center;
+  min-width: 48px;
+  min-height: 48px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.navBtn:active {
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+.navBtn:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.navBtn:disabled {
+  opacity: 0.35; /* 범위 끝: 비활성 컨트롤은 대비 기준 밖이지만 글자색을 바꾸지 않고 투명도로만 */
+  cursor: default;
+}
+
+/* 가로 스와이프는 JS가 받고, 세로 스크롤만 브라우저에 맡긴다 */
+.calendar[data-browsable] {
+  touch-action: pan-y;
 }
 
 .num {

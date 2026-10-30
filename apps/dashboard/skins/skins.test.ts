@@ -168,7 +168,7 @@ describe("글자 크기 하한", () => {
   const floor = /--text-floor:\s*([\d.]+)rem/.exec(readFileSync(join(appDir, "app/globals.css"), "utf8"));
   const floorRem = Number(floor?.[1]);
   // 태블릿 화면(대시보드·위젯·야간·세팅 필요 안내). 휴대폰 /setup 폼은 따로 16px 기준.
-  const tabletCss = ["components/Dashboard.module.css", "components/SetupNeeded.module.css", ...readdirSync(join(appDir, "components/widgets")).filter((n) => n.endsWith(".css")).map((n) => `components/widgets/${n}`)];
+  const tabletCss = ["components/Dashboard.module.css", "components/SetupNeeded.module.css", ...["components/widgets", "components/ui"].flatMap((d) => readdirSync(join(appDir, d)).filter((n) => n.endsWith(".css")).map((n) => `${d}/${n}`))];
 
   it("하한 토큰이 있다: 1280×800(1rem=16px)에서 12px 이상", () => {
     expect(floorRem).toBeGreaterThanOrEqual(0.75);

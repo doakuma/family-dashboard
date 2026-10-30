@@ -4,7 +4,7 @@ import { SKIN_IDS, type Event } from "@hsh/core";
 import { describe, expect, it } from "vitest";
 import { contrast, over } from "../skins/color";
 import { readSkinTokens } from "../skins/read-tokens";
-import { DDAY_SOON_DAYS, LIMITS, STALE_AFTER_MS, isNight, isPast, isSoon, isStale, limit, orderAgenda } from "./view";
+import { DDAY_SOON_DAYS, LIMITS, STALE_AFTER_MS, isNight, isPast, isSoon, isStale, limit, orderAgenda, displayOf, whenLabel } from "./view";
 
 describe("isNight", () => {
   it("23:00부터 05:59까지가 야간", () => {
@@ -96,6 +96,26 @@ describe("오늘 일정 순서", () => {
     const { upcoming, past } = orderAgenda(events, "2026-11-03", "00:00");
     expect(upcoming).toHaveLength(8);
     expect(past).toHaveLength(0);
+  });
+});
+
+describe("displayOf (모드·톤은 따로)", () => {
+  it("낮: 만져도 안 만져도 낮 화면·보통 톤", () => {
+    expect(displayOf(false, false)).toEqual({ mode: "day", tone: "normal" });
+    expect(displayOf(false, true)).toEqual({ mode: "day", tone: "normal" });
+  });
+  it("야간: 안 만지면 야간 화면·어두운 톤, 만지면 낮 화면 구성 + 어두운 톤 그대로", () => {
+    expect(displayOf(true, false)).toEqual({ mode: "night", tone: "dim" });
+    expect(displayOf(true, true)).toEqual({ mode: "day", tone: "dim" });
+  });
+});
+
+describe("whenLabel", () => {
+  it("종일·시작만·시작-끝", () => {
+    expect(whenLabel({ allDay: true })).toBe("종일");
+    expect(whenLabel({ allDay: false, start: "09:30" })).toBe("09:30");
+    expect(whenLabel({ allDay: false, start: "14:00", end: "15:00" })).toBe("14:00-15:00");
+    expect(whenLabel({ allDay: false })).toBe("종일");
   });
 });
 
@@ -191,6 +211,14 @@ const OPACITY_CASES: { file: string; selector: string; tone: "day" | "dim"; fg: 
     fg: ["ink"],
     bg: ["sheet"],
     exempt: "다른 달 칸은 일부러 가장 흐리게(참고용 날짜). 오너 확인 대상",
+  },
+  {
+    file: "MonthCalendar.module.css",
+    selector: ".navBtn:disabled",
+    tone: "day",
+    fg: ["ink"],
+    bg: ["sheet"],
+    exempt: "비활성 컨트롤(범위 끝 2000-01·2100-12에서만)은 WCAG 1.4.3 면제",
   },
 ];
 

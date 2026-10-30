@@ -1,3 +1,4 @@
+import type { Viewport } from "next";
 import { config } from "@/lib/config";
 import { parsePreview } from "@/lib/preview";
 import { Screen } from "@/components/Screen";
@@ -5,6 +6,9 @@ import { getSetupQr } from "@/lib/setup-qr";
 import { getApiState } from "@/lib/state";
 
 export const dynamic = "force-dynamic";
+
+// 거실 태블릿 화면만 확대를 막는다(핀치 줌 방지). 휴대폰 /setup은 확대를 그대로 둔다(접근성). 나머지 viewport 값(너비·테마색)은 layout 것을 쓴다.
+export const viewport: Viewport = { maximumScale: 1, userScalable: false };
 
 interface Props {
   // 시안·점검용(개발 모드에서만, 운영은 무시): ?at=2026-10-29T10:30:00%2B09:00  ?mode=night  ?skin=paper

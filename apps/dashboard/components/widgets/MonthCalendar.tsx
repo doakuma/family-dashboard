@@ -1,12 +1,31 @@
+"use client";
 import { WEEKDAYS_KO, monthGrid, weekdayOf, type Event } from "@hsh/core";
+import { useRef } from "react";
+import { useSwipe } from "@/hooks/useSwipe";
 import { colorOf } from "@/lib/palette";
 import { LIMITS, limit } from "@/lib/view";
 import type { MemberMap } from "./MemberDot";
 import s from "./MonthCalendar.module.css";
 
-/** 일요일 시작 월간 달력. 칸당 최대 2건 + "외 n건". 색 막대는 첫 구성원 색. */
-export function MonthCalendar({ events, today, members }: { events: Event[]; today: string; members: MemberMap }) {
-  const month = today.slice(0, 7);
+export interface MonthCalendarProps {
+  events: Event[];
+  today: string;
+  members: MemberMap;
+  /** 보여 줄 달(YYYY-MM). 없으면 오늘이 속한 달 */
+  month?: string;
+  /** 있으면 날짜 칸이 눌린다(그날 일정 시트). 없으면 보기 전용 */
+  onSelectDate?: (date: string) => void;
+  /** 있으면 ‹ › 버튼과 좌우 스와이프로 달을 옮긴다. 없으면 보기 전용 */
+  onChangeMonth?: (delta: -1 | 1) => void;
+  /** 더 이전/다음 달이 없을 때(범위 끝) 버튼을 비활성으로 */
+  canMove?: { prev: boolean; next: boolean };
+}
+
+/**
+ * 일요일 시작 월간 달력. 칸당 최대 2건 + "외 n건". 색 막대는 첫 구성원 색.
+ * 표시 컴포넌트: 일정 목록과 달만 받고, 보기 상태(어느 달·어느 날짜)는 상위가 갖는다. 콜백이 없으면 보기 전용이다.
+ */
+export function MonthCalendar({ events, today, members, month = today.slice(0, 7), onSelectDate, onChangeMonth, canMove = { prev: true, next: true } }: MonthCalendarProps) {
   const days = monthGrid(month);
   const byDate = new Map<string, Event[]>();
   for (const e of events) {
@@ -18,11 +37,27 @@ export function MonthCalendar({ events, today, members }: { events: Event[]; tod
     return colorOf(members.get(id ?? "")?.color);
   };
 
+  const root = useRef<HTMLElement>(null);
+  useSwipe(root, onChangeMonth && ((dir) => onChangeMonth(dir === "next" ? 1 : -1)));
+  const label = `${Number(month.slice(5))}월`;
+
   return (
-    <section className={s.calendar} aria-label={`${Number(month.slice(5))}월 달력`}>
-      <h2 className={s.month}>
-        {Number(month.slice(5))}월 <span className={s.year}>{month.slice(0, 4)}</span>
-      </h2>
+    <section ref={root} className={s.calendar} aria-label={`${label} 달력`} data-browsable={onChangeMonth || onSelectDate ? "" : undefined}>
+      <div className={s.head}>
+        <h2 className={s.month}>
+          {label} <span className={s.year}>{month.slice(0, 4)}</span>
+        </h2>
+        {onChangeMonth && (
+          <div className={s.nav}>
+            <button type="button" className={s.navBtn} onClick={() => onChangeMonth(-1)} disabled={!canMove.prev} aria-label="이전 달">
+              <span aria-hidden="true">‹</span>
+            </button>
+            <button type="button" className={s.navBtn} onClick={() => onChangeMonth(1)} disabled={!canMove.next} aria-label="다음 달">
+              <span aria-hidden="true">›</span>
+            </button>
+          </div>
+        )}
+      </div>
       <div className={s.weekdays} aria-hidden>
         {WEEKDAYS_KO.map((w, i) => (
           <span key={w} data-dow={i}>
@@ -34,6 +69,17 @@ export function MonthCalendar({ events, today, members }: { events: Event[]; tod
         {days.map((d) => {
           const list = byDate.get(d) ?? [];
           const { shown, more } = limit(list, LIMITS.calendarCell);
+          const content = (
+            <>
+              <span className={s.num}>{Number(d.slice(8))}</span>
+              {shown.map((e) => (
+                <span key={e.id} className={s.event} data-done={e.done || undefined} style={{ ["--bar" as string]: barColor(e) }}>
+                  {e.title}
+                </span>
+              ))}
+              {more > 0 && <span className={s.more}>외 {more}건</span>}
+            </>
+          );
           return (
             <li
               key={d}
@@ -44,13 +90,20 @@ export function MonthCalendar({ events, today, members }: { events: Event[]; tod
               data-today={d === today || undefined}
               aria-current={d === today ? "date" : undefined}
             >
-              <span className={s.num}>{Number(d.slice(8))}</span>
-              {shown.map((e) => (
-                <span key={e.id} className={s.event} data-done={e.done || undefined} style={{ ["--bar" as string]: barColor(e) }}>
-                  {e.title}
-                </span>
-              ))}
-              {more > 0 && <span className={s.more}>외 {more}건</span>}
+              {onSelectDate ? (
+                <button
+                  type="button"
+                  className={s.cellBtn}
+                  data-date={d}
+                  aria-haspopup="dialog"
+                  aria-label={`${Number(d.slice(5, 7))}월 ${Number(d.slice(8))}일${list.length ? `, 일정 ${list.length}건` : ", 일정 없음"}`}
+                  onClick={() => onSelectDate(d)}
+                >
+                  {content}
+                </button>
+              ) : (
+                content
+              )}
             </li>
           );
         })}

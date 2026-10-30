@@ -1,8 +1,11 @@
+"use client";
+import { useDisplayTone } from "@/hooks/useDisplayTone";
 import type { SetupQrView } from "@/hooks/useSetupQr";
 import s from "./SetupNeeded.module.css";
 
 /** 첫 실행: 위키에 config.md나 구성원이 없을 때. 휴대폰으로 QR을 찍어 /setup으로 들어간다. */
 export function SetupNeeded({ qr }: { qr: SetupQrView | undefined }) {
+  useDisplayTone("day", "normal"); // 서버가 야간 톤으로 그린 첫 HTML이어도 이 화면은 항상 밝은 톤
   return (
     <main className={s.setup}>
       <div className={s.copy}>

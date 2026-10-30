@@ -44,3 +44,18 @@ export const DDAY_SOON_DAYS = 30;
 export function isSoon(daysLeft: number): boolean {
   return daysLeft <= DDAY_SOON_DAYS;
 }
+
+/**
+ * 화면의 모드(구성)와 톤(색)을 정한다. 둘은 따로다:
+ * - 모드: 야간 화면(night)은 야간 시간대이고 아무도 만지지 않았을 때만. 야간에 만지면 낮 화면 구성(day)으로 바뀐다.
+ * - 톤: 야간 시간대면 만져도 어두운 톤(dim)을 유지한다(밤에 눈부시지 않게). 120초 뒤 터치 상태가 풀리면 야간 화면으로 돌아간다.
+ */
+export function displayOf(night: boolean, touched: boolean): { mode: "day" | "night"; tone: "normal" | "dim" } {
+  return { mode: night && !touched ? "night" : "day", tone: night ? "dim" : "normal" };
+}
+
+/** 일정 시간 표시: 종일 / 14:00 / 14:00-15:00 (끝은 있을 때만) */
+export function whenLabel(e: Pick<Event, "allDay" | "start" | "end">): string {
+  if (e.allDay || !e.start) return "종일";
+  return e.end ? `${e.start}-${e.end}` : e.start;
+}

@@ -3,6 +3,10 @@
    │ 오늘 일정 │                      │ 장보기·할일 │
    │           │                      │ 다가오는 날 │
    └───────────┴──────────────────────┴───────────┘ */
+.root {
+  display: contents;
+}
+
 .board {
   position: relative;
   display: grid;

@@ -69,3 +69,19 @@ html:has([data-surface="phone"]) {
 html:has([data-surface="phone"]) body {
   overflow: auto;
 }
+
+/* 거실 태블릿 키오스크(Screen이 data-surface="tablet"을 단다): 만져서 화면이 깨지지 않게 막는다.
+   - touch-action: pan-y -> 핀치 줌·두 번 탭 확대·가로 팬을 브라우저가 가로채지 않는다(세로 스크롤만 허용: 오늘 일정, 시트)
+   - overscroll-behavior: none -> 당겨서 새로고침, 가장자리 밀어서 뒤로 가기 제스처 차단
+   - user-select/-webkit-touch-callout: none -> 길게 눌러 글자 선택·메뉴 차단
+   JS 쪽 보강은 hooks/useKioskGuards. 쓰기 UI가 없으므로 입력칸 선택 예외는 필요 없다. */
+html:has([data-surface="tablet"]),
+html:has([data-surface="tablet"]) body {
+  touch-action: pan-y;
+  overscroll-behavior: none;
+}
+html:has([data-surface="tablet"]) body {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}

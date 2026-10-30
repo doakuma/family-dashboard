@@ -1,0 +1,163 @@
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.9rem;
+  line-height: 1.3;
+  outline: none;
+}
+
+.dow {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* 터치 영역은 48px 이상 */
+.close,
+.back,
+.item {
+  min-height: 48px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.close,
+.back {
+  min-width: 48px;
+  padding: 0 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.close:focus-visible,
+.back:focus-visible,
+.item:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.close:active,
+.back:active,
+.item:active {
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-width: none;
+}
+
+.body::-webkit-scrollbar {
+  display: none;
+}
+
+.list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 6.6rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.8rem;
+  text-align: left;
+}
+
+.item[data-done] .what {
+  text-decoration: line-through; /* 완료 일정: 흐리게 하지 않고(명암비) 줄로 표시 */
+}
+
+.when {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.what {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  padding: 1rem 0;
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+.detail {
+  display: grid;
+  gap: var(--gap);
+  justify-items: start;
+}
+
+.eventTitle {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.eventTitle[data-done] {
+  text-decoration: line-through;
+}
+
+.facts {
+  display: grid;
+  gap: 0.8rem;
+  width: 100%;
+  margin: 0;
+}
+
+.facts > div {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.facts dt {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.facts dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.notice {
+  padding: 0.8rem 1rem;
+  border-left: 0.28rem solid var(--line);
+  font-size: 1rem;
+  color: var(--muted);
+}
