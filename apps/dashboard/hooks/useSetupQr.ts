@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
+import { setupQrSchema, type SetupQrView } from "@/lib/setup-qr-schema";
 
-/** /api/setup-qr 응답(서버의 SetupQr와 같은 모양. server-only 모듈이라 타입을 따로 둔다) */
-export type SetupQrView = { ok: true; label: string; url: string; svg: string } | { ok: false; reason: "missing" | "invalid" };
+export type { SetupQrView };
 
 /** 세팅 필요 화면이 떠 있는 동안 QR(일회용 토큰)을 주기적으로 새로 받는다. 토큰은 30분마다 바뀌고, 쓰면 폐기된다. */
 export function useSetupQr(initial: SetupQrView | undefined, active: boolean, intervalMs = 60_000): SetupQrView | undefined {
@@ -15,8 +15,8 @@ export function useSetupQr(initial: SetupQrView | undefined, active: boolean, in
       try {
         const res = await fetch("/api/setup-qr", { cache: "no-store" });
         if (!res.ok) return;
-        const body = (await res.json()) as SetupQrView;
-        if (alive) setQr(body);
+        const parsed = setupQrSchema.safeParse(await res.json());
+        if (parsed.success && alive) setQr(parsed.data); // 모양이 다른 응답은 무시하고 이전 QR을 유지
       } catch {
         // 다음 주기에 다시
       }

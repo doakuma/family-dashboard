@@ -1,5 +1,6 @@
 // /settings용: PIN만으로 세션 발급
 import { NextResponse } from "next/server";
+import { readSmallForm } from "@/lib/auth/form";
 import { authState, isSameOrigin, verifyAdminPin } from "@/lib/auth/server";
 import { SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth/session";
 
@@ -9,7 +10,9 @@ const redirect = (to: string) => new NextResponse(null, { status: 303, headers: 
 
 export async function POST(req: Request) {
   if (!isSameOrigin(req)) return new NextResponse("forbidden", { status: 403 });
-  const pin = String((await req.formData()).get("pin") ?? "");
+  const read = await readSmallForm(req);
+  if (!read.ok) return new NextResponse("bad request", { status: read.status });
+  const pin = read.form.get("pin") ?? "";
   const result = verifyAdminPin(pin);
   if (result.status !== "ok") return redirect(`/settings?e=${result.status}`);
   const res = redirect("/settings");
