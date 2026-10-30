@@ -194,7 +194,7 @@
       "status": "done",
       "passes": false,
       "review": "pending",
-      "note": "ADMIN_PIN_HASH(scrypt, pnpm pin:hash), 일회용 세팅 토큰 QR, 세션 쿠키, 5회 잠금, proxy+custom server 내부망 제한, /api/state 공개용 축소. /setup 마법사 본체는 #18. 결정 0002"
+      "note": "리뷰 되돌림 수정 반영(Host 허용 목록, peer 증명, PM2, 잠금 2배). passes=false, 재리뷰 대기"
     },
     {
       "id": 18,

@@ -48,3 +48,10 @@
   명암비: --sunday·pop 글자색 토큰화(4.5:1 이상), 테스트가 CSS에서 글자색 토큰을 모아 검사하고 opacity 규칙도 계산에 반영(다른 달 날짜 .35는 면제로 등록, 오너 확인 필요). 스트레스 픽스처 `fixtures/stress-wiki`, `e2e/stress.e2e.mjs`(1280×800·1024×600 야간 scrollWidth==뷰포트, 낮 자동 순환·화면 스크롤 0·터치), 캡처 `docs/screens/stress-*`.
 - 장부: features.json passes 정리(#1 #2 #4 #5 #14 #16 true, 나머지 false, review 필드 pass/pending/null), #27~#31 목록만 추가. CLAUDE.md 원칙 문구는 rev 50 취지로.
 - 남은 문제: 키오스크 제스처 전역 차단·달력 터치는 #31(하지 않음). 실제 태블릿 터치·해상도는 #24.
+
+## 2026-10-30 · #17 리뷰 되돌림 수정
+- DNS 리바인딩: server.ts가 Host 허용 목록(BASE_URL host, localhost/127.0.0.1/[::1], 사설 IP 리터럴)만 받고 나머지는 403. 폼 출처 확인은 Host 대신 BASE_URL origin과 비교(개발 모드만 localhost 추가). `lib/auth/host.ts` + 테스트, e2e에 `Host: evil.example -> 403` 단계.
+- x-hsh-peer 위조: server.ts가 시작 시 랜덤 비밀값을 env에 두고 `x-hsh-peer-proof`(HMAC)를 붙이고, proxy.ts가 timingSafeEqual로 대조. `next start` 단독은 헤더를 꾸며도 항상 403(e2e 갱신). 이동: stampPeer·PEER_HEADER는 `lib/auth/peer.ts`.
+- Windows/PM2: engines >=22.18, `ecosystem.config.cjs`(대시보드+봇), server.ts 맨 앞 `loadEnvConfig`(@next/env 의존성 추가). setup-qr 응답 zod 검증, 로그인·세팅 폼 400/411/413/415, 잠금 안내에 남은 분, next ~16.4 고정(+zod 의존성).
+- 오너 결정 반영: PIN 잠금 반복 시 2배(15·30·60분…, 상한 24시간), 성공하면 초기화(테스트 있음). 결정 0002에 기록.
+- 검증: pnpm check, build, auth e2e 통과. #17은 passes=false 유지(재리뷰 전). 남은 문제: .env 로딩(PM2)·Windows 실행은 실제 노트북에서 확인 필요(#24), 실제 DNS 리바인딩 공격은 Host 위조 요청으로만 검증.
