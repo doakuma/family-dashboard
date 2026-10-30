@@ -35,7 +35,7 @@
 .url {
   margin-top: 2rem;
   font-size: 1rem;
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .qr {

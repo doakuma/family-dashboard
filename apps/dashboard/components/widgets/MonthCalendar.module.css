@@ -18,7 +18,7 @@
   font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 600;
-  color: var(--faint);
+  color: var(--muted);
   vertical-align: 0.5rem;
 }
 

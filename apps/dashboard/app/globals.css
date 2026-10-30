@@ -5,11 +5,11 @@
   --sheet: #fafcfa; /* 달력 종이 */
   --ink: #1c2a32; /* 글자: 짙은 슬레이트 */
   --muted: #5d6e77;
-  --faint: #93a2a8;
+  --faint: #93a2a8; /* 장식 전용(점·구분). 글자에는 쓰지 않는다 — 명암비 2.3:1 */
   --line: #d2dcd6;
   --sunday: #c94c3c;
   --saturday: #3a68b8;
-  --warn: #c2402e;
+  --warn: #c2402e; /* 밝은 바탕 4.6:1 */
 
   --font-display: "Jua", "Pretendard Variable", sans-serif;
   --font-body: "Pretendard Variable", Pretendard, system-ui, sans-serif;
@@ -23,8 +23,9 @@
   --paper: #13232c;
   --sheet: #182b35;
   --ink: #b9c9c6;
-  --muted: #74888f;
+  --muted: #8a9da3; /* 야간 바탕 4.5:1 이상 */
   --faint: #4d6068;
+  --warn: #ff8a78; /* 야간 바탕 7:1 */
   --line: #24384280;
   color-scheme: dark;
 }

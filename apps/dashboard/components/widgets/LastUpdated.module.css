@@ -3,11 +3,11 @@
   right: calc(var(--pad) * 1.2);
   bottom: 0.45rem;
   font-size: 0.75rem;
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .updated[data-stale] {
-  color: var(--muted);
+  color: var(--ink);
 }
 
 .warn {
