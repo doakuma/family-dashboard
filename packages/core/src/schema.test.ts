@@ -2,12 +2,12 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FsWikiRepository } from "./node/fs-wiki";
 import { apiStateSchema } from "./schema";
-import { needsSetup } from "./types";
+import { toPublicState } from "./public-state";
 
 describe("apiStateSchema (/api/state 응답 검증)", async () => {
   const wiki = new FsWikiRepository({ root: resolve(import.meta.dirname, "../../../fixtures/sample-wiki"), readOnly: true });
   const state = await wiki.read();
-  const body = { ...state, weather: [], updatedAt: "2026-11-03T01:00:00Z", needsSetup: needsSetup(state) };
+  const body = toPublicState({ ...state, weather: [], updatedAt: "2026-11-03T01:00:00Z" }, "2026-11-03");
 
   it("예시 위키 상태는 통과한다", () => {
     expect(apiStateSchema.parse(JSON.parse(JSON.stringify(body)))).toMatchObject({ needsSetup: false });

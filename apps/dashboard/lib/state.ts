@@ -1,5 +1,5 @@
 import "server-only";
-import { needsSetup, type ApiState, type DashboardState } from "@hsh/core";
+import { toPublicState, todayIn, type ApiState, type DashboardState } from "@hsh/core";
 import { FsWikiRepository } from "@hsh/core/node";
 import { resolve } from "node:path";
 import { SampleWeatherSource, createWeatherSource } from "./weather";
@@ -29,8 +29,8 @@ export async function getDashboardState(at?: Date): Promise<DashboardState> {
   return { ...state, weather: days, updatedAt: new Date().toISOString() };
 }
 
-/** /api/state 응답과 첫 화면이 같이 쓰는 상태 + 세팅 필요 여부 */
+/** /api/state 응답과 첫 화면이 같이 쓰는 공개용 상태(태블릿에 필요한 필드만) + 세팅 필요 여부 */
 export async function getApiState(at?: Date): Promise<ApiState> {
   const state = await getDashboardState(at);
-  return { ...state, needsSetup: needsSetup(state) };
+  return toPublicState(state, todayIn(at ?? new Date()));
 }

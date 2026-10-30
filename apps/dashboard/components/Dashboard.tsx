@@ -1,5 +1,5 @@
 "use client";
-import { addDays, timeIn, todayIn, type DashboardState } from "@hsh/core";
+import { addDays, timeIn, todayIn, type ApiState } from "@hsh/core";
 import { useEffect } from "react";
 import { isNight } from "@/lib/view";
 import { useNow } from "@/hooks/useNow";
@@ -15,7 +15,7 @@ import { WeatherStrip } from "./widgets/WeatherStrip";
 import s from "./Dashboard.module.css";
 
 export interface DashboardProps {
-  state: DashboardState;
+  state: ApiState;
   /** 마지막 폴링이 실패했는지 */
   offline: boolean;
   /** 시안·테스트용 고정 시각 (ISO) */
@@ -56,7 +56,7 @@ export function Dashboard({ state, offline, at, mode }: DashboardProps) {
   return (
     <main className={s.board}>
       <div className={s.clock}>
-        <ClockHeader now={now} familyName={state.config?.familyName} />
+        <ClockHeader now={now} familyName={state.familyName} />
       </div>
       <div className={s.weather}>
         <WeatherStrip days={state.weather} today={today} />

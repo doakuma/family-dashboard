@@ -135,16 +135,42 @@ const weatherDaySchema = z.object({
   pop: z.number().optional(),
 }) satisfies z.ZodType<WeatherDay>;
 
+const publicMemberSchema = z.object({ id: memberIdSchema, name: z.string(), color: z.string() });
+
+const publicAnniversarySchema = z.object({
+  monthDay,
+  title: z.string(),
+  member: z.string().optional(),
+  /** 생일이면 다음 생일 날짜와 그날 되는 나이. 화면이 birth 원문 없이 "n살"을 보여 주기 위한 값 */
+  turns: z.object({ date, age: z.number().int() }).optional(),
+});
+
+/**
+ * /api/state 응답 = 태블릿 화면이 실제로 쓰는 필드만. 내부 상태(DashboardState)와 따로 둔다.
+ * 주소(region)·slackId·calendarId·역할·생일 원문은 내보내지 않는다 (toPublicState가 허용 목록으로 골라 담는다).
+ */
+export const apiStateSchema = z.object({
+  familyName: z.string().optional(),
+  members: z.array(publicMemberSchema), // 내장 'family' 포함
+  events: z.array(eventSchema),
+  tasks: z.array(taskSchema),
+  anniversaries: z.array(publicAnniversarySchema),
+  weather: z.array(weatherDaySchema),
+  updatedAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), "ISO 8601"),
+  /** 서버가 판단한 세팅 필요 여부 */
+  needsSetup: z.boolean(),
+});
+export type ApiState = z.infer<typeof apiStateSchema>;
+export type PublicMember = ApiState["members"][number];
+export type PublicAnniversary = ApiState["anniversaries"][number];
+
+// 내부 상태 검증(테스트·어댑터용)
 export const dashboardStateSchema = z.object({
   config: familyConfigSchema.optional(),
-  members: z.array(memberSchema.extend({ id: memberIdSchema })), // 응답에는 내장 'family'도 들어 있다
+  members: z.array(memberSchema.extend({ id: memberIdSchema })),
   events: z.array(eventSchema),
   tasks: z.array(taskSchema),
   anniversaries: z.array(anniversarySchema),
   weather: z.array(weatherDaySchema),
   updatedAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), "ISO 8601"),
 }) satisfies z.ZodType<DashboardState>;
-
-/** /api/state 응답: 상태 + 서버가 판단한 세팅 필요 여부 */
-export const apiStateSchema = dashboardStateSchema.extend({ needsSetup: z.boolean() });
-export type ApiState = z.infer<typeof apiStateSchema>;
