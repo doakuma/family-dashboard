@@ -1,6 +1,5 @@
-import { headers } from "next/headers";
-import QRCode from "qrcode";
 import { Screen } from "@/components/Screen";
+import { getSetupQr } from "@/lib/setup-qr";
 import { getApiState } from "@/lib/state";
 
 export const dynamic = "force-dynamic";
@@ -11,14 +10,13 @@ interface Props {
 }
 
 export default async function Page({ searchParams }: Props) {
-  const [params, h] = await Promise.all([searchParams, headers()]);
+  const params = await searchParams;
   const at = params.at && !Number.isNaN(Date.parse(params.at)) ? params.at : undefined;
   const state = await getApiState(at ? new Date(at) : undefined);
 
-  // 세팅 필요 여부는 폴링으로 바뀔 수 있어서 QR은 항상 만들어 둔다.
-  const url = `http://${h.get("host") ?? "localhost:3000"}/setup`;
-  const qrSvg = await QRCode.toString(url, { type: "svg", margin: 0, color: { dark: "#1c2a32", light: "#ffffff" } });
+  // 세팅이 필요할 때만 일회용 토큰을 만든다. 주소는 Host 헤더가 아니라 DASHBOARD_BASE_URL 기준.
+  const qr = state.needsSetup ? await getSetupQr() : undefined;
 
   const mode = params.mode === "night" || params.mode === "day" ? params.mode : undefined;
-  return <Screen initial={state} qrSvg={qrSvg} url={url} at={at} mode={mode} />;
+  return <Screen initial={state} initialQr={qr} at={at} mode={mode} />;
 }
