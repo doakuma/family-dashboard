@@ -77,3 +77,9 @@
 - `ShareGroupId`·`Event.share?`, `shareGroupIdSchema`(`^[a-z0-9_-]+$`), 파서/직렬화가 `@구성원` 뒤·`#id` 앞 `&그룹` 토큰 보존. `Change`에는 share가 없어 LLM이 만들거나 바꿀 수 없고(event.update도 기존 값 유지), 제목의 단어 앞 `&`는 쓰기 거부·봇 cleanTitle이 제거.
 - 깨진 토큰(대문자·2개 이상·빈 `&`)은 줄을 살리고 share만 무시 + `readWiki().warnings`. `toPublicState`는 share를 내보내지 않음(테스트). sample-wiki에 `&cousins` 일정(evt-2b13) 추가, docs/wiki-format.md 갱신.
 - 검증: pnpm check 통과. 남은 문제: 그룹 id 대문자 허용 여부는 아래 보고 참고(소문자로 결정), 공유 동작·그룹 정의는 후속.
+
+## 2026-10-30 · #18 /setup 마법사 6단계
+- 쓰기: `WikiRepository.applySetup(setup, {overwrite?})`(Change 확장 없음). 쓰기 큐 안에서 검증 -> needsSetup 판정(아니면 409) -> config.md·members/*.md·anniversaries.md(+log.md)를 커밋 하나로, 실패 시 파일·index 롤백, `{commit, pushed}`. 남은 세팅 파일이 있으면 `needs_confirm`(덮어쓰기 확인), 확인하면 이전 구성원 파일도 같은 커밋에서 삭제. `setupSchema`·`regions.ts`(서울 25구·인천·경기 32곳 + 직접 입력).
+- 화면: 휴대폰 6단계(우리 집·구성원·슬랙 자리·기념일·캘린더·확인/미리보기). 입력은 클라이언트 상태+sessionStorage, 마지막에 `POST /api/setup/complete`(#17 출처·세션·본문 제한·zod). 완료하면 토큰 전부 폐기·쿠키 삭제. 한글 이름 id는 member-N(직접 수정 가능). 결정 `docs/decisions/0003`, 지역표 `docs/regions.md`.
+- 검증: pnpm check(369 테스트)·build, e2e 3종(auth 수정 1줄·stress·setup 15단계: 빈 위키 -> QR -> PIN -> 6단계 -> 위키 커밋 1개 확인 -> needsSetup=false -> 태블릿 전환) 통과. 캡처 `docs/screens/setup-*.png`.
+- 남은 문제: 지역표는 기상청 원본과 대조 전. 실기기(iOS/삼성 인터넷) 날짜 입력·하단 고정 버튼 미확인(#24). 스펙에 없는 검증(보호자 1명 이상, 12명 상한)·log.md 한 줄은 오너 확인 필요. #17 파일 4곳을 덧붙임 수정해 #17 review를 pending으로 돌림.

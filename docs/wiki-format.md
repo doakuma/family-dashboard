@@ -152,3 +152,10 @@ commit이 실패하면 파일을 원래대로 되돌린다. push가 실패하면
 push 실패는 결과의 `pushError`(git 메시지 요약)와 경고 로그에 남는다.
 커밋은 apply가 쓴 파일 경로만 지정해서 한다(사람이 stage해 둔 다른 파일이 딸려 들어가지 않는다). commit 실패 롤백도 사람이 stage한 index 항목은 원래 값으로 복구한다.
 `pull`이 충돌하면 진행 중인 rebase를 `--abort`(autostash 복구 포함)하고 오류를 던진다. 레포가 rebase·merge 진행 중이거나 detached HEAD면 apply·pull을 거부한다. 읽기 전용 인스턴스는 pull도 거부한다.
+
+## 첫 세팅: applySetup
+
+/setup 마법사는 `Change`가 아니라 `WikiRepository.applySetup(setup, { overwrite? })`로 쓴다(내부 전용, LLM·봇 경로 없음; 결정 0003).
+`config.md` + `members/<id>.md` + `anniversaries.md`(MM-DD 순, 없으면 파일 없음)와 `log.md` 한 줄(`[setup]`)을 **커밋 하나**(`[setup] 가족 세팅: 이름 (구성원 N명, 기념일 M건)`)로 쓰고, 실패하면 파일·index를 되돌린다. 결과는 `{commit, pushed, pushError?}`.
+세팅이 끝난 위키(needsSetup=false)에는 `already_done`으로 거부한다. 세팅 전이지만 이전 세팅 파일이 있으면 `overwrite:true`를 확인받아야 하고, 그러면 목록에 없는 이전 `members/*.md`는 지워진다.
+입력 검증은 `setupSchema`(구성원 1~12명, 보호자 1명 이상, id 대소문자 무시 유일, 기념일 구성원은 등록 id 또는 family, 격자·지역코드 4값 동시, 캘린더 ID는 메일 주소 꼴). 지역 변환표는 `docs/regions.md`.
