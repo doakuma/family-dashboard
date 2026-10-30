@@ -28,14 +28,14 @@ export function Screen({ initial, initialQr, at, mode, skinPreview }: ScreenProp
   // 보기 상태(보는 달·시트·마지막 터치)는 폴링 결과와 따로 여기서 갖는다 -> 1분 폴링이 와도 유지, 120초 조용하면 초기화.
   const today = todayIn(useNow(at, initial.updatedAt));
   const { view, month, handlers } = useDashboardView(today.slice(0, 7));
-  const { state, offline } = useDashboardState(initial, { month });
+  const { state, offline, loadedMonth } = useDashboardState(initial, { month, at });
   useSkin(skinPreview ?? state.skin);
   useKioskGuards();
   const qr = useSetupQr(initialQr, state.needsSetup);
   return (
     // data-surface="tablet": 키오스크 CSS(핀치·당겨서 새로고침·글자 선택 차단)는 이 표식이 있을 때만 건다(휴대폰 /setup은 그대로)
     <div data-surface="tablet" style={{ display: "contents" }}>
-      {state.needsSetup ? <SetupNeeded qr={qr} /> : <Dashboard state={state} offline={offline} at={at} mode={mode} browse={{ view, handlers }} />}
+      {state.needsSetup ? <SetupNeeded qr={qr} /> : <Dashboard state={state} offline={offline} monthLoaded={loadedMonth === month} at={at} mode={mode} browse={{ view, handlers }} />}
     </div>
   );
 }

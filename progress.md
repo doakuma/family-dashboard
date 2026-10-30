@@ -137,3 +137,9 @@
 - #28 후속: layout이 `/`일 때만 서버 시각 기준 data-mode·data-tone 렌더(proxy가 `x-hsh-path` 헤더), skin e2e theme-color를 시각 기준으로, `getSkinForLayout`을 react `cache`로.
 - 검증: pnpm check(490 테스트)·build, e2e 5종(auth·stress·setup·skin·touch 신규 14단계) 통과. 캡처 `docs/screens/touch-*.png`. e2e가 잡은 것: 스와이프 직후 탭 삼킴(에뮬레이션 한정), 야간 깨우는 탭이 날짜 칸을 누름(600ms 클릭 삼킴으로 수정), 합성 핀치는 isMobile에서만 viewport를 따름(대조군 포함).
 - 남은 문제: 실기기 제스처(핀치·뒤로 가기·길게 누르기)는 #24. 야간 첫 HTML의 night 분기는 e2e가 서버 시각을 못 바꿔 단위 테스트로만. 응답이 전체 일정 -> 달 단위로 바뀜. 재리뷰 필요: #13·#14·#15·#16·#17·#27·#28 review=pending으로 돌림(코드를 덧붙여 수정). #31은 passes=false, review=pending.
+
+## 2026-10-30 · #31 리뷰 되돌림 수정
+- [높음] MonthCalendar 행 정의를 자식 3개에 맞게 `auto auto minmax(0, 1fr)`로. touch e2e에 격자 바닥이 카드 바닥까지 차는지, 빈 달(2027-02)의 `[data-date]` 버튼이 모두 48px 이상인지 단언 추가.
+- [중간] `useDashboardState`가 `at`을 `/api/state`에 같이 보냄(서버는 previewQuery일 때만 받고 운영은 무시, parsePreview 규칙). e2e: 달을 넘긴 뒤에도 오늘 일정·내일 줄 유지.
+- [낮음] Sheet Shift+Tab(목록 밖 요소면 last), wiki-format share 문구 정정, useDashboardView 캐스팅 제거. 응답한 달(`loadedMonth`)이 보는 달과 다르면 달력 칸 일정을 비우고 "불러오는 중/가져오지 못했어요" 표시, 날짜 칸은 버튼이 아님.
+- 검증: pnpm check(490 테스트)·build, e2e 5종 통과, touch-*.png 재생성. 남은 문제: 로딩 상태·Shift+Tab은 단위 테스트 없이 e2e로만. #14·#31 passes=false, review=pending(재리뷰 대기).

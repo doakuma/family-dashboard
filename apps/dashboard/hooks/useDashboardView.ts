@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useReducer } from "react";
-import { INITIAL_VIEW, isIdleExpired, msUntilReset, viewMonthOf, viewReducer, type DashboardViewState } from "@/lib/view-state";
+import { INITIAL_VIEW, isIdleExpired, msUntilReset, viewMonthOf, viewReducer } from "@/lib/view-state";
 
 /** 위젯이 받는 콜백 묶음. 없으면 그 위젯은 보기 전용이다. */
 export interface BrowseHandlers {
@@ -48,5 +48,5 @@ export function useDashboardView(baseMonth: string) {
 
   const reset = useCallback(() => dispatch({ type: "reset" }), []);
   const month = viewMonthOf(baseMonth, view.monthOffset);
-  return { view: view as DashboardViewState, month, handlers, reset };
+  return { view, month, handlers, reset };
 }

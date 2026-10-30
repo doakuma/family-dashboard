@@ -9,6 +9,8 @@ import s from "./MonthCalendar.module.css";
 
 export interface MonthCalendarProps {
   events: Event[];
+  /** 그 달 일정이 아직 안 왔거나(loading) 못 가져왔을 때(failed): 칸을 비워 두고 누를 수 없게 하며 안내를 보인다. 기본 ready */
+  status?: "ready" | "loading" | "failed";
   today: string;
   members: MemberMap;
   /** 보여 줄 달(YYYY-MM). 없으면 오늘이 속한 달 */
@@ -25,7 +27,7 @@ export interface MonthCalendarProps {
  * 일요일 시작 월간 달력. 칸당 최대 2건 + "외 n건". 색 막대는 첫 구성원 색.
  * 표시 컴포넌트: 일정 목록과 달만 받고, 보기 상태(어느 달·어느 날짜)는 상위가 갖는다. 콜백이 없으면 보기 전용이다.
  */
-export function MonthCalendar({ events, today, members, month = today.slice(0, 7), onSelectDate, onChangeMonth, canMove = { prev: true, next: true } }: MonthCalendarProps) {
+export function MonthCalendar({ events, status = "ready", today, members, month = today.slice(0, 7), onSelectDate, onChangeMonth, canMove = { prev: true, next: true } }: MonthCalendarProps) {
   const days = monthGrid(month);
   const byDate = new Map<string, Event[]>();
   for (const e of events) {
@@ -42,11 +44,16 @@ export function MonthCalendar({ events, today, members, month = today.slice(0, 7
   const label = `${Number(month.slice(5))}월`;
 
   return (
-    <section ref={root} className={s.calendar} aria-label={`${label} 달력`} data-browsable={onChangeMonth || onSelectDate ? "" : undefined}>
+    <section ref={root} className={s.calendar} aria-label={`${label} 달력`} data-browsable={onChangeMonth || onSelectDate ? "" : undefined} aria-busy={status === "loading" || undefined}>
       <div className={s.head}>
         <h2 className={s.month}>
           {label} <span className={s.year}>{month.slice(0, 4)}</span>
         </h2>
+        {status !== "ready" && (
+          <p className={s.status} role="status">
+            {status === "loading" ? "일정을 불러오는 중이에요" : "이 달 일정을 가져오지 못했어요. 다시 시도하고 있어요"}
+          </p>
+        )}
         {onChangeMonth && (
           <div className={s.nav}>
             <button type="button" className={s.navBtn} onClick={() => onChangeMonth(-1)} disabled={!canMove.prev} aria-label="이전 달">
@@ -90,7 +97,7 @@ export function MonthCalendar({ events, today, members, month = today.slice(0, 7
               data-today={d === today || undefined}
               aria-current={d === today ? "date" : undefined}
             >
-              {onSelectDate ? (
+              {onSelectDate && status === "ready" ? (
                 <button
                   type="button"
                   className={s.cellBtn}

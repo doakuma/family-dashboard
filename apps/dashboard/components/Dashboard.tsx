@@ -25,6 +25,8 @@ export interface DashboardProps {
   state: ApiState;
   /** 마지막 폴링이 실패했는지 */
   offline: boolean;
+  /** 보는 달의 일정이 도착했는지. false면 달력 칸은 비워 두고 불러오는 중(또는 실패)으로 표시한다 */
+  monthLoaded?: boolean;
   /** 시안·테스트용 고정 시각 (ISO) */
   at?: string;
   /** 시안·테스트용 강제 모드 */
@@ -36,7 +38,7 @@ export interface DashboardProps {
   browse?: { view: DashboardViewState; handlers: BrowseHandlers };
 }
 
-export function Dashboard({ state, offline, at, mode, browse }: DashboardProps) {
+export function Dashboard({ state, offline, monthLoaded = true, at, mode, browse }: DashboardProps) {
   // 서버 렌더 시각(updatedAt)으로 시작해야 서버 HTML과 첫 클라이언트 렌더가 같다
   const now = useNow(at, state.updatedAt);
   const today = todayIn(now);
@@ -93,7 +95,8 @@ export function Dashboard({ state, offline, at, mode, browse }: DashboardProps) 
           </div>
           <div className={s.calendar}>
             <MonthCalendar
-              events={state.events}
+              events={monthLoaded ? state.events : []}
+              status={monthLoaded ? "ready" : offline ? "failed" : "loading"}
               today={today}
               members={members}
               month={month}

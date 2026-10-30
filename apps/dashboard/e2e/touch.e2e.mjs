@@ -217,8 +217,13 @@ try {
     }
     const req = page.waitForRequest((r) => r.url().includes("/api/state?month=2026-12"));
     await page.getByRole("button", { name: "다음 달" }).tap();
-    await req;
+    const res12 = await req;
+    assert.match(res12.url(), /at=2026-11-03/, "미리보기 시각(at)을 /api/state에 같이 보내야 해요");
     assert.equal(await calTitle(page), "12월 2026");
+    await cell(page, "2026-12-01").waitFor(); // 불러오는 동안은 칸이 버튼이 아니다
+    const agenda = page.locator('section[aria-labelledby="agenda-title"]');
+    assert.ok((await agenda.innerText()).includes("치과 검진"), "달을 넘긴 뒤에도 오늘 일정이 남아야 해요");
+    assert.ok((await agenda.innerText()).includes("어린이집 상담"), "달을 넘긴 뒤에도 내일 줄이 남아야 해요");
     await page.getByRole("button", { name: "이전 달" }).tap();
     assert.equal(await calTitle(page), "11월 2026");
 
@@ -235,6 +240,17 @@ try {
     // 일정 파일이 없는 달: 빈 달, 칸을 누르면 빈 시트
     assert.equal(await page.locator("section[aria-label$='달력'] ol li").evaluateAll((els) => els.filter((e) => e.querySelector("span[class*='event']")).length), 0);
     await sleep(450); // 스와이프 직후 400ms 동안은 그 손짓이 만든 클릭을 삼킨다(실제 손짓에선 클릭이 안 생기지만 안전장치)
+    await cell(page, "2027-02-10").waitFor();
+    {
+      // 날짜 격자가 카드 바닥까지 채우고, 빈 달에서도 날짜 버튼은 48px 이상
+      const sec = await page.locator("section[aria-label$='달력']").boundingBox();
+      const grid = await page.locator("section[aria-label$='달력'] ol").boundingBox();
+      assert.ok(sec.y + sec.height - (grid.y + grid.height) <= 32, `격자가 카드 바닥까지 안 차요: 카드 바닥 ${sec.y + sec.height}, 격자 바닥 ${grid.y + grid.height}`);
+      const sizes = await page.locator("button[data-date]").evaluateAll((els) => els.map((e) => [e.getBoundingClientRect().width, e.getBoundingClientRect().height]));
+      assert.ok(sizes.length >= 28);
+      const small = sizes.filter(([w, h]) => w < 48 || h < 48);
+      assert.equal(small.length, 0, `48px 미만 날짜 버튼 ${small.length}개: ${JSON.stringify(small[0])}`);
+    }
     await cell(page, "2027-02-10").tap();
     await dialog(page).getByText("이 날은 일정이 없어요").waitFor();
     // 시트가 열린 채 달을 옮기면 시트는 닫힌다(시트가 inert 뒤라 버튼은 못 누르므로 먼저 닫는다)

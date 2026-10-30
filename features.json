@@ -145,7 +145,7 @@
       ],
       "status": "partial",
       "passes": false,
-      "review": "pending",
+      "review": "pass",
       "note": "예시 날씨(SampleWeatherSource). 응답 zod 검증·needsSetup 포함. #12 후 기상청으로 교체 [재리뷰 필요] #31: ?month 파라미터·월별 일정 필터 추가(응답에 그 달 달력 칸+오늘·내일 일정만)."
     },
     {
@@ -156,7 +156,7 @@
         13
       ],
       "status": "done",
-      "passes": true,
+      "passes": false,
       "review": "pending",
       "note": "오너 디자인 결정(스펙 rev 52) 반영 후 재리뷰 대기: 자동 넘김 토글, 지난 일정 흐림, D-day 강조 [재리뷰 필요] #31: Dashboard·MonthCalendar에 보기 터치 콜백(없으면 보기 전용) 추가."
     },
@@ -169,7 +169,7 @@
       ],
       "status": "done",
       "passes": true,
-      "review": "pending",
+      "review": "pass",
       "note": "오너 디자인 결정(스펙 rev 52) 반영 후 재리뷰 대기: 자동 넘김 토글, 지난 일정 흐림, D-day 강조 [재리뷰 필요] #31: 야간 터치 시 낮 화면 구성+dim 톤(displayOf), useDashboardState에 month 옵션."
     },
     {
@@ -181,7 +181,7 @@
       ],
       "status": "done",
       "passes": true,
-      "review": "pending",
+      "review": "pass",
       "note": "/setup은 자리만 있음(#18). 세팅 화면↔대시보드 폴링 전환 추가 [재리뷰 필요] #31: SetupNeeded가 useDisplayTone(day,normal)로 톤을 바로잡음."
     },
     {
@@ -193,7 +193,7 @@
       ],
       "status": "done",
       "passes": true,
-      "review": "pending",
+      "review": "pass",
       "note": "리뷰 통과(80290f3..bd667fd) 뒤 #18이 추가 변경: setup/page.tsx(마법사 연결·휴대폰 표면 감싸기), auth/form.ts(readSmallJson 추가), setup-token.ts(revokeAll 추가), auth.e2e.mjs 단언 1줄. 모두 덧붙임이라 기존 동작은 그대로. 해당 diff만 재확인 필요(passes는 오너 판단) [재리뷰 필요] #31: proxy.ts가 x-hsh-path 헤더 추가, auth e2e 금지 키에서 share 제외."
     },
     {
@@ -312,7 +312,7 @@
       ],
       "status": "done",
       "passes": true,
-      "review": "pending",
+      "review": "pass",
       "note": "필드만(공유 동작·그룹 정의·화면 변화 없음). 그룹 id는 구성원 id와 같은 형식 ^[A-Za-z0-9_-]+$(스펙 rev 54, 비교는 대소문자 무시, 깨진 토큰은 원문 보존). Change/LLM에 share 없음. toPublicState는 share 제외 — #31 상세 시트에서 필요해지면 그때 추가. [재리뷰 필요] #31: toPublicState가 올바른 share 그룹 id만 공개(결정 0006), 공개 테스트 변경."
     },
     {
@@ -325,7 +325,7 @@
       ],
       "status": "done",
       "passes": true,
-      "review": "pending",
+      "review": "pass",
       "note": "스킨 2종(default, paper=임시 검증용) + 토큰 계약(skins/contract.ts) + data-skin 전환(폴링 반영, CSS 전부 번들) + 구성원 색 슬롯 --member-*. config skin/character(관용 읽기), /api/state skin(character none 고정), ?skin= 미리보기. 기준 3가지(스킨×톤 AA, --text-floor 12px, 슬롯 ΔE>=20·3:1) 테스트. 결정 0005. 바꾸는 곳(/setup·/settings·슬랙)은 #30. default의 coral·amber를 조금 어둡게 조정(오너 확인). 후속 반영: 배치 불변 검사(선택자·선언 테스트 + boundingBox e2e), gap·pad 공통 토큰, 서버가 data-skin·themeColor 렌더(첫 로드 깜빡임 해결), ?skin/?at/?mode는 개발 모드·HSH_PREVIEW_QUERY=1에서만. 재리뷰 대기. [재리뷰 필요] #31: 후속 3건 처리(layout data-mode·data-tone 서버 렌더, skin e2e theme-color 시각 기준, getSkinForLayout 요청 단위 캐시)."
     },
     {

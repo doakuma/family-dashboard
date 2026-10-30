@@ -6,11 +6,15 @@ export interface PolledState {
   state: ApiState;
   /** 마지막 폴링이 실패했는지 (노트북 꺼짐·응답 형식 오류 등) */
   offline: boolean;
+  /** state.events가 실려 온 달(YYYY-MM). 보는 달과 다르면 달력 칸 일정은 아직 그 달 것이 아니다 */
+  loadedMonth?: string;
 }
 
 export interface PollOptions {
   /** 달력 둘러보기용 달(YYYY-MM). 바뀌면 바로 한 번 가져온다. 없으면 서버의 이번 달 */
   month?: string;
+  /** 시안용 고정 시각(ISO). 서버가 previewQuery일 때만 받는다 */
+  at?: string;
   intervalMs?: number;
 }
 
@@ -18,8 +22,8 @@ export interface PollOptions {
  * /api/state를 주기적으로 가져온다. 실패하거나 응답 형식이 다르면 마지막 상태를 그대로 둔다.
  * 보기 상태(보는 달·시트)는 이 훅 밖(DashboardViewState)에 있어서, 폴링 결과가 와도 바뀌지 않는다.
  */
-export function useDashboardState(initial: ApiState, { month, intervalMs = 60_000 }: PollOptions = {}): PolledState {
-  const [polled, setPolled] = useState<PolledState>({ state: initial, offline: false });
+export function useDashboardState(initial: ApiState, { month, at, intervalMs = 60_000 }: PollOptions = {}): PolledState {
+  const [polled, setPolled] = useState<PolledState>({ state: initial, offline: false, loadedMonth: month });
   const firstMonth = useRef(month); // 서버가 첫 화면에 이미 실어 준 달은 바로 다시 가져오지 않는다
   const seq = useRef(0);
 
@@ -28,11 +32,14 @@ export function useDashboardState(initial: ApiState, { month, intervalMs = 60_00
     const tick = async () => {
       const mine = ++seq.current;
       try {
-        const res = await fetch(month ? `/api/state?month=${encodeURIComponent(month)}` : "/api/state", { cache: "no-store" });
+        const q = new URLSearchParams();
+        if (month) q.set("month", month);
+        if (at) q.set("at", at);
+        const res = await fetch(q.size ? `/api/state?${q}` : "/api/state", { cache: "no-store" });
         if (!res.ok) throw new Error(String(res.status));
         const state = apiStateSchema.parse(await res.json());
         // 달을 빠르게 넘기면 늦게 온 이전 달 응답이 덮어쓰지 않게 가장 마지막 요청만 반영
-        if (alive && mine === seq.current) setPolled({ state, offline: false });
+        if (alive && mine === seq.current) setPolled({ state, offline: false, loadedMonth: month });
       } catch {
         if (alive && mine === seq.current) setPolled((p) => ({ ...p, offline: true }));
       }
@@ -46,7 +53,7 @@ export function useDashboardState(initial: ApiState, { month, intervalMs = 60_00
       alive = false;
       clearInterval(id);
     };
-  }, [month, intervalMs]);
+  }, [month, at, intervalMs]);
 
   return polled;
 }

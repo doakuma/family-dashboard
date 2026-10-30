@@ -1,6 +1,6 @@
 .calendar {
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   min-height: 0;
   padding: 1.1rem 1.2rem 1.2rem;
   background: var(--sheet);
@@ -194,6 +194,13 @@
 .more {
   padding-left: 0.4rem;
   font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.status {
+  margin: 0;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--muted);
 }
