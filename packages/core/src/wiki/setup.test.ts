@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ALL_REGIONS, findRegion, regionToConfigFields, REGION_GROUPS, KMA_REG_ID_RE } from "../regions";
 import { setupSchema } from "../schema";
@@ -46,8 +48,11 @@ describe("지역표", () => {
     expect(REGION_GROUPS[0]!.regions.every((r) => r.midTaRegId === "11B10101")).toBe(true);
   });
 
-  it("스펙/예시 위키의 마포구 값과 같다 (nx 59, ny 127, 11B00000, 11B10101)", () => {
-    expect(regionToConfigFields(mapo)).toEqual({ region: "서울특별시 마포구", kmaNx: 59, kmaNy: 127, kmaMidLandRegId: "11B00000", kmaMidTaRegId: "11B10101" });
+  it("예시 위키(fixtures/sample-wiki/config.md)의 마포구 값과 같다 (nx 59, ny 127, 11B00000, 11B10101)", () => {
+    const sample = parseConfigFile(readFileSync(join(import.meta.dirname, "../../../../fixtures/sample-wiki/config.md"), "utf8"))!;
+    const f = regionToConfigFields(mapo);
+    expect(f).toMatchObject({ kmaNx: sample.kmaNx, kmaNy: sample.kmaNy, kmaMidLandRegId: sample.kmaMidLandRegId, kmaMidTaRegId: sample.kmaMidTaRegId });
+    expect(f).toEqual({ region: "서울특별시 마포구", kmaNx: 59, kmaNy: 127, kmaMidLandRegId: "11B00000", kmaMidTaRegId: "11B10101" });
   });
 
   it("지역 -> config 필드는 쓰기 스키마를 통과한다 (전 지역)", () => {
@@ -120,6 +125,12 @@ describe("setupSchema", () => {
     expect(bad((s) => void (s.anniversaries[0]!.title = "기념일 #1"))).toContain("anniversaries.0.title");
     expect(bad((s) => void (s.anniversaries[0]!.title = "a\nb"))).toContain("anniversaries.0.title");
     expect(bad((s) => void (s.config.familyName = "햇살\n네"))).toContain("config.familyName");
+  });
+
+  it("따옴표로 감싼 이름·지역은 거부 (위키 프론트매터가 읽을 때 달라진다)", () => {
+    expect(bad((s) => void (s.config.familyName = '"햇살네"'))).toContain("config.familyName");
+    expect(bad((s) => void (s.members[0]!.name = "'엄마'"))).toContain("members.0.name");
+    expect(bad((s) => void (s.config.region = '"서울"'))).toContain("config.region");
   });
 
   it("알 수 없는 시간대 거부", () => {

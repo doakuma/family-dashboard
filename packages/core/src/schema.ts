@@ -122,7 +122,13 @@ export const realMonthDay = monthDay.refine((s) => Number(s.slice(3)) <= (DAYS_I
 
 const kmaRegId = z.string().regex(KMA_REG_ID_RE, "예: 11B00000");
 
+/** 프론트매터 값은 따옴표로 감싸면 읽을 때 달라져서 쓰기가 거부된다(stringifyFrontmatter). 폼에서 미리 걸러낸다. */
+const notQuoted = (s: string) => !/^(["']).*\1$/.test(s);
+const QUOTED = "따옴표로 감싼 값은 쓸 수 없어요";
+
 const setupConfigSchema = familyConfigSchema.omit({ setupCompletedAt: true }).extend({
+  familyName: plain(40).refine(notQuoted, QUOTED),
+  region: plain(80).refine(notQuoted, QUOTED).optional(),
   kmaNx: z.number().int().min(KMA_NX_RANGE[0]).max(KMA_NX_RANGE[1]).optional(),
   kmaNy: z.number().int().min(KMA_NY_RANGE[0]).max(KMA_NY_RANGE[1]).optional(),
   kmaMidLandRegId: kmaRegId.optional(),
@@ -140,7 +146,7 @@ const setupAnniversarySchema = z.object({ monthDay: realMonthDay, title, member:
 export const setupSchema = z
   .object({
     config: setupConfigSchema,
-    members: z.array(memberSchema).min(1, "구성원을 한 명 이상 넣어 주세요").max(SETUP_MAX_MEMBERS, `구성원은 ${SETUP_MAX_MEMBERS}명까지예요`),
+    members: z.array(memberSchema.extend({ name: plain(40).refine(notQuoted, QUOTED) })).min(1, "구성원을 한 명 이상 넣어 주세요").max(SETUP_MAX_MEMBERS, `구성원은 ${SETUP_MAX_MEMBERS}명까지예요`),
     anniversaries: z.array(setupAnniversarySchema).max(SETUP_MAX_ANNIVERSARIES),
   })
   .superRefine((v, ctx) => {

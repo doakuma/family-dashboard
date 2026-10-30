@@ -36,6 +36,14 @@ export interface ApplyOutcome extends ApplyResult {
 }
 
 /** git 실행 오류에서 사람이 읽을 원인만 뽑는다(stderr의 error·fatal·rejected 줄 우선). */
+/** applySetup 결과: 커밋 하나와 그 요약 */
+export interface SetupOutcome {
+  summary: string;
+  commit: string;
+  pushed: boolean;
+  pushError?: string;
+}
+
 export function gitReason(e: unknown): string {
   const err = (typeof e === "object" && e !== null ? e : {}) as { stderr?: unknown; message?: unknown };
   const raw = (typeof err.stderr === "string" && err.stderr.trim()) || (typeof err.message === "string" ? err.message : String(e));
@@ -169,7 +177,7 @@ export class FsWikiRepository implements WikiRepository {
   }
 
   /** 첫 세팅 전용(WikiRepository.applySetup). 쓰기 큐 안에서 검사하고 커밋 하나로 쓴다. */
-  async applySetup(setup: SetupInput, opts: { overwrite?: boolean } = {}, by = this.opts.author ?? "setup"): Promise<ApplyOutcome> {
+  async applySetup(setup: SetupInput, opts: { overwrite?: boolean } = {}, by = this.opts.author ?? "setup"): Promise<SetupOutcome> {
     if (this.opts.readOnly) throw new SetupError("읽기 전용 위키에는 쓸 수 없어요", "read_only");
     return this.enqueue(async () => {
       await this.assertReady();
