@@ -37,6 +37,12 @@ describe("toPublicState", () => {
     }
   });
 
+  it("일정 share(&그룹)는 MVP 화면이 안 쓰므로 내보내지 않는다 (#31 상세 시트에서 필요해지면 추가)", () => {
+    expect(state.events.some((e) => e.share === "cousins")).toBe(true); // 픽스처에 share 일정이 있다
+    expect(json).not.toContain("cousins");
+    expect(pub.events.every((e) => !("share" in e))).toBe(true);
+  });
+
   it("구성원은 id·name·color만", () => {
     for (const m of pub.members) expect(Object.keys(m).sort()).toEqual(["color", "id", "name"]);
   });

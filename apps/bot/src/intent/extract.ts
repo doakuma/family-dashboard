@@ -192,7 +192,7 @@ export function resolveChoice(
 }
 
 function cleanTitle(t?: string): string {
-  return (t ?? "").replace(/[#@\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+  return (t ?? "").replace(/[#@\n]/g, " ").replace(/(^|\s)&(?=\S)/g, "$1").replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
 /** 원래 길이를 유지한 새 끝 시간. 원래 끝이 없으면 undefined, 자정을 넘으면 null(계산 불가) */

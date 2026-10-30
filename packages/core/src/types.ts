@@ -33,6 +33,9 @@ export interface FamilyConfig {
   setupCompletedAt?: string;
 }
 
+/** 일정 공유 그룹 id (예: 'cousins'). 소문자·숫자·`_`·`-`. MVP는 필드만 있고 공유 동작·그룹 정의는 없다. */
+export type ShareGroupId = string;
+
 export interface Event {
   /** evt-xxxx */
   id: string;
@@ -45,6 +48,8 @@ export interface Event {
   allDay: boolean;
   title: string;
   members: MemberId[];
+  /** 위키 줄의 `&그룹id` 토큰. 없으면 우리 가족만. LLM이 만들거나 바꾸지 못한다(Change에 없음). */
+  share?: ShareGroupId;
   done: boolean;
 }
 
@@ -96,8 +101,8 @@ export type WikiState = Omit<DashboardState, "weather" | "updatedAt"> & {
 
 /** LLM이 메시지에서 만들어 내는 변경. 파일 쓰기는 WikiRepository.apply가 결정적으로 처리한다. */
 export type Change =
-  | { kind: "event.add"; payload: Omit<Event, "id" | "done"> }
-  | { kind: "event.update"; payload: { id: string } & Partial<Omit<Event, "id">> }
+  | { kind: "event.add"; payload: Omit<Event, "id" | "done" | "share"> }
+  | { kind: "event.update"; payload: { id: string } & Partial<Omit<Event, "id" | "share">> }
   | { kind: "event.remove"; payload: { id: string } }
   | { kind: "task.add"; payload: Omit<Task, "id" | "done"> }
   | { kind: "task.done"; payload: { id: string } }

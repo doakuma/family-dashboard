@@ -2,13 +2,14 @@
 // 순수 함수만 둔다(파일 시스템 없음) — 대시보드·봇·테스트가 같이 쓴다.
 import type { z } from "zod";
 import type { Anniversary, Event, FamilyConfig, Member, MemberId, Task, TaskList } from "../types";
-import { familyConfigSchema, memberSchema } from "../schema";
+import { familyConfigSchema, memberSchema, shareGroupIdSchema } from "../schema";
 import { parseFrontmatter, stringifyFrontmatter } from "./frontmatter";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const MONTH_DAY = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const ID_TOKEN = /\s+#((?:evt|task)-[A-Za-z0-9]+)\s*$/;
+const SHARE_TOKEN = /\s+&(\S*)\s*$/;
 const MEMBER_TOKEN = /\s+@([A-Za-z0-9_-]+)\s*$/;
 const ALL_DAY = "종일";
 
@@ -48,7 +49,21 @@ function parseCheckLine(line: string): { done: boolean; body: string; id?: strin
 
 // ---------- 일정 ----------
 
-export function parseEventLine(line: string): Event | null {
+/** 줄 끝의 &그룹 토큰을 떼어 낸다. 깨진 토큰(대문자 등)이나 2개 이상이면 share 없음 + 경고(줄은 살린다). */
+function takeShare(rest: string, warn?: (m: string) => void): { text: string; share?: string } {
+  const raw: string[] = [];
+  let text = rest;
+  for (let m = SHARE_TOKEN.exec(text); m; m = SHARE_TOKEN.exec(text)) {
+    raw.unshift(m[1] ?? "");
+    text = text.slice(0, m.index);
+  }
+  if (raw.length === 0) return { text };
+  const ok = raw.length === 1 && shareGroupIdSchema.safeParse(raw[0]).success;
+  if (!ok) warn?.(`share: "&${show(raw.join(" &"))}" 토큰이 올바르지 않아(소문자·숫자·_·-, 일정당 1개) 공유 없음으로 읽었어요`);
+  return { text, share: ok ? raw[0] : undefined };
+}
+
+export function parseEventLine(line: string, warn?: (m: string) => void): Event | null {
   const c = parseCheckLine(line);
   if (!c?.id?.startsWith("evt-")) return null;
   const [date, when, ...restParts] = c.body.split(/\s+/);
@@ -63,19 +78,21 @@ export function parseEventLine(line: string): Event | null {
     start = s;
     end = e;
   }
-  const { text, members } = takeMembers(` ${restParts.join(" ")}`);
+  const { text: beforeShare, share } = takeShare(` ${restParts.join(" ")}`, warn);
+  const { text, members } = takeMembers(beforeShare);
   if (!text) return null;
-  return { id: c.id, date, start, end, allDay, title: text, members, done: c.done };
+  return { id: c.id, date, start, end, allDay, title: text, members, ...(share ? { share } : {}), done: c.done };
 }
 
 export function formatEventLine(e: Event): string {
   const when = e.allDay || !e.start ? ALL_DAY : e.end ? `${e.start}-${e.end}` : e.start;
   const members = e.members.map((m) => ` @${m}`).join("");
-  return `- [${e.done ? "x" : " "}] ${e.date} ${when} ${e.title}${members} #${e.id}`;
+  const share = e.share ? ` &${shareGroupIdSchema.parse(e.share)}` : "";
+  return `- [${e.done ? "x" : " "}] ${e.date} ${when} ${e.title}${members}${share} #${e.id}`;
 }
 
-export function parseEventsFile(text: string): Event[] {
-  return text.split(/\r?\n/).flatMap((l) => parseEventLine(l) ?? []);
+export function parseEventsFile(text: string, warn?: (m: string) => void): Event[] {
+  return text.split(/\r?\n/).flatMap((l) => parseEventLine(l, warn) ?? []);
 }
 
 export const eventSortKey = (e: Pick<Event, "date" | "start" | "allDay">) =>

@@ -72,6 +72,14 @@ describe("extractIntent", () => {
     expect((await run("not json")).type).toBe("unknown");
   });
 
+  it("LLM은 share를 만들거나 바꾸지 못한다 (출력에 있어도 버리고, 제목의 &토큰은 제거)", async () => {
+    const add = await run({ intent: "event.add", date: "2026-11-15", start: "12:00", title: "점심 &cousins", members: ["mom"], share: "cousins" });
+    expect(add.type === "change" && add.changes[0]?.payload).not.toHaveProperty("share");
+    expect(add.type === "change" && add.changes[0]?.payload).toMatchObject({ title: "점심 cousins" });
+    const upd = await run({ intent: "event.update", targetIds: ["evt-a1b2"], start: "16:00", share: "other" });
+    expect(upd.type === "change" && upd.changes[0]?.payload).not.toHaveProperty("share");
+  });
+
   it("일정 수정: 시작만 바꾸면 길이 유지", async () => {
     const r = await run({ intent: "event.update", targetIds: ["evt-a1b2"], start: "16:00" });
     expect(r.type === "change" && r.changes[0]).toEqual({

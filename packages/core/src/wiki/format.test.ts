@@ -60,6 +60,44 @@ describe("일정 줄", () => {
   });
 });
 
+describe("일정 share 토큰 (&그룹)", () => {
+  const L = "- [ ] 2026-11-15 12:00-14:00 사촌 모임 점심 @family &cousins #evt-i9j0";
+
+  it("@구성원 뒤 &그룹을 읽고 같은 줄로 다시 쓴다", () => {
+    const e = parseEventLine(L);
+    expect(e).toMatchObject({ title: "사촌 모임 점심", members: ["family"], share: "cousins" });
+    expect(e && formatEventLine(e)).toBe(L);
+  });
+
+  it("토큰이 없으면 share가 없다(키도 없음)", () => {
+    const e = parseEventLine("- [ ] 2026-11-15 12:00 점심 @family #evt-i9j1");
+    expect(e).not.toHaveProperty("share");
+  });
+
+  it("깨진 토큰(대문자·2개 이상·빈 토큰)은 줄을 살리고 share만 무시하며 경고한다", () => {
+    for (const l of [
+      "- [ ] 2026-11-15 12:00 점심 @family &Cousins #evt-i9j2",
+      "- [ ] 2026-11-15 12:00 점심 @family &a &b #evt-i9j2",
+      "- [ ] 2026-11-15 12:00 점심 @family & #evt-i9j2",
+    ]) {
+      const warns: string[] = [];
+      const e = parseEventLine(l, (m) => warns.push(m));
+      expect(e).toMatchObject({ id: "evt-i9j2", title: "점심", members: ["family"] });
+      expect(e?.share).toBeUndefined();
+      expect(warns).toHaveLength(1);
+    }
+  });
+
+  it("제목 속 &는 그대로(R&D, A & B)", () => {
+    expect(parseEventLine("- [ ] 2026-11-15 12:00 R&D 회식 @dad #evt-i9j3")).toMatchObject({ title: "R&D 회식" });
+  });
+
+  it("쓰기: 잘못된 share는 거부", () => {
+    const e = parseEventLine(L);
+    expect(() => formatEventLine({ ...(e as NonNullable<typeof e>), share: "Bad Id" })).toThrow();
+  });
+});
+
 describe("tasks.md", () => {
   const text = "## 장보기\n- [ ] 우유 #task-e5f6\n- [ ] 사과 @mom #task-0002\n## 할 일\n- [x] 책 반납하기 @haneul #task-g7h8\n";
 

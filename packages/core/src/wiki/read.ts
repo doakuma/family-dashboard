@@ -28,7 +28,7 @@ export function readWiki(files: WikiFiles): WikiState {
   const events = files
     .list("events")
     .filter((n) => /^\d{4}-\d{2}\.md$/.test(n))
-    .flatMap((n) => parseEventsFile(files.read(`events/${n}`) ?? ""))
+    .flatMap((n) => parseEventsFile(files.read(`events/${n}`) ?? "", warnAt(`events/${n}`)))
     .sort((a, b) => eventSortKey(a).localeCompare(eventSortKey(b)));
 
   return {

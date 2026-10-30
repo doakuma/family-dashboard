@@ -309,9 +309,10 @@
         6,
         7
       ],
-      "status": "todo",
+      "status": "done",
       "passes": false,
-      "review": null
+      "review": "pending",
+      "note": "필드만(공유 동작·그룹 정의·화면 변화 없음). 그룹 id는 소문자 ^[a-z0-9_-]+$(구성원 id와 달리 대문자 불가). Change/LLM에 share 없음. toPublicState는 share 제외 — #31 상세 시트에서 필요해지면 그때 추가."
     },
     {
       "id": 28,

@@ -72,3 +72,8 @@
 - 리뷰어 재검토 통과 → features.json #6 #14 #15 passes=true, review=pass (오너 반영).
 - 자동 넘김 토글 라벨을 "자동 넘김 멈춤"으로 고정하고 상태는 aria-pressed로만 전달(스크린리더 이중 읽기 방지), e2e 갱신.
 - 남은 문제: 세로 배치 e2e 없음, 실기기 터치·포커스 링은 #24에서 확인.
+
+## 2026-10-30 · #27 일정 share 필드 (스펙 rev 35, 필드만)
+- `ShareGroupId`·`Event.share?`, `shareGroupIdSchema`(`^[a-z0-9_-]+$`), 파서/직렬화가 `@구성원` 뒤·`#id` 앞 `&그룹` 토큰 보존. `Change`에는 share가 없어 LLM이 만들거나 바꿀 수 없고(event.update도 기존 값 유지), 제목의 단어 앞 `&`는 쓰기 거부·봇 cleanTitle이 제거.
+- 깨진 토큰(대문자·2개 이상·빈 `&`)은 줄을 살리고 share만 무시 + `readWiki().warnings`. `toPublicState`는 share를 내보내지 않음(테스트). sample-wiki에 `&cousins` 일정(evt-2b13) 추가, docs/wiki-format.md 갱신.
+- 검증: pnpm check 통과. 남은 문제: 그룹 id 대문자 허용 여부는 아래 보고 참고(소문자로 결정), 공유 동작·그룹 정의는 후속.
