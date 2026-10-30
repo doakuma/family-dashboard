@@ -140,10 +140,15 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
   for (const id of q.memberIds ?? []) if (ctx.members.some((m) => m.id === id && id !== "family")) wanted.add(id);
   const memberPrefix = [...wanted].map(nameOf).join("·");
   // 키워드는 질문에 글자 그대로 있을 때만 쓴다(없는 말로 걸러서 "없어요"라고 잘못 답하지 않게)
-  const keyword = q.keyword && norm(q.text).includes(norm(q.keyword)) ? q.keyword : undefined;
+  // 위키의 일정·기념일 제목 어디에도 없는 말("계획"·"행사"·"하늘이"·"하는 날이야")과 구성원 이름은 일정 이름이 아니라
+  // 서술어이므로 거르지 않는다. 날짜가 분명한 질문이 "없어요"로 끝나지 않게 한다. 날짜 없이 이름만 물으면 아래에서 없다고 답한다.
+  const rawKeyword = q.keyword && norm(q.text).includes(norm(q.keyword)) ? q.keyword : undefined;
+  const picked = chooseRange(q, today);
+  const inTitles = (kw: string) => [...ctx.events.map((e) => e.title), ...ctx.anniversaries.map((a) => a.title)].some((t) => norm(t).includes(norm(kw)));
+  const isMemberName = (kw: string) => ctx.members.some((m) => m.id !== "family" && nameIn(kw, m.name));
+  const keyword = rawKeyword && !(picked && typeof picked === "object" && (!inTitles(rawKeyword) || isMemberName(rawKeyword))) ? rawKeyword : undefined;
   const prefix = `${memberPrefix ? `${memberPrefix} ` : ""}${keyword ? `'${keyword}' ` : ""}`;
 
-  const picked = chooseRange(q, today);
   if (picked === "too_long") return clarify(`한 번에 보여 드리기엔 기간이 너무 길어요. 두 달 이내로 다시 물어봐 주세요. (${EXAMPLE})`);
   if (picked === "ambiguous") return clarify(`날짜가 띄엄띄엄 떨어져 있어서 하나로 묶기 어려워요. 하나씩 나눠서 물어봐 주세요. (${EXAMPLE})`);
   const upcoming = !picked && (!!keyword || annivOnly);

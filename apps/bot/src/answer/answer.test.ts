@@ -367,3 +367,87 @@ describe("떨어진 날짜", () => {
     expect(r.text).toContain("하나씩");
   });
 });
+
+// origin/hsh-10-question-alt(겹친 대화의 #10 구현)의 회귀 테스트를 main 구조로 옮긴 것. 기준일은 위 now(2026-10-30 금).
+describe("날짜가 분명한 질문은 LLM keyword가 그날 일정을 지우지 않는다", () => {
+  const cases: [string, string][] = [
+    ["이번 주 토요일 계획?", "계획"],
+    ["이번 주 토요일 가족 행사?", "행사"],
+    ["이번 주 토요일 하늘이 뭐 해?", "하늘이"],
+    ["이번 주 토요일 하늘이 뭐 해?", "하늘"],
+    ["이번 주 토요일 하는 날이야?", "하는 날이야"],
+    ["이번 주 토요일 수영 뭐 있어?", "수영"],
+  ];
+  it.each(cases)("%s (qKeyword=%s)", async (text, qKeyword) => {
+    const { r } = await ask(text, { intent: "question", qKeyword });
+    expect(r.status).toBe("answered");
+    expect(r.text).toContain("핼러윈 파티");
+    expect(r.text).not.toContain("없어요");
+  });
+  it("제목에 있는 keyword는 그대로 거른다", async () => {
+    const { r } = await ask("내일 핼러윈 있어?", { intent: "question", qKeyword: "핼러윈" });
+    expect(r.status === "answered" && r.eventIds).toEqual(["evt-1"]);
+  });
+  it("제목에 있는 keyword라도 그 날짜에 없으면 없다고 답한다", async () => {
+    const { r } = await ask("11월 1일 치과 있어?", { intent: "question", qKeyword: "치과" });
+    expect(r.status).toBe("empty");
+  });
+});
+
+describe('"말고" 문장', () => {
+  it("뒤에 날짜가 있으면 뒤쪽 기간으로 답한다", async () => {
+    const { r } = await ask("이번 주 말고 다음 주 뭐 있어?", { intent: "question" });
+    expect(r.status === "answered" && r.range).toEqual({ from: "2026-11-01", to: "2026-11-07" });
+    expect(r.text).toContain("치과");
+    expect(r.text).not.toContain("핼러윈");
+  });
+  it("뒤에 날짜가 없으면 앞쪽 날짜로 답한다", async () => {
+    const { r } = await ask("토요일에 핼러윈 말고 뭐 있어?", { intent: "question" });
+    expect(r.status === "answered" && r.range).toEqual({ from: "2026-10-31", to: "2026-10-31" });
+    expect(r.text).toContain("미술학원");
+  });
+});
+
+describe("이름만 묻는 질문 (날짜 없음)", () => {
+  it('"하늘 생일 언제야?" -> 다가오는 하늘 기념일(연도 표시)', async () => {
+    const s = state({ anniversaries: [...anniversaries, { monthDay: "08-15", title: "하늘 생일", member: "haneul" }] });
+    const { r } = await ask("하늘 생일 언제야?", { intent: "question", qKeyword: "생일" }, s);
+    expect(r.status).toBe("answered");
+    expect(r.text).toContain("8/15(일)");
+    expect(r.text).toContain("하늘 생일");
+    expect(r.text).not.toContain("아빠 생일");
+  });
+  it('"수영 언제야?" -> 위키에 없다고 답한다(관계없는 목록을 보여 주지 않는다)', async () => {
+    const { r } = await ask("수영 언제야?", { intent: "question", qKeyword: "수영" });
+    expect(r.status).toBe("empty");
+    expect(r.text).toContain("수영");
+    expect(r.text).toContain("없어요");
+    expect(r.text).not.toContain("핼러윈");
+  });
+});
+
+describe("rev 62 날짜 해석 (answerQuestion 경유, 기준일을 바꿔서)", () => {
+  const askAt = async (text: string, at: string, s = state()) => {
+    const { repo } = fakeRepo(s);
+    return answerQuestion({ text, now: new Date(`${at}T03:00:00Z`), familyId: FAMILY }, { wiki: repo, llm: fakeLlm({ intent: "question" }) });
+  };
+  it("일요일 당일 '이번 주 일요일'은 오늘, '다음 주 일요일'은 일주일 뒤", async () => {
+    expect(await askAt("이번 주 일요일 뭐 있어?", "2026-11-01")).toMatchObject({ range: { from: "2026-11-01", to: "2026-11-01" } });
+    expect(await askAt("다음 주 일요일 뭐 있어?", "2026-11-01")).toMatchObject({ range: { from: "2026-11-08", to: "2026-11-08" } });
+    expect((await askAt("다음 주 일요일 뭐 있어?", "2026-11-01")).text).toContain("아빠 생일");
+  });
+  it("토요일 당일 '이번 주말'은 오늘~내일", async () => {
+    expect(await askAt("이번 주말 뭐 있어?", "2026-10-31")).toMatchObject({ status: "answered", range: { from: "2026-10-31", to: "2026-11-01" } });
+  });
+  it("일요일 당일 '이번 주말'은 문구 그대로면 떨어진 두 날이라 되묻는다 (오너 확인 필요)", async () => {
+    expect((await askAt("이번 주말 뭐 있어?", "2026-11-01")).status).toBe("clarify");
+  });
+  it("과거형은 가장 최근에 지난 날, 미래형은 다가오는 날", async () => {
+    expect(await askAt("10월 24일 뭐 했어?", "2026-10-30")).toMatchObject({ range: { from: "2026-10-24", to: "2026-10-24" } });
+    expect(await askAt("10월 24일 뭐 있어?", "2026-10-30")).toMatchObject({ range: { from: "2027-10-24", to: "2027-10-24" } });
+    expect(await askAt("토요일에 뭐 했지?", "2026-10-30")).toMatchObject({ range: { from: "2026-10-24", to: "2026-10-24" } });
+  });
+  it("연도를 말하면 그대로", async () => {
+    expect(await askAt("2026년 10월 31일 뭐 있어?", "2027-03-01")).toMatchObject({ status: "answered", range: { from: "2026-10-31", to: "2026-10-31" } });
+  });
+});

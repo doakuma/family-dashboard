@@ -47,13 +47,13 @@ export type LlmOutput = z.infer<typeof llmOutputSchema>;
 export const llmOutputJsonSchema: Record<string, unknown> = z.toJSONSchema(llmOutputSchema);
 
 function calendarTable(today: string): string {
-  // 이번 주 월요일부터 3주
-  const monday = addDays(today, -((weekdayOf(today) + 6) % 7));
+  // 이번 주 일요일부터 3주 (rev 62: 주는 일~토)
+  const sunday = addDays(today, -weekdayOf(today));
   const labels = ["이번 주", "다음 주", "다다음 주"];
   return labels
     .map((label, w) => {
       const days = Array.from({ length: 7 }, (_, i) => {
-        const d = addDays(monday, w * 7 + i);
+        const d = addDays(sunday, w * 7 + i);
         return `${WEEKDAYS_KO[weekdayOf(d)]} ${d}${d === today ? "(오늘)" : ""}`;
       });
       return `- ${label}: ${days.join(", ")}`;
@@ -80,7 +80,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 - 오늘: ${ctx.today} (${WEEKDAYS_KO[weekdayOf(ctx.today)]}요일), 현재 시각 ${ctx.now}, 시간대 Asia/Seoul
 - 보낸 사람: ${ctx.sender ? `${ctx.sender.id} (${ctx.sender.name})` : "알 수 없음"}
 
-## 달력 (주는 월요일 시작. "다음 주 화요일" = 아래 '다음 주' 줄의 화요일)
+## 달력 (주는 일요일 시작, 대시보드 달력과 같다. 예외: "이번 주 일요일"은 돌아오는 일요일(오늘이 일요일이면 오늘), "다음 주 일요일"은 그다음 일요일. "다음 주 화요일" = 아래 '다음 주' 줄의 화요일)
 ${calendarTable(ctx.today)}
 
 ## 구성원
