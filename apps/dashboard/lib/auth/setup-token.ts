@@ -8,6 +8,8 @@ export interface SetupTokenStore {
   isValid(token: string | undefined): boolean;
   /** 유효하면 모든 토큰을 폐기하고 true. 쓰면 끝, 다음 current()가 새로 발급한다. */
   consume(token: string | undefined): boolean;
+  /** 세팅이 끝났을 때: 남은 토큰을 모두 폐기한다(태블릿이 중간에 새로 받은 토큰 포함) */
+  revokeAll(): void;
 }
 
 const digest = (t: string) => createHash("sha256").update(t).digest("hex");
@@ -43,6 +45,10 @@ export function createSetupTokenStore(opts: { ttlMs?: number; refreshMarginMs?: 
       live.clear();
       latest = undefined;
       return true;
+    },
+    revokeAll() {
+      live.clear();
+      latest = undefined;
     },
   };
 }

@@ -64,4 +64,13 @@ describe("세팅 토큰", () => {
     expect(s.consume(b)).toBe(true);
     expect(s.isValid(a)).toBe(false);
   });
+  it("revokeAll: 발급된 모든 토큰이 무효가 되고 다음 current()는 새 토큰", () => {
+    const { s } = make();
+    const a = s.current();
+    const b = s.current();
+    expect(b).toBe(a);
+    s.revokeAll();
+    expect(s.isValid(a)).toBe(false);
+    expect(s.current()).not.toBe(a);
+  });
 });

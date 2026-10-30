@@ -1,5 +1,5 @@
 import "server-only";
-import { toPublicState, todayIn, type ApiState, type DashboardState } from "@hsh/core";
+import { SetupError, existingSetupContent, needsSetup, toPublicState, todayIn, type ApiState, type DashboardState, type WikiRepository } from "@hsh/core";
 import { FsWikiRepository } from "@hsh/core/node";
 import { resolve } from "node:path";
 import { SampleWeatherSource, createWeatherSource } from "./weather";
@@ -21,6 +21,30 @@ function getWiki(): FsWikiRepository {
   return wiki;
 }
 const weather = createWeatherSource();
+
+// 첫 세팅 쓰기용 저장소. 읽기용(push:false)과 달리 push를 켠다(원격이 없으면 건너뜀). 쓰기 큐를 하나만 쓰도록 globalThis에 둔다.
+const WRITER = Symbol.for("hsh.wiki.writer.v1");
+type G = typeof globalThis & { [WRITER]?: FsWikiRepository };
+
+export function getWikiWriter(): Pick<WikiRepository, "applySetup"> {
+  const g = globalThis as G;
+  if (g[WRITER]) return g[WRITER];
+  const path = process.env.WIKI_REPO_PATH;
+  if (!path) throw new SetupError("WIKI_REPO_PATH가 없어 위키에 쓸 수 없어요", "read_only");
+  return (g[WRITER] = new FsWikiRepository({ root: path, author: "setup" }));
+}
+
+/** /setup 화면이 필요한 것: 세팅이 필요한지, 지워질 이전 세팅 파일이 있는지, 쓸 수 있는 위키인지 */
+export async function getSetupContext() {
+  const repo = getWiki();
+  const state = await repo.read();
+  const e = existingSetupContent(repo.files);
+  return {
+    needsSetup: needsSetup(state),
+    writable: Boolean(process.env.WIKI_REPO_PATH),
+    existing: { config: e.config, members: e.memberFiles.length, anniversaries: e.anniversaries },
+  };
+}
 
 let lastWarnings = "";
 /** 위키 읽기 경고를 서버 로그에 남긴다. 폴링마다 반복되지 않게 내용이 바뀔 때만. */

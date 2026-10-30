@@ -100,7 +100,7 @@ describe("오늘 일정 순서", () => {
 // ---- 명암비: 글자에 쓰는 색은 4.5:1 이상 (실제 CSS에서 글자색 토큰을 모아 검사, 투명도도 반영) ----
 const appDir = join(import.meta.dirname, "..");
 const globalsCss = readFileSync(join(appDir, "app/globals.css"), "utf8");
-const cssFiles = ["components", "components/widgets", "components/ui"].flatMap((d) =>
+const cssFiles = ["components", "components/widgets", "components/ui", "components/ui/form", "components/setup"].flatMap((d) =>
   readdirSync(join(appDir, d))
     .filter((n) => n.endsWith(".css"))
     .map((n) => ({ name: n, path: join(d, n), text: readFileSync(join(appDir, d, n), "utf8") })),
