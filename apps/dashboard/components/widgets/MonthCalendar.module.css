@@ -85,7 +85,7 @@
 }
 
 .cell[data-past]:not([data-other]) .event {
-  opacity: 0.75;
+  opacity: 0.5; /* 지난 일정은 의도적으로 흐림(오너 결정 2026-10-30) */
 }
 
 .cell[data-today] .num {

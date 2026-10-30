@@ -17,7 +17,7 @@
 
 .item {
   display: grid;
-  grid-template-columns: 4.2rem minmax(0, 1fr) auto auto;
+  grid-template-columns: 5rem minmax(0, 1fr) auto auto;
   gap: 0.4rem;
   align-items: baseline;
   font-size: 1.08rem;
@@ -29,8 +29,12 @@
   color: var(--muted);
 }
 
+/* 30일 이내: 글자색은 기본 ink(구성원 색 아님), 굵고 크게 */
 .item[data-soon] .d {
   color: var(--ink);
+  font-weight: 700;
+  font-size: 1.65rem;
+  line-height: 1;
 }
 
 .what {

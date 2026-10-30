@@ -37,3 +37,10 @@ export function orderAgenda(events: readonly Event[], today: string, nowTime: st
   const list = events.filter((e) => e.date === today).sort((a, b) => eventSortKey(a).localeCompare(eventSortKey(b)));
   return { upcoming: list.filter((e) => !isPast(e, nowTime)), past: list.filter((e) => isPast(e, nowTime)) };
 }
+
+/** 이 일수 이내(포함)로 다가온 기념일은 D-n을 크고 굵게 보여 준다 */
+export const DDAY_SOON_DAYS = 30;
+
+export function isSoon(daysLeft: number): boolean {
+  return daysLeft <= DDAY_SOON_DAYS;
+}

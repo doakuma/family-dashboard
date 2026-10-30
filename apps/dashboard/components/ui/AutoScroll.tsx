@@ -11,7 +11,21 @@ import s from "./AutoScroll.module.css";
  * - 이 영역은 touch-action: pan-y(세로 스크롤만 허용). 화면 전체의 제스처 차단(핀치 줌 등)은 아직 없고 #31에서 한다.
  * 높이는 부모가 정한다(flex 자식이면 min-height:0 과 함께 쓴다).
  */
-export function AutoScroll({ children, className, config }: { children: ReactNode; className?: string; config?: Partial<AutoScrollConfig> }) {
+export function AutoScroll({
+  children,
+  className,
+  config,
+  paused = false,
+  onOverflowChange,
+}: {
+  children: ReactNode;
+  className?: string;
+  config?: Partial<AutoScrollConfig>;
+  /** true면 자동 순환을 멈춘다(제어형). 손 스크롤은 그대로 된다 */
+  paused?: boolean;
+  /** 넘침 여부가 바뀔 때 알린다(멈춤 버튼을 넘칠 때만 보이게 하는 용도) */
+  onOverflowChange?: (overflowing: boolean) => void;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const cfgRef = useRef<AutoScrollConfig>({ ...AUTO_SCROLL_DEFAULTS, ...config });
   // 렌더 중에는 ref를 쓰지 않는다: 설정은 효과에서 갱신
@@ -19,9 +33,26 @@ export function AutoScroll({ children, className, config }: { children: ReactNod
     cfgRef.current = { ...AUTO_SCROLL_DEFAULTS, ...config };
   }, [config]);
 
+  const pausedRef = useRef(paused);
+  const overflowCb = useRef(onOverflowChange);
+  const wakeRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    pausedRef.current = paused;
+    overflowCb.current = onOverflowChange;
+    if (!paused) wakeRef.current(); // 다시 켜면 루프를 깨운다
+  }, [paused, onOverflowChange]);
+
   useEffect(() => {
     const el = box.current;
     if (!el) return;
+    let reported: boolean | undefined;
+    const report = () => {
+      const o = overflows(el);
+      if (o !== reported) {
+        reported = o;
+        overflowCb.current?.(o);
+      }
+    };
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
     let touching = false;
     let lastTouchAt: number | undefined;
@@ -47,7 +78,7 @@ export function AutoScroll({ children, className, config }: { children: ReactNod
     // 넘칠 때만 rAF를 돌린다: 크기·내용이 바뀔 때(ResizeObserver) 켜고 끈다.
     const tick = (t: number) => {
       raf = 0;
-      if (!overflows(el) || reduce.matches) {
+      if (!overflows(el) || reduce.matches || pausedRef.current) {
         wasRunning = false;
         return; // 넘치지 않으면 루프 종료(관찰자가 다시 깨운다)
       }
@@ -70,7 +101,8 @@ export function AutoScroll({ children, className, config }: { children: ReactNod
       raf = requestAnimationFrame(tick);
     };
     const wake = () => {
-      if (raf || !overflows(el) || reduce.matches) return;
+      report();
+      if (raf || pausedRef.current || !overflows(el) || reduce.matches) return;
       last = performance.now();
       raf = requestAnimationFrame(tick);
     };
@@ -80,6 +112,7 @@ export function AutoScroll({ children, className, config }: { children: ReactNod
       ro.observe(el);
       for (const c of Array.from(el.children)) ro.observe(c);
     };
+    wakeRef.current = wake;
     watch();
     const mo = new MutationObserver(() => {
       watch();
@@ -91,6 +124,7 @@ export function AutoScroll({ children, className, config }: { children: ReactNod
 
     return () => {
       cancelAnimationFrame(raf);
+      wakeRef.current = () => {};
       ro.disconnect();
       mo.disconnect();
       reduce.removeEventListener("change", wake);

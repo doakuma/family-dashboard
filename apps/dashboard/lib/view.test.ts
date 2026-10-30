@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { type Event } from "@hsh/core";
 import { describe, expect, it } from "vitest";
-import { LIMITS, STALE_AFTER_MS, isNight, isPast, isStale, limit, orderAgenda } from "./view";
+import { DDAY_SOON_DAYS, LIMITS, STALE_AFTER_MS, isNight, isPast, isSoon, isStale, limit, orderAgenda } from "./view";
 
 describe("isNight", () => {
   it("23:00부터 05:59까지가 야간", () => {
@@ -13,6 +13,16 @@ describe("isNight", () => {
     expect(isNight("05:59")).toBe(true);
     expect(isNight("06:00")).toBe(false);
     expect(isNight("12:00")).toBe(false);
+  });
+});
+
+describe("isSoon (D-day 강조 경계)", () => {
+  it("기준은 30일, 30일은 강조·31일은 아님, 오늘(0)은 강조", () => {
+    expect(DDAY_SOON_DAYS).toBe(30);
+    expect(isSoon(0)).toBe(true);
+    expect(isSoon(29)).toBe(true);
+    expect(isSoon(30)).toBe(true);
+    expect(isSoon(31)).toBe(false);
   });
 });
 
@@ -169,7 +179,22 @@ describe("명암비", () => {
 // opacity가 글자 위에 걸리면 실제 명암비가 떨어진다. 투명도 규칙은 모두 여기에 등록하고 계산한다(새 규칙을 추가하면 이 표를 채워야 통과).
 const OPACITY_CASES: { file: string; selector: string; tone: "day" | "dim"; fg: string[]; bg: string[]; exempt?: string }[] = [
   { file: "NightView.module.css", selector: ".night", tone: "dim", fg: ["ink", "muted", "warn"], bg: ["paper"] }, // 야간 화면에 실제로 쓰이는 글자색
-  { file: "MonthCalendar.module.css", selector: ".cell[data-past]:not([data-other]) .event", tone: "day", fg: ["ink"], bg: ["sheet"] },
+  {
+    file: "MonthCalendar.module.css",
+    selector: ".cell[data-past]:not([data-other]) .event",
+    tone: "day",
+    fg: ["ink"],
+    bg: ["sheet"],
+    exempt: "오너 결정 2026-10-30: 지난 일정은 의도적으로 흐림",
+  },
+  {
+    file: "TodayAgenda.module.css",
+    selector: ".item[data-past]",
+    tone: "day",
+    fg: ["muted"],
+    bg: ["paper"],
+    exempt: "오너 결정 2026-10-30: 지난 일정은 의도적으로 흐림",
+  },
   {
     file: "MonthCalendar.module.css",
     selector: ".cell[data-other] .num, .cell[data-other] .event",

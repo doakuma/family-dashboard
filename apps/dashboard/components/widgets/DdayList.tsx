@@ -1,5 +1,5 @@
 import { diffDays, nextOccurrence, weekdayKo, type PublicAnniversary } from "@hsh/core";
-import { LIMITS } from "@/lib/view";
+import { LIMITS, isSoon } from "@/lib/view";
 import { MemberDots, type MemberMap } from "./MemberDot";
 import s from "./DdayList.module.css";
 
@@ -21,7 +21,7 @@ export function DdayList({ anniversaries, today, members }: { anniversaries: Pub
           // 서버가 계산해 준 나이. 날짜가 어긋나면(자정 직후 갱신 전) 보여 주지 않는다.
           const turning = a.turns?.date === date ? a.turns.age : undefined;
           return (
-            <li key={`${a.monthDay}-${a.title}`} className={s.item} data-soon={n <= 30 || undefined}>
+            <li key={`${a.monthDay}-${a.title}`} className={s.item} data-soon={isSoon(n) || undefined}>
               <span className={s.d}>
                 {n === 0 ? "오늘" : `D-${n}`}
               </span>

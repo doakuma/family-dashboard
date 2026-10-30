@@ -5,12 +5,46 @@
   min-width: 0;
 }
 
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 3rem; /* 버튼(48px)이 나타나도 아래 목록이 밀리지 않게 */
+  margin-bottom: 0.3rem;
+}
+
 .title {
   font-family: var(--font-display);
   font-weight: 400;
   font-size: 1.9rem;
   line-height: 1;
-  margin-bottom: 0.8rem;
+}
+
+/* 자동 넘김 멈춤/켜기: 터치 영역 48px 이상, 모양은 얌전하게 */
+.toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 48px;
+  min-height: 48px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.toggle[aria-pressed="true"] {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.toggle:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .scroll {
@@ -48,10 +82,10 @@
   text-overflow: ellipsis;
 }
 
-/* 지난 일정: 글자는 --muted(명암비 4.5:1 이상)로 흐리게. 투명도로 흐리게 하면 글자 명암비가 깨진다 */
 .item[data-past] {
   color: var(--muted);
   font-weight: 500;
+  opacity: 0.45; /* 지난 일정은 의도적으로 흐림(오너 결정 2026-10-30). 면제 사유는 view.test.ts 투명도 표 */
 }
 
 .item[data-past] .what {

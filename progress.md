@@ -61,3 +61,9 @@
 - 낮은 항목: DdayList 색 점을 말줄임 밖 별도 칸으로, AutoScroll은 ResizeObserver/MutationObserver로 넘칠 때만 rAF(렌더 중 ref 쓰기 제거), 세로 미디어쿼리에서 .agenda contain:none, gitReason null 가드, lenient 불필요 캐스팅 제거, autostash 재적용 충돌 회귀 테스트 추가. AutoScroll·stress e2e 주석/단계명을 실제 검증 내용으로(전체 제스처 차단은 #31).
 - 장부: #7 #15 #17 #14 passes=true review=pass 반영(오너 지시), $comment·hsh-engineer.md에 "리뷰 통과 뒤 코드가 바뀌면 review를 pending으로" 명시, #28 제목 dim 톤 변형, #31 수용 기준(핀치 줌 차단 e2e).
 - 남은 문제: 세로 배치(.agenda contain:none)는 눈으로만 확인 필요(e2e 없음).
+
+## 2026-10-30 · #14 #15 오너 디자인 결정 반영 (스펙 rev 52)
+- 오늘 일정 자동 넘김 토글: 넘칠 때만 헤더 오른쪽에 48px 버튼(일시정지/재생 SVG, aria-label·aria-pressed). `AutoScroll`에 `paused`(제어형)·`onOverflowChange` 추가, 상태는 `usePersistedFlag`(localStorage, 실패 시 메모리). CLAUDE.md 원칙에 예외 한 줄.
+- 지난 일정 흐림: 오늘 일정 opacity 0.45, 달력 0.5. 명암비 테스트 면제 표에 사유("오너 결정 2026-10-30")와 함께 등록(다른 달 날짜 면제는 그대로). D-day: 30일 이내 D-n 굵고 크게(`DDAY_SOON_DAYS`/`isSoon`, 경계 테스트).
+- 검증: pnpm check, build, stress·auth e2e 통과(stress에 토글 단계 추가), stress-* 캡처 갱신. #14 #15는 passes=false, review=pending(리뷰 통과 후 코드 변경 규칙).
+- 남은 문제: 흐림 정도(0.45/0.5)는 오너가 눈으로 최종 확인. 키보드 포커스 링·실기기 터치는 #24.
