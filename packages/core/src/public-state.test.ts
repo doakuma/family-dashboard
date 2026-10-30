@@ -1,7 +1,8 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FsWikiRepository } from "./node/fs-wiki";
-import { toPublicState } from "./public-state";
+import { eventsForMonthView, toPublicState } from "./public-state";
+import { parseEventsFile } from "./wiki/format";
 import { apiStateSchema } from "./schema";
 import { DEFAULT_FAMILY_ID } from "./types";
 
@@ -51,10 +52,21 @@ describe("toPublicState", () => {
     }
   });
 
-  it("일정 share(&그룹)는 MVP 화면이 안 쓰므로 내보내지 않는다 (#31 상세 시트에서 필요해지면 추가)", () => {
-    expect(state.events.some((e) => e.share === "cousins")).toBe(true); // 픽스처에 share 일정이 있다
-    expect(json).not.toContain("cousins");
-    expect(pub.events.every((e) => !("share" in e))).toBe(true);
+  it("일정 share는 그룹 id만 내보낸다(상세 시트용, 결정 0006). 없으면 필드도 없다", () => {
+    const shared = state.events.find((e) => e.share === "cousins");
+    expect(shared).toBeTruthy();
+    expect(pub.events.find((e) => e.id === shared!.id)?.share).toBe("cousins");
+    expect(pub.events.filter((e) => e.share).length).toBe(state.events.filter((e) => e.share).length);
+    expect(pub.events.find((e) => !e.share && "share" in e)).toBeUndefined();
+  });
+
+  it("깨진 원문 토큰(&A &B, &!)은 내보내지 않는다", () => {
+    const parsed = parseEventsFile("- [ ] 2026-11-03 15:00 모임 @haneul &a &b #evt-x1\n- [ ] 2026-11-04 15:00 모임2 @haneul &bad! #evt-x2\n", () => {});
+    expect(parsed).toHaveLength(2);
+    const out = JSON.stringify(toPublicState({ ...state, events: parsed }, "2026-11-03").events);
+    expect(out).not.toContain("&");
+    expect(out).not.toContain("bad!");
+    expect(out).not.toContain('"share"');
   });
 
   it("구성원은 id·name·color만", () => {
@@ -81,5 +93,24 @@ describe("toPublicState", () => {
 
   it("세팅 필요 판정을 포함한다", () => {
     expect(toPublicState({ ...state, config: undefined, members: [] }, "2026-11-03").needsSetup).toBe(true);
+  });
+});
+
+describe("eventsForMonthView", () => {
+  const ev = (id: string, date: string) => ({ id, date, allDay: true, title: id, members: ["family"], done: false });
+  const list = [ev("a", "2026-10-31"), ev("b", "2026-11-03"), ev("c", "2026-12-05"), ev("d", "2026-12-06"), ev("e", "2027-01-01"), ev("f", "2026-10-25")];
+
+  it("그 달 달력 칸(이웃 달 날짜 포함)의 일정을 싣는다", () => {
+    // 2026-11 달력: 11/1(일) ~ 12/5(토)
+    expect(eventsForMonthView(list, "2026-11", "2026-11-03").map((e) => e.id)).toEqual(["b", "c"]);
+  });
+
+  it("보고 있는 달과 상관없이 오늘·내일 일정은 항상 포함한다", () => {
+    expect(eventsForMonthView(list, "2027-01", "2026-10-31").map((e) => e.id)).toEqual(["a", "e"]);
+    expect(eventsForMonthView(list, "2030-01", "2026-12-05").map((e) => e.id)).toEqual(["c", "d"]);
+  });
+
+  it("일정 파일이 없는 달은 빈 달", () => {
+    expect(eventsForMonthView(list, "2030-01", "2026-11-20")).toEqual([]);
   });
 });
