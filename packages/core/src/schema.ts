@@ -28,8 +28,9 @@ const plain = (max: number) =>
 
 /** 구성원 id 규칙 (위키 `@id` 토큰과 같다) */
 export const memberIdSchema = z.string().regex(/^[A-Za-z0-9_-]+$/);
-/** 일정 공유 그룹 id (위키 `&id` 토큰). 구성원 id와 같은 형식이되 소문자만. */
-export const shareGroupIdSchema = z.string().regex(/^[a-z0-9_-]+$/, "소문자·숫자·_·-");
+/** 일정 공유 그룹 id (위키 `&id` 토큰). 구성원 id와 같은 형식(스펙 rev 54). 비교는 sameShareGroup으로(대소문자 무시). */
+export const shareGroupIdSchema = z.string().regex(/^[A-Za-z0-9_-]+$/, "영문·숫자·_·-");
+export const sameShareGroup = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 // 제목: 줄 끝 토큰(`#id`, `@멤버`, `&그룹`)과 헷갈리는 # · @ 금지, 단어 앞 &(`&cousins`)도 금지 (`R&D`, `A & B`는 허용)
 const title = plain(80)
   .refine((s) => !/[#@]/.test(s), "제목에 #, @ 금지")

@@ -49,21 +49,41 @@ function parseCheckLine(line: string): { done: boolean; body: string; id?: strin
 
 // ---------- 일정 ----------
 
-/** 줄 끝의 &그룹 토큰을 떼어 낸다. 깨진 토큰(대문자 등)이나 2개 이상이면 share 없음 + 경고(줄은 살린다). */
-function takeShare(rest: string, warn?: (m: string) => void): { text: string; share?: string } {
-  const raw: string[] = [];
+/**
+ * 파서가 읽은 깨진 `&토큰` 원문(`&` 뒤 문자열들). 심볼 키라 JSON·zod·public/state·Change로 나가지 않고,
+ * `{ ...event, ...patch }` 스프레드로는 따라간다 → formatEventLine이 그대로 다시 쓴다(스펙 rev 54: 원문 보존 + 경고만).
+ */
+export const SHARE_RAW = Symbol.for("hsh.event.shareRaw");
+type WithShareRaw = { [SHARE_RAW]?: string[] };
+/** parseEventLine의 반환형: Event + (깨진 토큰이 있을 때만) 내부 원문. 주의: 새 객체를 만들거나 clone·JSON·schema.parse를 거치면 원문이 유실된다. 스프레드({...e, ...patch})만 안전하다. */
+export type ParsedEvent = Event & WithShareRaw;
+
+/**
+ * 줄 꼬리의 @구성원·&그룹 토큰을 순서와 무관하게 떼어 낸다.
+ * &토큰이 정확히 1개이고 형식이 맞으면 share, 아니면(2개 이상·깨짐) share 없음 + 원문 보존 + 경고.
+ */
+function takeTail(rest: string, warn?: (m: string) => void): { text: string; members: MemberId[]; share?: string; raw?: string[] } {
+  const members: MemberId[] = [];
+  const shares: string[] = [];
   let text = rest;
-  for (let m = SHARE_TOKEN.exec(text); m; m = SHARE_TOKEN.exec(text)) {
-    raw.unshift(m[1] ?? "");
+  for (;;) {
+    const mm = MEMBER_TOKEN.exec(text);
+    const sm = SHARE_TOKEN.exec(text);
+    const m = mm && sm ? (mm.index > sm.index ? mm : sm) : (mm ?? sm);
+    if (!m) break;
+    if (m === mm) members.unshift(m[1] ?? "");
+    else shares.unshift(m[1] ?? "");
     text = text.slice(0, m.index);
   }
-  if (raw.length === 0) return { text };
-  const ok = raw.length === 1 && shareGroupIdSchema.safeParse(raw[0]).success;
-  if (!ok) warn?.(`share: "&${show(raw.join(" &"))}" 토큰이 올바르지 않아(소문자·숫자·_·-, 일정당 1개) 공유 없음으로 읽었어요`);
-  return { text, share: ok ? raw[0] : undefined };
+  text = text.trim();
+  if (/(^|\s)&\S/.test(text)) warn?.(`share: 제목 속 "&…" 토큰은 줄 끝(@구성원 뒤)에 있지 않아 제목으로 읽었어요`);
+  if (shares.length === 0) return { text, members };
+  if (shares.length === 1 && shareGroupIdSchema.safeParse(shares[0]).success) return { text, members, share: shares[0] };
+  warn?.(`share: "&${show(shares.join(" &"))}" 토큰이 올바르지 않아(영문·숫자·_·-, 일정당 1개) 공유 없음으로 읽었어요. 원문은 그대로 둬요`);
+  return { text, members, raw: shares };
 }
 
-export function parseEventLine(line: string, warn?: (m: string) => void): Event | null {
+export function parseEventLine(line: string, warn?: (m: string) => void): ParsedEvent | null {
   const c = parseCheckLine(line);
   if (!c?.id?.startsWith("evt-")) return null;
   const [date, when, ...restParts] = c.body.split(/\s+/);
@@ -78,16 +98,18 @@ export function parseEventLine(line: string, warn?: (m: string) => void): Event 
     start = s;
     end = e;
   }
-  const { text: beforeShare, share } = takeShare(` ${restParts.join(" ")}`, warn);
-  const { text, members } = takeMembers(beforeShare);
+  const { text, members, share, raw } = takeTail(` ${restParts.join(" ")}`, warn);
   if (!text) return null;
-  return { id: c.id, date, start, end, allDay, title: text, members, ...(share ? { share } : {}), done: c.done };
+  const ev: ParsedEvent = { id: c.id, date, start, end, allDay, title: text, members, ...(share ? { share } : {}), done: c.done };
+  if (raw) ev[SHARE_RAW] = raw;
+  return ev;
 }
 
-export function formatEventLine(e: Event): string {
+export function formatEventLine(e: ParsedEvent): string {
   const when = e.allDay || !e.start ? ALL_DAY : e.end ? `${e.start}-${e.end}` : e.start;
   const members = e.members.map((m) => ` @${m}`).join("");
-  const share = e.share ? ` &${shareGroupIdSchema.parse(e.share)}` : "";
+  const raw = e[SHARE_RAW];
+  const share = e.share ? ` &${shareGroupIdSchema.parse(e.share)}` : (raw ?? []).map((t) => ` &${t}`).join("");
   return `- [${e.done ? "x" : " "}] ${e.date} ${when} ${e.title}${members}${share} #${e.id}`;
 }
 

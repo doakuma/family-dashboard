@@ -33,7 +33,7 @@ export interface FamilyConfig {
   setupCompletedAt?: string;
 }
 
-/** 일정 공유 그룹 id (예: 'cousins'). 소문자·숫자·`_`·`-`. MVP는 필드만 있고 공유 동작·그룹 정의는 없다. */
+/** 일정 공유 그룹 id (예: 'cousins'). 영문(대소문자 허용, 비교는 무시)·숫자·`_`·`-`. MVP는 필드만 있고 공유 동작·그룹 정의는 없다. */
 export type ShareGroupId = string;
 
 export interface Event {

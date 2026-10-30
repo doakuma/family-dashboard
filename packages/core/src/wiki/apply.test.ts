@@ -61,6 +61,22 @@ describe("applyChange", () => {
     expect(readWiki(w.files).events.find((e) => e.id === "evt-i9j0")?.share).toBe("cousins");
   });
 
+  it("event.update: 깨진 &토큰도 원문 그대로 남는다", () => {
+    for (const tail of ["&Cousins", "&a &b", "&", "&bad!"]) {
+      const line = `- [ ] 2026-11-15 12:00-14:00 점심 @family ${tail} #evt-i9j0`;
+      const w = memWiki({ ...base, "events/2026-11.md": `${base["events/2026-11.md"]}${line}\n` });
+      w.commit({ kind: "event.update", payload: { id: "evt-i9j0", start: "13:00", end: "15:00" } });
+      expect(w.store.get("events/2026-11.md")).toContain(`- [ ] 2026-11-15 13:00-15:00 점심 @family ${tail} #evt-i9j0`);
+    }
+  });
+
+  it("event.update: 깨진 &토큰 일정을 다른 달로 옮겨도 원문이 남는다", () => {
+    const w = memWiki({ ...base, "events/2026-11.md": `${base["events/2026-11.md"]}- [ ] 2026-11-15 12:00 점심 @family &a &b #evt-i9j0\n` });
+    w.commit({ kind: "event.update", payload: { id: "evt-i9j0", date: "2026-12-01" } });
+    expect(w.store.get("events/2026-12.md")).toContain("2026-12-01 12:00 점심 @family &a &b #evt-i9j0");
+    expect(w.store.get("events/2026-11.md")).not.toContain("evt-i9j0");
+  });
+
   it("event.add: payload의 share는 무시되고, 제목의 &토큰은 거부", () => {
     const w = memWiki(base);
     const r = w.commit({ kind: "event.add", payload: { date: "2026-11-05", allDay: true, title: "점심", members: ["mom"], share: "x" } } as unknown as Change);

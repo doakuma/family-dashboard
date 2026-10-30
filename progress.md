@@ -83,3 +83,9 @@
 - 화면: 휴대폰 6단계(우리 집·구성원·슬랙 자리·기념일·캘린더·확인/미리보기). 입력은 클라이언트 상태+sessionStorage, 마지막에 `POST /api/setup/complete`(#17 출처·세션·본문 제한·zod). 완료하면 토큰 전부 폐기·쿠키 삭제. 한글 이름 id는 member-N(직접 수정 가능). 결정 `docs/decisions/0003`, 지역표 `docs/regions.md`.
 - 검증: pnpm check(369 테스트)·build, e2e 3종(auth 수정 1줄·stress·setup 15단계: 빈 위키 -> QR -> PIN -> 6단계 -> 위키 커밋 1개 확인 -> needsSetup=false -> 태블릿 전환) 통과. 캡처 `docs/screens/setup-*.png`.
 - 남은 문제: 지역표는 기상청 원본과 대조 전. 실기기(iOS/삼성 인터넷) 날짜 입력·하단 고정 버튼 미확인(#24). 스펙에 없는 검증(보호자 1명 이상, 12명 상한)·log.md 한 줄은 오너 확인 필요. #17 파일 4곳을 덧붙임 수정해 #17 review를 pending으로 돌림.
+
+## 2026-10-30 · #27 리뷰 되돌림 수정 (스펙 rev 54)
+- 그룹 id를 구성원 id와 같은 형식(`^[A-Za-z0-9_-]+$`)으로, 비교 헬퍼 `sameShareGroup`(대소문자 무시) 추가. 깨진 `&`토큰(2개 이상·`&`단독·`&bad!`)은 파서가 심볼 키 내부 필드로 원문을 들고 있다가 formatEventLine이 그대로 재기록(state·Change·JSON에는 안 나감), apply 테스트 추가.
+- 꼬리의 `@`/`&` 토큰은 순서 무관하게 읽고 정규 순서로 재기록, 꼬리 밖 `&x` 토큰이 제목에 남으면 경고. cleanTitle `&+`, auth.e2e 제외 키에 "share", docs/wiki-format.md 갱신.
+- 남은 문제: docs의 day-nov.png 재캡처는 메인(#18)과 충돌 방지로 하지 않음 — 메인 반영 후 재캡처 필요.
+- 리뷰 통과 후 보강: ParsedEvent 타입(캐스팅 제거), 다른 달 이동 시 원문 보존 테스트, 원문 유실 주의 주석. features #27 passes=true·review=pass(오너 반영).

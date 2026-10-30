@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { sameShareGroup } from "../schema";
 import { stringifyFrontmatter } from "./frontmatter";
 import {
   formatEventLine,
@@ -74,18 +75,41 @@ describe("일정 share 토큰 (&그룹)", () => {
     expect(e).not.toHaveProperty("share");
   });
 
-  it("깨진 토큰(대문자·2개 이상·빈 토큰)은 줄을 살리고 share만 무시하며 경고한다", () => {
+  it("대문자 그룹 id도 정상 토큰이다(원문 대소문자 유지)", () => {
+    const l = "- [ ] 2026-11-15 12:00 점심 @family &Cousins #evt-i9j2";
+    const e = parseEventLine(l);
+    expect(e?.share).toBe("Cousins");
+    expect(e && formatEventLine(e)).toBe(l);
+    expect(sameShareGroup("Cousins", "cousins")).toBe(true);
+  });
+
+  it("깨진 토큰(2개 이상·빈 토큰·형식 위반)은 줄을 살리고 share는 없이 경고하며 원문은 다시 쓸 때 보존한다", () => {
     for (const l of [
-      "- [ ] 2026-11-15 12:00 점심 @family &Cousins #evt-i9j2",
       "- [ ] 2026-11-15 12:00 점심 @family &a &b #evt-i9j2",
       "- [ ] 2026-11-15 12:00 점심 @family & #evt-i9j2",
+      "- [ ] 2026-11-15 12:00 점심 @family &bad! #evt-i9j2",
     ]) {
       const warns: string[] = [];
       const e = parseEventLine(l, (m) => warns.push(m));
       expect(e).toMatchObject({ id: "evt-i9j2", title: "점심", members: ["family"] });
       expect(e?.share).toBeUndefined();
+      expect(JSON.stringify(e)).not.toContain("&");
       expect(warns).toHaveLength(1);
+      expect(e && formatEventLine(e)).toBe(l);
     }
+  });
+
+  it("순서가 바뀐 꼬리(&그룹 @구성원)도 읽고 정규 순서로 다시 쓴다", () => {
+    const e = parseEventLine("- [ ] 2026-11-15 12:00 점심 &cousins @family #evt-i9j2");
+    expect(e).toMatchObject({ title: "점심", members: ["family"], share: "cousins" });
+    expect(e && formatEventLine(e)).toBe("- [ ] 2026-11-15 12:00 점심 @family &cousins #evt-i9j2");
+  });
+
+  it("꼬리가 아닌 자리의 &토큰은 제목으로 읽되 경고한다", () => {
+    const warns: string[] = [];
+    const e = parseEventLine("- [ ] 2026-11-15 12:00 &x 점심 @family #evt-i9j2", (m) => warns.push(m));
+    expect(e?.title).toBe("&x 점심");
+    expect(warns).toHaveLength(1);
   });
 
   it("제목 속 &는 그대로(R&D, A & B)", () => {
