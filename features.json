@@ -154,9 +154,9 @@
         13
       ],
       "status": "done",
-      "passes": true,
+      "passes": false,
       "review": "pending",
-      "note": "시안: docs/screens/"
+      "note": "시안: docs/screens/. 리뷰 되돌림 수정(긴 제목 말줄임) 후 재리뷰 대기"
     },
     {
       "id": 15,

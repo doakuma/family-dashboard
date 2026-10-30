@@ -32,6 +32,7 @@
 }
 .agenda > * {
   flex: 1;
+  min-width: 0; /* 긴 제목이 칸을 밀어내지 않고 말줄임되게 */
 }
 .calendar {
   grid-area: calendar;
