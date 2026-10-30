@@ -19,6 +19,8 @@ export interface FsWikiOptions {
   author?: string;
   /** 읽기 전용(예시 위키 등). git 루트 검사를 건너뛰고 apply를 막는다. */
   readOnly?: boolean;
+  /** 경고 기록(push 실패 원인 등). 기본 console.warn */
+  warn?: (message: string) => void;
   now?: () => Date;
   random?: () => number;
 }
@@ -28,6 +30,17 @@ export interface ApplyOutcome extends ApplyResult {
   commit: string;
   /** 원격에 올렸는지. 원격이 없거나 push 옵션이 꺼져 있거나 push가 실패하면 false */
   pushed: boolean;
+  /** push가 실패했으면 그 원인(git이 낸 메시지 요약). 성공·건너뜀이면 없음 */
+  pushError?: string;
+}
+
+/** git 실행 오류에서 사람이 읽을 원인만 뽑는다(stderr의 error·fatal·rejected 줄 우선). */
+export function gitReason(e: unknown): string {
+  const err = e as { stderr?: unknown; message?: unknown };
+  const raw = (typeof err.stderr === "string" && err.stderr.trim()) || (typeof err.message === "string" ? err.message : String(e));
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const key = lines.filter((l) => /^(error|fatal|!|remote:|CONFLICT)/.test(l));
+  return (key.length ? key : lines).slice(0, 3).join(" / ").slice(0, 400);
 }
 
 /** 위키 경로가 독립 git 레포의 루트인지: 더 큰 레포 안의 폴더면 엉뚱한 레포에 커밋하게 된다. */
@@ -81,9 +94,61 @@ export class FsWikiRepository implements WikiRepository {
 
   /** 메인 PC에서 고친 내용 반영 (1분마다). 쓰기와 같은 큐를 타서 apply 도중에 끼어들지 않는다. */
   async pull(): Promise<void> {
+    if (this.opts.readOnly) throw new Error("읽기 전용 위키는 pull하지 않아요");
     return this.enqueue(async () => {
-      if (await this.hasRemote()) await this.git("pull", "--rebase", "--autostash");
+      await this.assertReady();
+      if (!(await this.hasRemote())) return;
+      try {
+        await this.git("pull", "--rebase", "--autostash");
+      } catch (e) {
+        // 충돌 등으로 rebase가 도중에 멈추면 레포가 그 상태로 남아 다음 apply가 엉뚱한 데 커밋한다 -> 되돌린다.
+        const detail = await this.abortInProgress();
+        throw new Error(`pull 실패 (되돌림${detail}): ${gitReason(e)}`, { cause: e });
+      }
+      const unmerged = (await this.git("diff", "--name-only", "--diff-filter=U")).stdout.trim();
+      if (unmerged) {
+        // autostash를 다시 적용하다 충돌: 작업 내용은 stash에 남아 있다. 충돌 표시가 든 작업 트리만 버린다.
+        await this.git("reset", "-q", "--hard", "HEAD");
+        throw new Error(`pull 뒤 로컬 수정을 되살리다 충돌했어요(수정은 git stash list에 남아 있음): ${unmerged.split("\n").join(", ")}`);
+      }
     });
+  }
+
+  /** 진행 중인 rebase·merge를 취소한다(autostash도 함께 복구). 무엇을 했는지 짧은 설명을 돌려준다. */
+  private async abortInProgress(): Promise<string> {
+    try {
+      const state = this.inProgress();
+      if (state === "rebase") await this.git("rebase", "--abort");
+      else if (state === "merge") await this.git("merge", "--abort");
+      else return "";
+      return `: ${state} 취소`;
+    } catch (e) {
+      return `: 취소도 실패 - ${gitReason(e)}`;
+    }
+  }
+
+  private gitPath(name: string): string {
+    const p = execFileSync("git", ["rev-parse", "--git-path", name], { cwd: this.root, encoding: "utf8" }).trim();
+    return resolve(this.root, p);
+  }
+
+  private inProgress(): "rebase" | "merge" | "cherry-pick" | "revert" | undefined {
+    if (existsSync(this.gitPath("rebase-merge")) || existsSync(this.gitPath("rebase-apply"))) return "rebase";
+    if (existsSync(this.gitPath("MERGE_HEAD"))) return "merge";
+    if (existsSync(this.gitPath("CHERRY_PICK_HEAD"))) return "cherry-pick";
+    if (existsSync(this.gitPath("REVERT_HEAD"))) return "revert";
+    return undefined;
+  }
+
+  /** 쓰기·pull 전에: 레포가 rebase·merge 도중이거나 detached HEAD면 거부한다(엉뚱한 곳에 커밋하지 않게). */
+  private async assertReady() {
+    const state = this.inProgress();
+    if (state) throw new Error(`위키 레포가 ${state} 진행 중이라 쓸 수 없어요. 메인 PC나 노트북에서 직접 정리해 주세요: ${this.root}`);
+    const head = await this.git("symbolic-ref", "-q", "HEAD").then(
+      () => true,
+      () => false,
+    );
+    if (!head) throw new Error(`위키 레포가 브랜치 위에 있지 않아요(detached HEAD). 브랜치로 돌아간 뒤에 쓸 수 있어요: ${this.root}`);
   }
 
   private enqueue<T>(job: () => Promise<T>): Promise<T> {
@@ -93,6 +158,7 @@ export class FsWikiRepository implements WikiRepository {
   }
 
   private async applyNow(change: Change, by: string): Promise<ApplyOutcome> {
+    await this.assertReady();
     const result = applyChange(this.files, change, this.opts.random);
     const at = formatSeoul(this.opts.now?.() ?? new Date());
     const log = this.files.read("log.md") ?? "# 변경 기록\n";
@@ -100,6 +166,8 @@ export class FsWikiRepository implements WikiRepository {
 
     const rels = [...result.files.keys()];
     const before = new Map(rels.map((rel) => [rel, this.files.read(rel)]));
+    // 사람이 미리 stage해 둔 내용을 롤백이 풀어 버리지 않게, 우리가 건드릴 파일의 index 항목을 기억해 둔다.
+    const index = await this.indexEntries(rels);
     let commit: string;
     try {
       for (const [rel, content] of result.files) {
@@ -108,35 +176,54 @@ export class FsWikiRepository implements WikiRepository {
         writeFileSync(p, content, "utf8");
       }
       await this.git("add", ...rels);
-      await this.git("commit", "-m", `[${change.kind}] ${result.summary}`, "--author", `${by} <bot@homesweethome.local>`);
+      // 경로를 지정해 우리가 쓴 파일만 커밋한다(사람이 stage해 둔 다른 파일이 딸려 들어가지 않게).
+      await this.git("commit", "-m", `[${change.kind}] ${result.summary}`, "--author", `${by} <bot@homesweethome.local>`, "--", ...rels);
       commit = (await this.git("rev-parse", "HEAD")).stdout.trim();
     } catch (e) {
-      await this.rollback(before);
+      await this.rollback(before, index);
       throw e;
     }
 
     let pushed = false;
+    let pushError: string | undefined;
     if (this.opts.push !== false) {
       try {
         if (await this.hasRemote()) {
           await this.git("push");
           pushed = true;
         }
-      } catch {
-        // 커밋은 이미 로컬에 있다. push는 다음 apply나 점검 때 다시 시도한다.
+      } catch (e) {
+        // 커밋은 이미 로컬에 있다. push는 다음 apply나 점검 때 다시 시도한다. 원인은 남긴다.
+        pushError = gitReason(e);
+        (this.opts.warn ?? console.warn)(`[wiki] push 실패(커밋은 로컬에 남음): ${pushError}`);
       }
     }
-    return { ...result, commit, pushed };
+    return { ...result, commit, pushed, ...(pushError ? { pushError } : {}) };
   }
 
-  /** commit까지 못 갔을 때: 스테이징을 풀고 파일을 원래대로(없던 파일은 삭제) 되돌린다. */
-  private async rollback(before: Map<string, string | undefined>) {
-    const rels = [...before.keys()];
-    await this.git("reset", "-q", "--", ...rels).catch(() => undefined);
+  /** index(stage) 항목: rel -> "모드 해시" (index에 없으면 항목 없음) */
+  private async indexEntries(rels: string[]): Promise<Map<string, string>> {
+    const out = (await this.git("ls-files", "-s", "--", ...rels)).stdout;
+    const m = new Map<string, string>();
+    for (const line of out.split("\n").filter(Boolean)) {
+      const [meta, rel] = line.split("\t");
+      const [mode, sha] = (meta ?? "").split(" ");
+      if (rel && mode && sha) m.set(rel, `${mode},${sha}`);
+    }
+    return m;
+  }
+
+  /** commit까지 못 갔을 때: 파일을 원래대로(없던 파일은 삭제) 되돌리고 index 항목도 원래 값으로 복구한다. */
+  private async rollback(before: Map<string, string | undefined>, index: Map<string, string>) {
     for (const [rel, content] of before) {
       const p = this.path(rel);
       if (content === undefined) rmSync(p, { force: true });
       else writeFileSync(p, content, "utf8");
+      const entry = index.get(rel);
+      await (entry
+        ? this.git("update-index", "--add", "--cacheinfo", `${entry},${rel}`)
+        : this.git("update-index", "--force-remove", "--", rel)
+      ).catch(() => undefined);
     }
   }
 

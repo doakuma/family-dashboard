@@ -4,8 +4,8 @@ import type { Change, Event, IncomingMessage, WeatherDay, WikiState } from "./ty
 /** 저장소: 위키 파일 ↔ 도메인 타입 */
 export interface WikiRepository {
   read(): Promise<WikiState>;
-  /** 파일 수정 + commit + push. push가 실패해도 커밋은 남고 pushed:false로 알린다. */
-  apply(change: Change): Promise<{ commit: string; pushed: boolean }>;
+  /** 파일 수정 + commit + push. push가 실패해도 커밋은 남고 pushed:false(+원인 pushError)로 알린다. */
+  apply(change: Change): Promise<{ commit: string; pushed: boolean; pushError?: string }>;
 }
 
 /** 메신저: 슬랙 1차, 이후 추가 */
