@@ -117,3 +117,7 @@
 - 테스트: 글자 대비를 스킨 × 톤 4조합으로 확장, 글자 크기 하한 `--text-floor`(12px), 슬롯 8개 ΔE>=20·바탕 3:1, 계약·폴더·layout import 일치. reviewer 채점에 스킨 항목 추가.
 - 검증: pnpm check(453 테스트)·build, e2e 4종(auth·stress·setup·skin 신규) 통과, 캡처 `docs/screens/skin-*.png`.
 - 남은 문제: default가 아닌 스킨은 첫 로드 때 default가 잠깐 보임(hydration 전). default의 coral·amber를 3:1 때문에 조금 어둡게 함(오너 확인). 실기기 가독성은 #24. #28은 passes=false, review=pending.
+
+## 2026-10-30 · #28 리뷰 통과
+- 리뷰어 통과 → #28 passes=true·review=pass (오너 반영). 오너 승인: default 낮 coral #dc5444·amber #b57000, 리뷰 기준(스킨 3기준) 추가.
+- 오너 결정: [중간] 3건(배치 불변 검사, gap·pad 공통 토큰, 첫 로드 서버 렌더)은 #31 전에 처리. ?skin=·?at=·?mode=는 개발 모드에서만.
