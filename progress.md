@@ -55,3 +55,9 @@
 - Windows/PM2: engines >=22.18, `ecosystem.config.cjs`(대시보드+봇), server.ts 맨 앞 `loadEnvConfig`(@next/env 의존성 추가). setup-qr 응답 zod 검증, 로그인·세팅 폼 400/411/413/415, 잠금 안내에 남은 분, next ~16.4 고정(+zod 의존성).
 - 오너 결정 반영: PIN 잠금 반복 시 2배(15·30·60분…, 상한 24시간), 성공하면 초기화(테스트 있음). 결정 0002에 기록.
 - 검증: pnpm check, build, auth e2e 통과. #17은 passes=false 유지(재리뷰 전). 남은 문제: .env 로딩(PM2)·Windows 실행은 실제 노트북에서 확인 필요(#24), 실제 DNS 리바인딩 공격은 Host 위조 요청으로만 검증.
+
+## 2026-10-30 · 리뷰 통과 후속 (#6 #14 #15 #17 + 장부)
+- #6: role이 없거나 틀리면 child(최소 권한)로 읽고 경고(스펙 rev 51). 없음·틀림 테스트, docs/wiki-format.md 수정. 필드 관용 읽기(rev 46)는 그대로. 재리뷰 대기라 passes=false·review=pending.
+- 낮은 항목: DdayList 색 점을 말줄임 밖 별도 칸으로, AutoScroll은 ResizeObserver/MutationObserver로 넘칠 때만 rAF(렌더 중 ref 쓰기 제거), 세로 미디어쿼리에서 .agenda contain:none, gitReason null 가드, lenient 불필요 캐스팅 제거, autostash 재적용 충돌 회귀 테스트 추가. AutoScroll·stress e2e 주석/단계명을 실제 검증 내용으로(전체 제스처 차단은 #31).
+- 장부: #7 #15 #17 #14 passes=true review=pass 반영(오너 지시), $comment·hsh-engineer.md에 "리뷰 통과 뒤 코드가 바뀌면 review를 pending으로" 명시, #28 제목 dim 톤 변형, #31 수용 기준(핀치 줌 차단 e2e).
+- 남은 문제: 세로 배치(.agenda contain:none)는 눈으로만 확인 필요(e2e 없음).

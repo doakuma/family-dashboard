@@ -40,7 +40,7 @@ slack: U0123ABC
 |---|---|---|
 | id | O | `^[A-Za-z0-9_-]+$`, `family`는 예약(내장 '가족 전체') |
 | name | O | 1~40자, 제어문자 금지 |
-| role | | `guardian`(기본, 쓰기 가능) / `child`(질문만) |
+| role | | `guardian`(쓰기 가능) / `child`(질문만). 없거나 틀리면 읽을 때 `child` |
 | birth | | `YYYY-MM-DD`, 실제 있는 날짜. 잘못되면 없는 것으로 읽는다 |
 | color | | 색 이름(소문자: coral, teal, blue, amber, green, purple, pink, gray) 또는 `#hex`. 기본 `gray` (`Blue`처럼 틀리면 gray로 읽음) |
 | slack | | Slack 사용자 ID (영문·숫자). 틀리면 없는 것으로 읽는다 |
@@ -74,7 +74,7 @@ setupCompletedAt: 2026-10-20T20:00:00+09:00
 - **필수값**(구성원 `id`·`name`, config `familyName`)이 없거나 스키마에 안 맞으면 그 파일을 버린다(구성원은 목록에서 빠지고, config는 없는 것 = 세팅 필요).
 - **그 밖의 필드**는 값이 틀리면 **그 필드만** 기본값(없음 포함)으로 읽고 나머지는 살린다. 예: `color: Blue` -> `gray`, `familyColor: Gray` -> `gray`,
   `calendarId: abc def` -> 없음, `slack: U00-DAD` -> 없음, 모르는 `timezone` -> `Asia/Seoul`, 깨진 `setupCompletedAt` -> 없음, 정수가 아닌 `kmaNx` -> 없음.
-  `role`이 `guardian`·`child`가 아니면 기본값 `guardian`.
+  `role`이 없거나 `guardian`·`child`가 아니면 최소 권한인 `child`로 읽고 경고한다(스펙 rev 51).
 - 대체·건너뜀은 `readWiki()` 결과의 `warnings: string[]`(`파일: 필드: 내용`)에 모인다. 화면에는 내지 않고 대시보드 서버가 로그(`[wiki] …`)에 남긴다(내용이 바뀔 때만).
 - **쓰기 쪽 스키마(`memberSchema`·`familyConfigSchema`, `formatMemberFile`·`formatConfigFile`)는 엄격 그대로**다. 관용은 읽기에만 있다.
 

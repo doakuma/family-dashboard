@@ -90,10 +90,10 @@ describe("기념일·구성원·config", () => {
     ]);
   });
 
-  it("구성원 프론트매터 (앞 주석 허용, role 기본값 guardian)", () => {
+  it("구성원 프론트매터 (앞 주석 허용, role 없으면 child)", () => {
     const m = parseMemberFile("<!-- members/haneul.md -->\n---\nid: haneul\nname: 하늘\nrole: child\nbirth: 2020-08-15\ncolor: blue\nslack: U0123ABC\n---\n");
     expect(m).toEqual({ id: "haneul", name: "하늘", role: "child", birth: "2020-08-15", color: "blue", slackId: "U0123ABC" });
-    expect(parseMemberFile("---\nid: mom\nname: 엄마\n---\n")?.role).toBe("guardian");
+    expect(parseMemberFile("---\nid: mom\nname: 엄마\n---\n")?.role).toBe("child");
     expect(parseMemberFile("이름 없음")).toBeNull();
   });
 
@@ -155,8 +155,22 @@ describe("필드 단위 관용 읽기 (스펙 rev 46)", () => {
   it("구성원: 잘못된 birth·role도 그 필드만 대체", () => {
     const { w, warn } = collect();
     const m = parseMemberFile("---\nid: a\nname: 가\nrole: kid\nbirth: 2020-02-31\n---\n", warn);
-    expect(m).toMatchObject({ id: "a", role: "guardian", birth: undefined, color: "gray" });
+    expect(m).toMatchObject({ id: "a", role: "child", birth: undefined, color: "gray" });
     expect(w.map((x) => x.split(":")[0])).toEqual(["role", "birth"]);
+  });
+
+  it("구성원: role이 없으면 child(최소 권한)로 읽고 경고", () => {
+    const { w, warn } = collect();
+    const m = parseMemberFile("---\nid: a\nname: 가\n---\n", warn);
+    expect(m?.role).toBe("child");
+    expect(w).toHaveLength(1);
+    expect(w[0]).toMatch(/role.*child/);
+  });
+
+  it("구성원: role이 올바르면 경고 없이 그대로", () => {
+    const { w, warn } = collect();
+    expect(parseMemberFile("---\nid: a\nname: 가\nrole: guardian\n---\n", warn)?.role).toBe("guardian");
+    expect(w).toEqual([]);
   });
 
   it("구성원: 필수값(id·name)이 깨지면 파일을 버린다", () => {

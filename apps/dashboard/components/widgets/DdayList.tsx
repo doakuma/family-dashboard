@@ -27,14 +27,9 @@ export function DdayList({ anniversaries, today, members }: { anniversaries: Pub
               </span>
               <span className={s.what}>
                 {a.title}
-                {a.member && a.member !== "family" && (
-                  <>
-                    {" "}
-                    <MemberDots ids={[a.member]} members={members} size="sm" />
-                  </>
-                )}
                 {turning !== undefined && <span className={s.age}> {turning}살</span>}
               </span>
+              <span className={s.who}>{a.member && a.member !== "family" && <MemberDots ids={[a.member]} members={members} size="sm" />}</span>
               <span className={s.date}>
                 {Number(date.slice(5, 7))}.{Number(date.slice(8))} {weekdayKo(date)}
               </span>

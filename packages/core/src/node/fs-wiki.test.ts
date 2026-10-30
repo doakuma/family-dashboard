@@ -167,6 +167,26 @@ describe("FsWikiRepository", () => {
     });
   });
 
+  it("pull은 되지만 autostash 재적용에서 충돌하면 오류를 내고, 작업 트리는 깨끗하며 수정은 stash에 남는다", async () => {
+    const repo = new FsWikiRepository({ root, warn: () => undefined });
+    const main = join(root, "..", "main-pc");
+    execFileSync("git", ["clone", "-q", remote, main]);
+    git(main, "config", "user.email", "m@m");
+    git(main, "config", "user.name", "m");
+    writeFileSync(join(main, "tasks.md"), "## 장보기\n- [ ] 메인 PC 우유 #task-aaaa\n");
+    git(main, "commit", "-qam", "main edit");
+    git(main, "push", "-q");
+    writeFileSync(join(root, "tasks.md"), "## 장보기\n- [ ] 로컬에서 손으로 쓴 우유 #task-bbbb\n"); // 커밋 안 한 같은 위치 수정
+
+    await expect(repo.pull()).rejects.toThrow(/되살리다 충돌.*tasks\.md/);
+
+    expect(git(root, "status", "--porcelain")).toBe("");
+    expect(readFileSync(join(root, "tasks.md"), "utf8")).not.toContain("<<<<<<<");
+    expect(readFileSync(join(root, "tasks.md"), "utf8")).toContain("메인 PC 우유");
+    expect(git(root, "stash", "list")).not.toBe("");
+    expect(git(root, "show", "stash@{0}:tasks.md")).toContain("로컬에서 손으로 쓴 우유");
+  });
+
   it("rebase 진행 중인 레포에는 apply·pull을 거부한다", async () => {
     const repo = new FsWikiRepository({ root });
     mkdirSync(join(root, ".git", "rebase-merge"));

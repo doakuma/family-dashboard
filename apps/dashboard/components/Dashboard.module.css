@@ -73,4 +73,8 @@
       "calendar calendar"
       "dday     dday";
   }
+  /* 세로 배치에서는 agenda가 한 행뿐이라 크기 격리가 필요 없다(행 높이는 내용 기준) */
+  .agenda {
+    contain: none;
+  }
 }

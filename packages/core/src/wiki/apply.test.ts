@@ -114,7 +114,7 @@ describe("readWiki", () => {
     const w = memWiki({
       ...base,
       "config.md": "---\nfamilyName: 햇살네\nfamilyColor: Gray\nsetupCompletedAt: 깨진 값\n---\n",
-      "members/haneul.md": "---\nid: haneul\nname: 하늘\ncolor: Blue\nslack: U00-DAD\n---\n",
+      "members/haneul.md": "---\nid: haneul\nname: 하늘\nrole: child\ncolor: Blue\nslack: U00-DAD\n---\n",
       "members/bad.md": "---\nname: 아이디 없음\n---\n",
     });
     const s = readWiki(w.files);

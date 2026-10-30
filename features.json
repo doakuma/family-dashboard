@@ -1,5 +1,5 @@
 {
-  "$comment": "status: todo | partial | done | owner(오너가 할 일). passes: pnpm check 통과 + 리뷰 통과 후에만 true(구현자는 바꾸지 않고, 리뷰어가 제안하면 오너가 반영). review: pass | pending(재리뷰 대기) | null(아직 검토 전). 결정 기록 0002.",
+  "$comment": "status: todo | partial | done | owner(오너가 할 일). passes: pnpm check 통과 + 리뷰 통과 후에만 true(구현자는 바꾸지 않고, 리뷰어가 제안하면 오너가 반영). review: pass | pending(재리뷰 대기) | null(아직 검토 전). 리뷰 통과 뒤 코드가 바뀌면 해당 항목의 review를 pending으로 되돌린다(passes는 리뷰어 재확인 뒤 오너가 반영). 구현자는 passes를 true로 바꾸지 않는다. 결정 기록 0002.",
   "features": [
     {
       "id": 1,
@@ -61,7 +61,7 @@
       "status": "done",
       "passes": false,
       "review": "pending",
-      "note": "재리뷰 대기: config·구성원 읽기를 필드 단위 관용으로(스펙 rev 46), readWiki가 warnings 반환"
+      "note": "재리뷰 대기: role이 없거나 틀리면 child(최소 권한)로 읽고 경고(스펙 rev 51). 필드 단위 관용 읽기는 rev 46 그대로"
     },
     {
       "id": 7,
@@ -71,9 +71,9 @@
         6
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
-      "note": "재리뷰 대기: pull 충돌 시 rebase abort·복구, 진행 중/detached 거부, readOnly pull 거부, push 실패 reason, 롤백이 사람의 stage 보존"
+      "passes": true,
+      "review": "pass",
+      "note": "리뷰 통과(80290f3..bd667fd)"
     },
     {
       "id": 8,
@@ -158,7 +158,7 @@
       "status": "done",
       "passes": true,
       "review": "pass",
-      "note": "리뷰 통과 후 오늘 일정이 바뀜(남은 일정 먼저·AutoScroll 순환, 스펙 rev 46). 이 변경분은 다음 리뷰 때 함께 확인 요청"
+      "note": "리뷰 통과(80290f3..bd667fd)"
     },
     {
       "id": 15,
@@ -168,9 +168,9 @@
         14
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
-      "note": "재리뷰 대기: 야간 긴 제목 가로 넘침 수정(80자 스트레스 픽스처 1280×800·1024×600), 명암비 토큰·투명도 반영, 톤 축 분리"
+      "passes": true,
+      "review": "pass",
+      "note": "리뷰 통과(80290f3..bd667fd)"
     },
     {
       "id": 16,
@@ -192,9 +192,9 @@
         4
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
-      "note": "리뷰 되돌림 수정 반영(Host 허용 목록, peer 증명, PM2, 잠금 2배). passes=false, 재리뷰 대기"
+      "passes": true,
+      "review": "pass",
+      "note": "리뷰 통과(80290f3..bd667fd)"
     },
     {
       "id": 18,
@@ -315,7 +315,7 @@
     },
     {
       "id": 28,
-      "title": "스킨 토큰 구조(tokens.css + manifest, 색 슬롯 8개, night 변형) + default·두 번째 스킨 + data-skin 전환",
+      "title": "스킨 토큰 구조(tokens.css + manifest, 색 슬롯 8개, dim 톤 변형) + default·두 번째 스킨 + data-skin 전환",
       "area": "dashboard",
       "deps": [
         14,
@@ -361,7 +361,8 @@
       ],
       "status": "todo",
       "passes": false,
-      "review": null
+      "review": null,
+      "note": "수용 기준: 핀치 줌 차단 e2e 포함"
     }
   ]
 }

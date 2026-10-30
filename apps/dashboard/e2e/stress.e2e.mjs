@@ -129,7 +129,8 @@ try {
     await ctx.close();
   }
 
-  // 3. 터치: 손으로 스크롤하면 자동 순환이 멈춘다(120초 뒤 재개는 순수 함수 테스트로 확인)
+  // 3. 터치: 손으로 스크롤하면 자동 순환이 멈춘다(120초 뒤 재개는 순수 함수 테스트로 확인).
+  //    일정 영역 밖을 밀 때 문서가 스크롤되지 않는 것까지만 본다(핀치 줌 등 전체 제스처 차단은 #31)
   {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, hasTouch: true });
     const page = await ctx.newPage();
@@ -149,7 +150,7 @@ try {
     await swipeUp(page, cdp, 640, 700, 300);
     await sleep(300);
     await assertNoPageScroll(page, 1280, 800, "터치 후");
-    ok("터치 스크롤 가능, 만진 뒤 자동 순환 멈춤, 다른 영역 터치로 화면은 스크롤 안 됨");
+    ok("터치 스크롤 가능, 만진 뒤 자동 순환 멈춤, 일정 밖을 세로로 밀어도 문서 스크롤 0");
     await ctx.close();
   }
 

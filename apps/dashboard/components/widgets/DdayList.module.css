@@ -17,7 +17,7 @@
 
 .item {
   display: grid;
-  grid-template-columns: 4.2rem minmax(0, 1fr) auto;
+  grid-template-columns: 4.2rem minmax(0, 1fr) auto auto;
   gap: 0.4rem;
   align-items: baseline;
   font-size: 1.08rem;
@@ -38,6 +38,10 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.who {
+  display: inline-flex; /* 말줄임 칸 밖: 제목이 길어도 색 점은 잘리지 않는다 */
 }
 
 .age {

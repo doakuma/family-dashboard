@@ -2,7 +2,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  touch-action: pan-y; /* 화면 전체의 제스처 차단 중 이 영역의 세로 스크롤만 허용 */
+  touch-action: pan-y; /* 이 영역은 세로 스크롤만 허용. 화면 전체 제스처 차단은 #31 */
   scrollbar-width: none; /* 스크롤바를 그리지 않는다 */
 }
 

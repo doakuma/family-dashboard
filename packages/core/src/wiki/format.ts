@@ -143,7 +143,7 @@ const show = (v: string) => (v.length > 40 ? `${v.slice(0, 40)}…` : v);
 function lenient<S extends z.ZodType>(schema: S, raw: string | undefined, fallback: z.output<S> | undefined, key: string, warn?: ReadWarn) {
   if (raw === undefined || raw === "") return fallback;
   const r = schema.safeParse(raw);
-  if (r.success) return r.data as z.output<S>;
+  if (r.success) return r.data;
   warn?.(`${key}: "${show(raw)}" 값이 올바르지 않아 ${fallback === undefined ? "없는 것으로" : `기본값 ${String(fallback)}(으)로`} 읽었어요`);
   return fallback;
 }
@@ -162,12 +162,14 @@ export function parseMemberFile(text: string, warn?: ReadWarn): Member | null {
     warn?.(`필수값 ${[!id.success && `id("${show(d.id ?? "")}")`, !name.success && `name("${show(d.name ?? "")}")`].filter(Boolean).join(", ")}이(가) 없거나 올바르지 않아 건너뛰었어요`);
     return null;
   }
+  // 최소 권한 원칙(스펙 rev 51): role이 없거나 틀리면 child로 읽는다.
   const role = d.role?.trim();
-  if (role && role !== "child" && role !== "guardian") warn?.(`role: "${show(role)}" 값이 올바르지 않아 기본값 guardian(으)로 읽었어요`);
+  if (!role) warn?.("role이 없어 최소 권한인 child(으)로 읽었어요");
+  else if (role !== "child" && role !== "guardian") warn?.(`role: "${show(role)}" 값이 올바르지 않아 최소 권한인 child(으)로 읽었어요`);
   return {
     id: id.data,
     name: name.data,
-    role: role === "child" ? "child" : "guardian",
+    role: role === "guardian" ? "guardian" : "child",
     birth: lenient(memberSchema.shape.birth.unwrap(), d.birth, undefined, "birth", warn),
     color: lenient(memberSchema.shape.color, d.color, "gray", "color", warn) ?? "gray",
     slackId: lenient(memberSchema.shape.slackId.unwrap(), d.slack, undefined, "slack", warn),
