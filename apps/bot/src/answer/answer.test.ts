@@ -462,3 +462,84 @@ describe("rev 62 날짜 해석 (answerQuestion 경유, 기준일을 바꿔서)",
     expect(await askAt("2026년 10월 31일 뭐 있어?", "2027-03-01")).toMatchObject({ status: "answered", range: { from: "2026-10-31", to: "2026-10-31" } });
   });
 });
+
+describe('"말고" 제외 조건과 뒤쪽 날짜 (후속2)', () => {
+  // 10/31 기념일이 섞이지 않게 기념일 없는 위키
+  const s = state({ anniversaries: [] });
+  const q = (text: string, kw?: string) => ask(text, { intent: "question", ...(kw ? { qKeyword: kw } : {}) }, s);
+  it('"토요일에 핼러윈 말고 뭐 있어?" -> 미술학원만', async () => {
+    const { r } = await q("토요일에 핼러윈 말고 뭐 있어?", "핼러윈");
+    expect(r.status).toBe("answered");
+    expect(r.text).toContain("미술학원");
+    expect(r.text).not.toContain("핼러윈 파티");
+    expect(r.status === "answered" && r.range).toEqual({ from: "2026-10-31", to: "2026-10-31" });
+  });
+  it('"토요일에 핼러윈 파티 말고 뭐 있어?" -> 미술학원만', async () => {
+    const { r } = await q("토요일에 핼러윈 파티 말고 뭐 있어?", "핼러윈 파티");
+    expect(r.text).toContain("미술학원");
+    expect(r.text).not.toContain("핼러윈 파티 ");
+    expect((r.text.match(/•/g) ?? []).length).toBe(1);
+  });
+  it('"치과 말고 뭐 있어?" -> 치과 제외', async () => {
+    const { r } = await q("치과 말고 뭐 있어?", "치과");
+    expect(r.status).toBe("answered");
+    expect(r.text).not.toContain("치과 (");
+    expect(r.text).toContain("핼러윈");
+  });
+  it('"치과 말고 학원 언제야?" -> 미술학원', async () => {
+    const { r } = await q("치과 말고 학원 언제야?", "학원");
+    expect(r.text).toContain("미술학원");
+    expect(r.text).not.toContain("핼러윈");
+  });
+  it('"다음 주 치과 말고 뭐 있어?" -> 남는 게 없으면 뺀 것을 밝힌다', async () => {
+    const { r } = await q("다음 주 치과 말고 뭐 있어?", "치과");
+    expect(r.status).toBe("empty");
+    expect(r.text).toContain("'치과' 말고는");
+    expect(r.text).toContain("없어요");
+  });
+  it('"다음 주 치과 말고 뭐 있어?" -> 다른 일정이 있으면 그것만', async () => {
+    const s2 = state({ anniversaries: [], events: [...events, ev("evt-9", "2026-11-04", "피아노", { members: ["haneul"] })] });
+    const { r } = await ask("다음 주 치과 말고 뭐 있어?", { intent: "question", qKeyword: "치과" }, s2);
+    expect(r.status).toBe("answered");
+    expect(r.text).toContain("피아노");
+    expect(r.text).not.toContain("치과 (");
+  });
+  it('"토요일 말고 미술학원 언제야?" -> 토요일로 제한하지 않는다', async () => {
+    const { r } = await q("토요일 말고 미술학원 언제야?", "미술학원");
+    expect(r.status).toBe("answered");
+    expect(r.text).toContain("미술학원");
+    // LLM이 토요일을 범위로 채워도 쓰지 않는다
+    const { r: r2 } = await ask("토요일 말고 미술학원 언제야?", { intent: "question", qKeyword: "미술학원", qFrom: "2026-10-31", qTo: "2026-10-31" }, s);
+    expect(r2.status).toBe("answered");
+    expect(r2.text).toContain("미술학원");
+  });
+  it('"11월 3일 말고 4일 뭐 있어?" -> 11/4', async () => {
+    const { r } = await q("11월 3일 말고 4일 뭐 있어?");
+    expect(r.status !== "not_question" && r.range).toEqual({ from: "2026-11-04", to: "2026-11-04" });
+    expect(r.text).not.toContain("치과");
+  });
+  it('"오늘 말고 3일 뭐 있어?" -> 11/3 치과', async () => {
+    const { r } = await q("오늘 말고 3일 뭐 있어?");
+    expect(r.status !== "not_question" && r.range).toEqual({ from: "2026-11-03", to: "2026-11-03" });
+    expect(r.text).toContain("치과");
+  });
+  it('뒤쪽 날짜를 못 읽으면 되묻는다', async () => {
+    const { r } = await q("11월 3일 말고 32일 뭐 있어?");
+    expect(r.status).toBe("clarify");
+  });
+});
+
+describe("과거형 오탐 (후속2, answerQuestion 경유)", () => {
+  it('"토요일에 병원 갔다 올 거 있어?" -> 다가오는 토요일 10/31', async () => {
+    const { r } = await ask("토요일에 병원 갔다 올 거 있어?", { intent: "question" });
+    expect(r).toMatchObject({ range: { from: "2026-10-31", to: "2026-10-31" } });
+  });
+  it('"12월 3일 뭐 할 거야? 엄마가 정했어" -> 2026-12-03', async () => {
+    const { r } = await ask("12월 3일 뭐 할 거야? 엄마가 정했어", { intent: "question" });
+    expect(r).toMatchObject({ range: { from: "2026-12-03", to: "2026-12-03" } });
+  });
+  it('"토요일에 뭐 했어?" -> 지난 토요일 10/24', async () => {
+    const { r } = await ask("토요일에 뭐 했어?", { intent: "question" });
+    expect(r).toMatchObject({ range: { from: "2026-10-24", to: "2026-10-24" } });
+  });
+});
