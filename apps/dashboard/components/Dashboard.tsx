@@ -1,7 +1,7 @@
 "use client";
 import { addDays, timeIn, todayIn, type DashboardState } from "@hsh/core";
 import { useEffect } from "react";
-import { useDashboardState } from "@/hooks/useDashboardState";
+import { isNight } from "@/lib/view";
 import { useNow } from "@/hooks/useNow";
 import { Checklist } from "./widgets/Checklist";
 import { ClockHeader } from "./widgets/ClockHeader";
@@ -14,23 +14,19 @@ import { TodayAgenda } from "./widgets/TodayAgenda";
 import { WeatherStrip } from "./widgets/WeatherStrip";
 import s from "./Dashboard.module.css";
 
-/** 23시~6시는 야간 화면 */
-export function isNight(time: string) {
-  return time >= "23:00" || time < "06:00";
-}
-
 export interface DashboardProps {
-  initial: DashboardState;
+  state: DashboardState;
+  /** 마지막 폴링이 실패했는지 */
+  offline: boolean;
   /** 시안·테스트용 고정 시각 (ISO) */
   at?: string;
   /** 시안·테스트용 강제 모드 */
   mode?: "day" | "night";
 }
 
-export function Dashboard({ initial, at, mode }: DashboardProps) {
-  // 서버 렌더 시각(initial.updatedAt)으로 시작해야 서버 HTML과 첫 클라이언트 렌더가 같다
-  const now = useNow(at, initial.updatedAt);
-  const { state, offline } = useDashboardState(initial);
+export function Dashboard({ state, offline, at, mode }: DashboardProps) {
+  // 서버 렌더 시각(updatedAt)으로 시작해야 서버 HTML과 첫 클라이언트 렌더가 같다
+  const now = useNow(at, state.updatedAt);
   const today = todayIn(now);
   const time = timeIn(now);
   const night = mode ? mode === "night" : isNight(time);
@@ -41,6 +37,9 @@ export function Dashboard({ initial, at, mode }: DashboardProps) {
   // body 배경까지 야간 색으로
   useEffect(() => {
     document.documentElement.dataset.mode = night ? "night" : "day";
+    return () => {
+      document.documentElement.dataset.mode = "day";
+    };
   }, [night]);
 
   if (night) {

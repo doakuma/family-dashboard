@@ -1,9 +1,7 @@
-import { needsSetup } from "@hsh/core";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
-import { Dashboard } from "@/components/Dashboard";
-import { SetupNeeded } from "@/components/SetupNeeded";
-import { getDashboardState } from "@/lib/state";
+import { Screen } from "@/components/Screen";
+import { getApiState } from "@/lib/state";
 
 export const dynamic = "force-dynamic";
 
@@ -15,14 +13,12 @@ interface Props {
 export default async function Page({ searchParams }: Props) {
   const [params, h] = await Promise.all([searchParams, headers()]);
   const at = params.at && !Number.isNaN(Date.parse(params.at)) ? params.at : undefined;
-  const state = await getDashboardState(at ? new Date(at) : undefined);
+  const state = await getApiState(at ? new Date(at) : undefined);
 
-  if (needsSetup(state)) {
-    const url = `http://${h.get("host") ?? "localhost:3000"}/setup`;
-    const qrSvg = await QRCode.toString(url, { type: "svg", margin: 0, color: { dark: "#1c2a32", light: "#ffffff" } });
-    return <SetupNeeded qrSvg={qrSvg} url={url} />;
-  }
+  // 세팅 필요 여부는 폴링으로 바뀔 수 있어서 QR은 항상 만들어 둔다.
+  const url = `http://${h.get("host") ?? "localhost:3000"}/setup`;
+  const qrSvg = await QRCode.toString(url, { type: "svg", margin: 0, color: { dark: "#1c2a32", light: "#ffffff" } });
 
   const mode = params.mode === "night" || params.mode === "day" ? params.mode : undefined;
-  return <Dashboard initial={state} at={at} mode={mode} />;
+  return <Screen initial={state} qrSvg={qrSvg} url={url} at={at} mode={mode} />;
 }
