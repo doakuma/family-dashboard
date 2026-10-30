@@ -132,6 +132,75 @@ describe("위키 형식 보호 (구성원·config)", () => {
     expect(parseConfigFile(formatConfigFile(cfg))).toMatchObject(cfg);
     expect(() => formatConfigFile({ ...cfg, familyName: "햇살\nfamilyColor: red" })).toThrow();
     expect(() => formatConfigFile({ ...cfg, timezone: "Mars/Base" })).toThrow();
-    expect(parseConfigFile("---\nfamilyName: 햇살네\ntimezone: Mars/Base\n---\n")).toBeNull();
+    // 읽기는 필드 단위로 관용: 모르는 timezone은 기본값으로 읽는다(아래 '필드 단위 관용 읽기')
+    expect(parseConfigFile("---\nfamilyName: 햇살네\ntimezone: Mars/Base\n---\n")?.timezone).toBe("Asia/Seoul");
+  });
+});
+
+describe("필드 단위 관용 읽기 (스펙 rev 46)", () => {
+  const collect = () => {
+    const w: string[] = [];
+    return { w, warn: (m: string) => w.push(m) };
+  };
+
+  it("구성원: color Blue -> gray, slack U00-DAD -> 없음. 나머지 필드와 파일은 살아남는다", () => {
+    const { w, warn } = collect();
+    const m = parseMemberFile("---\nid: haneul\nname: 하늘\nrole: child\nbirth: 2020-08-15\ncolor: Blue\nslack: U00-DAD\n---\n", warn);
+    expect(m).toEqual({ id: "haneul", name: "하늘", role: "child", birth: "2020-08-15", color: "gray", slackId: undefined });
+    expect(w).toHaveLength(2);
+    expect(w[0]).toMatch(/color.*Blue.*gray/);
+    expect(w[1]).toMatch(/slack.*U00-DAD/);
+  });
+
+  it("구성원: 잘못된 birth·role도 그 필드만 대체", () => {
+    const { w, warn } = collect();
+    const m = parseMemberFile("---\nid: a\nname: 가\nrole: kid\nbirth: 2020-02-31\n---\n", warn);
+    expect(m).toMatchObject({ id: "a", role: "guardian", birth: undefined, color: "gray" });
+    expect(w.map((x) => x.split(":")[0])).toEqual(["role", "birth"]);
+  });
+
+  it("구성원: 필수값(id·name)이 깨지면 파일을 버린다", () => {
+    for (const fm of ["id: 하늘 이\nname: 하늘", "id: family\nname: 가족", "id: a\nname:", "name: 이름만"]) {
+      const { w, warn } = collect();
+      expect(parseMemberFile(`---\n${fm}\n---\n`, warn), fm).toBeNull();
+      expect(w, fm).toHaveLength(1);
+    }
+  });
+
+  it("config: familyColor Gray -> gray, calendarId 'abc def' -> 없음, 깨진 setupCompletedAt -> 없음", () => {
+    const { w, warn } = collect();
+    const c = parseConfigFile(
+      "---\nfamilyName: 햇살네\nregion: 서울\nfamilyColor: Gray\ncalendarId: abc def\nsetupCompletedAt: 어제 저녁\nkmaNx: 59\nkmaNy: 59.5\ntimezone: Mars/Base\n---\n",
+      warn,
+    );
+    expect(c).toEqual({
+      familyName: "햇살네",
+      timezone: "Asia/Seoul",
+      region: "서울",
+      kmaNx: 59,
+      kmaNy: undefined,
+      kmaMidLandRegId: undefined,
+      kmaMidTaRegId: undefined,
+      familyColor: "gray",
+      calendarId: undefined,
+      setupCompletedAt: undefined,
+    });
+    expect(w.map((x) => x.split(":")[0]).sort()).toEqual(["calendarId", "familyColor", "kmaNy", "setupCompletedAt", "timezone"]);
+  });
+
+  it("config: familyName이 없거나 깨지면 버린다", () => {
+    const { w, warn } = collect();
+    expect(parseConfigFile("---\nregion: 서울\n---\n", warn)).toBeNull();
+    expect(parseConfigFile("---\nfamilyName: \"\"\n---\n", warn)).toBeNull();
+    expect(w).toHaveLength(2);
+  });
+
+  it("쓰기 스키마는 엄격 그대로", () => {
+    const cfg = { familyName: "햇살네", timezone: "Asia/Seoul", familyColor: "Gray" };
+    expect(() => formatConfigFile(cfg)).toThrow();
+    expect(() => formatConfigFile({ ...cfg, familyColor: "gray", calendarId: "abc def" })).toThrow();
+    expect(() => formatConfigFile({ ...cfg, familyColor: "gray", setupCompletedAt: "어제" })).toThrow();
+    expect(() => formatMemberFile({ id: "a", name: "가", role: "child", color: "Blue" })).toThrow();
+    expect(() => formatMemberFile({ id: "a", name: "가", role: "child", color: "blue", slackId: "U00-DAD" })).toThrow();
   });
 });

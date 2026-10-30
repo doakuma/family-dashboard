@@ -1,5 +1,6 @@
 // 위키 마크다운 ↔ 도메인 타입. 형식은 family-wiki/CLAUDE.md와 MVP 스펙이 기준이다.
 // 순수 함수만 둔다(파일 시스템 없음) — 대시보드·봇·테스트가 같이 쓴다.
+import type { z } from "zod";
 import type { Anniversary, Event, FamilyConfig, Member, MemberId, Task, TaskList } from "../types";
 import { familyConfigSchema, memberSchema } from "../schema";
 import { parseFrontmatter, stringifyFrontmatter } from "./frontmatter";
@@ -130,20 +131,47 @@ export function parseAnniversariesFile(text: string): Anniversary[] {
 
 // ---------- 구성원 · config ----------
 
-export function parseMemberFile(text: string): Member | null {
+/** 읽기 경고: 값이 틀려서 기본값으로 대체했거나 파일을 건너뛴 일. 화면에는 안 내고 서버 로그에 남긴다. */
+export type ReadWarn = (message: string) => void;
+
+const show = (v: string) => (v.length > 40 ? `${v.slice(0, 40)}…` : v);
+
+/**
+ * 선택 필드 하나를 읽는다: 비어 있으면 fallback, 스키마에 안 맞으면 fallback + 경고.
+ * 필드 단위 관용 읽기(스펙 rev 46): 값 하나가 틀려도 파일 전체를 버리지 않는다. 쓰기 스키마는 그대로 엄격하다.
+ */
+function lenient<S extends z.ZodType>(schema: S, raw: string | undefined, fallback: z.output<S> | undefined, key: string, warn?: ReadWarn) {
+  if (raw === undefined || raw === "") return fallback;
+  const r = schema.safeParse(raw);
+  if (r.success) return r.data as z.output<S>;
+  warn?.(`${key}: "${show(raw)}" 값이 올바르지 않아 ${fallback === undefined ? "없는 것으로" : `기본값 ${String(fallback)}(으)로`} 읽었어요`);
+  return fallback;
+}
+
+/** 구성원 파일. 필수값(id·name)이 깨지면 null(파일을 버림), 나머지 필드는 하나씩 기본값으로 대체. */
+export function parseMemberFile(text: string, warn?: ReadWarn): Member | null {
   const fm = parseFrontmatter(text);
-  if (!fm) return null;
-  const { id, name, role, birth, color, slack } = fm.data;
-  if (!id || !name) return null;
-  const parsed = memberSchema.safeParse({
-    id,
-    name,
+  if (!fm) {
+    warn?.("프론트매터(---)가 없어 건너뛰었어요");
+    return null;
+  }
+  const d = fm.data;
+  const id = memberSchema.shape.id.safeParse(d.id ?? "");
+  const name = memberSchema.shape.name.safeParse(d.name ?? "");
+  if (!id.success || !name.success) {
+    warn?.(`필수값 ${[!id.success && `id("${show(d.id ?? "")}")`, !name.success && `name("${show(d.name ?? "")}")`].filter(Boolean).join(", ")}이(가) 없거나 올바르지 않아 건너뛰었어요`);
+    return null;
+  }
+  const role = d.role?.trim();
+  if (role && role !== "child" && role !== "guardian") warn?.(`role: "${show(role)}" 값이 올바르지 않아 기본값 guardian(으)로 읽었어요`);
+  return {
+    id: id.data,
+    name: name.data,
     role: role === "child" ? "child" : "guardian",
-    birth: birth && isDate(birth) ? birth : undefined,
-    color: color || "gray",
-    slackId: slack || undefined,
-  });
-  return parsed.success ? parsed.data : null;
+    birth: lenient(memberSchema.shape.birth.unwrap(), d.birth, undefined, "birth", warn),
+    color: lenient(memberSchema.shape.color, d.color, "gray", "color", warn) ?? "gray",
+    slackId: lenient(memberSchema.shape.slackId.unwrap(), d.slack, undefined, "slack", warn),
+  };
 }
 
 /** 쓰기 전에 같은 스키마로 검증한다(잘못된 값이면 ZodError). */
@@ -152,25 +180,40 @@ export function formatMemberFile(m: Member): string {
   return stringifyFrontmatter({ id: v.id, name: v.name, role: v.role, birth: v.birth, color: v.color, slack: v.slackId });
 }
 
-const num = (s?: string) => (s && /^-?\d+$/.test(s) ? Number(s) : undefined);
+function lenientInt(raw: string | undefined, key: string, warn?: ReadWarn): number | undefined {
+  if (raw === undefined || raw === "") return undefined;
+  if (/^-?\d+$/.test(raw)) return Number(raw);
+  warn?.(`${key}: "${show(raw)}" 값이 정수가 아니라 없는 것으로 읽었어요`);
+  return undefined;
+}
 
-export function parseConfigFile(text: string): FamilyConfig | null {
+/** config.md. 필수값(familyName)이 깨지면 null(→ 세팅 필요), 나머지 필드는 하나씩 기본값으로 대체. */
+export function parseConfigFile(text: string, warn?: ReadWarn): FamilyConfig | null {
   const fm = parseFrontmatter(text);
-  if (!fm?.data.familyName) return null;
+  if (!fm) {
+    warn?.("프론트매터(---)가 없어 config로 읽지 못했어요");
+    return null;
+  }
   const d = fm.data;
-  const parsed = familyConfigSchema.safeParse({
-    familyName: d.familyName,
-    timezone: d.timezone || "Asia/Seoul",
-    region: d.region || undefined,
-    kmaNx: num(d.kmaNx),
-    kmaNy: num(d.kmaNy),
-    kmaMidLandRegId: d.kmaMidLandRegId || undefined,
-    kmaMidTaRegId: d.kmaMidTaRegId || undefined,
-    familyColor: d.familyColor || "gray",
-    calendarId: d.calendarId || undefined,
-    setupCompletedAt: d.setupCompletedAt || undefined,
-  });
-  return parsed.success ? parsed.data : null;
+  const familyName = familyConfigSchema.shape.familyName.safeParse(d.familyName ?? "");
+  if (!familyName.success) {
+    warn?.(`필수값 familyName("${show(d.familyName ?? "")}")이 없거나 올바르지 않아 config를 읽지 못했어요`);
+    return null;
+  }
+  const sh = familyConfigSchema.shape;
+  // setupCompletedAt이 깨져도 세팅 필요(QR 화면)로 바뀌지 않는다: needsSetup은 config가 읽히는지와 구성원 수만 본다.
+  return {
+    familyName: familyName.data,
+    timezone: lenient(sh.timezone, d.timezone, "Asia/Seoul", "timezone", warn) ?? "Asia/Seoul",
+    region: lenient(sh.region.unwrap(), d.region, undefined, "region", warn),
+    kmaNx: lenientInt(d.kmaNx, "kmaNx", warn),
+    kmaNy: lenientInt(d.kmaNy, "kmaNy", warn),
+    kmaMidLandRegId: lenient(sh.kmaMidLandRegId.unwrap(), d.kmaMidLandRegId, undefined, "kmaMidLandRegId", warn),
+    kmaMidTaRegId: lenient(sh.kmaMidTaRegId.unwrap(), d.kmaMidTaRegId, undefined, "kmaMidTaRegId", warn),
+    familyColor: lenient(sh.familyColor, d.familyColor, "gray", "familyColor", warn) ?? "gray",
+    calendarId: lenient(sh.calendarId.unwrap(), d.calendarId, undefined, "calendarId", warn),
+    setupCompletedAt: lenient(sh.setupCompletedAt.unwrap(), d.setupCompletedAt, undefined, "setupCompletedAt", warn),
+  };
 }
 
 export function formatConfigFile(c: FamilyConfig): string {

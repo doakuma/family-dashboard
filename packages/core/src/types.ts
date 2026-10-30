@@ -89,7 +89,10 @@ export interface DashboardState {
   updatedAt: string;
 }
 
-export type WikiState = Omit<DashboardState, "weather" | "updatedAt">;
+export type WikiState = Omit<DashboardState, "weather" | "updatedAt"> & {
+  /** 읽다가 값이 틀려 기본값으로 대체하거나 파일을 건너뛴 일. 화면에는 내지 않고 서버 로그에 남긴다. */
+  warnings: string[];
+};
 
 /** LLM이 메시지에서 만들어 내는 변경. 파일 쓰기는 WikiRepository.apply가 결정적으로 처리한다. */
 export type Change =

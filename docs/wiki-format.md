@@ -15,7 +15,7 @@ log.md                 변경 기록 (apply가 한 줄씩 추가)
 notes/                 자유 메모 (앱은 읽지 않음)
 ```
 
-읽을 때 형식이 깨진 줄·파일은 건너뛴다(화면이 죽지 않게). 쓸 때는 스키마를 통과하지 못하면 거부한다.
+읽을 때 형식이 깨진 줄은 건너뛰고, config·구성원 파일은 **필드 단위로 관용**한다(아래 '읽기 관용'). 쓸 때는 스키마를 통과하지 못하면 거부한다.
 파일 맨 앞의 `<!-- 주석 -->`은 허용된다.
 
 ## 프론트매터 (config.md, members/*.md)
@@ -42,8 +42,8 @@ slack: U0123ABC
 | name | O | 1~40자, 제어문자 금지 |
 | role | | `guardian`(기본, 쓰기 가능) / `child`(질문만) |
 | birth | | `YYYY-MM-DD`, 실제 있는 날짜. 잘못되면 없는 것으로 읽는다 |
-| color | | 색 이름(coral, teal, blue, amber, green, purple, pink, gray) 또는 `#hex`. 기본 `gray` |
-| slack | | Slack 사용자 ID (영문·숫자) |
+| color | | 색 이름(소문자: coral, teal, blue, amber, green, purple, pink, gray) 또는 `#hex`. 기본 `gray` (`Blue`처럼 틀리면 gray로 읽음) |
+| slack | | Slack 사용자 ID (영문·숫자). 틀리면 없는 것으로 읽는다 |
 
 구성원이 1명 이상일 때만 내장 구성원 `family`(이름 "가족")가 목록 끝에 붙는다. 구성원 0명이면 "세팅 필요".
 
@@ -63,11 +63,20 @@ setupCompletedAt: 2026-10-20T20:00:00+09:00
 ---
 ```
 
-`familyName`이 없거나 값이 스키마에 안 맞으면(예: 모르는 timezone) config가 없는 것으로 읽는다 → 세팅 필요.
+`familyName`이 없거나 깨지면 config가 없는 것으로 읽는다 → 세팅 필요.
 `timezone` 기본 `Asia/Seoul`, `familyColor` 기본 `gray`. `kmaNx/Ny`는 정수. `calendarId`는 공백 없는 문자열(선택).
 `setupCompletedAt`은 ISO 8601(시간대 포함).
 
-세팅 필요 판정(`needsSetup`): config가 없거나 구성원이 0명.
+세팅 필요 판정(`needsSetup`): config가 없거나 구성원이 0명. `setupCompletedAt`은 판정에 쓰지 않으므로 값이 깨져도 QR 세팅 화면으로 바뀌지 않는다.
+
+### 읽기 관용 (필드 단위)
+
+- **필수값**(구성원 `id`·`name`, config `familyName`)이 없거나 스키마에 안 맞으면 그 파일을 버린다(구성원은 목록에서 빠지고, config는 없는 것 = 세팅 필요).
+- **그 밖의 필드**는 값이 틀리면 **그 필드만** 기본값(없음 포함)으로 읽고 나머지는 살린다. 예: `color: Blue` -> `gray`, `familyColor: Gray` -> `gray`,
+  `calendarId: abc def` -> 없음, `slack: U00-DAD` -> 없음, 모르는 `timezone` -> `Asia/Seoul`, 깨진 `setupCompletedAt` -> 없음, 정수가 아닌 `kmaNx` -> 없음.
+  `role`이 `guardian`·`child`가 아니면 기본값 `guardian`.
+- 대체·건너뜀은 `readWiki()` 결과의 `warnings: string[]`(`파일: 필드: 내용`)에 모인다. 화면에는 내지 않고 대시보드 서버가 로그(`[wiki] …`)에 남긴다(내용이 바뀔 때만).
+- **쓰기 쪽 스키마(`memberSchema`·`familyConfigSchema`, `formatMemberFile`·`formatConfigFile`)는 엄격 그대로**다. 관용은 읽기에만 있다.
 
 ## 일정: events/YYYY-MM.md
 
@@ -135,3 +144,6 @@ apply는 `Change`를 스키마로 다시 검증하고 → 바뀐 파일과 log.m
 commit이 실패하면 파일을 원래대로 되돌린다. push가 실패하면 예외 없이 `pushed: false`를 돌려주고 커밋은 로컬에 남는다.
 쓰기는 큐로 한 번에 하나씩, `pull`(메인 PC에서 고친 내용 반영)도 같은 큐를 탄다.
 위키 폴더는 독립 git 레포의 루트여야 한다(읽기 전용으로 여는 예시 위키 제외).
+push 실패는 결과의 `pushError`(git 메시지 요약)와 경고 로그에 남는다.
+커밋은 apply가 쓴 파일 경로만 지정해서 한다(사람이 stage해 둔 다른 파일이 딸려 들어가지 않는다). commit 실패 롤백도 사람이 stage한 index 항목은 원래 값으로 복구한다.
+`pull`이 충돌하면 진행 중인 rebase를 `--abort`(autostash 복구 포함)하고 오류를 던진다. 레포가 rebase·merge 진행 중이거나 detached HEAD면 apply·pull을 거부한다. 읽기 전용 인스턴스는 pull도 거부한다.

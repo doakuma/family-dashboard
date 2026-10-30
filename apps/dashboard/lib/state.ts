@@ -22,11 +22,23 @@ function getWiki(): FsWikiRepository {
 }
 const weather = createWeatherSource();
 
+let lastWarnings = "";
+/** 위키 읽기 경고를 서버 로그에 남긴다. 폴링마다 반복되지 않게 내용이 바뀔 때만. */
+function logWikiWarnings(warnings: string[]) {
+  const sig = warnings.join("\n");
+  if (sig === lastWarnings) return;
+  lastWarnings = sig;
+  for (const w of warnings) console.warn(`[wiki] ${w}`);
+}
+
 /** at: 시안용 고정 시각. 예시 날씨도 그 날짜 기준으로 만든다. */
 export async function getDashboardState(at?: Date): Promise<DashboardState> {
   const source = at ? new SampleWeatherSource(() => at) : weather;
   const [state, days] = await Promise.all([getWiki().read(), source.week().catch(() => [])]);
-  return { ...state, weather: days, updatedAt: new Date().toISOString() };
+  logWikiWarnings(state.warnings);
+  // 경고는 화면 상태에 싣지 않는다(허용 목록으로 골라 담는다)
+  const { config, members, events, tasks, anniversaries } = state;
+  return { config, members, events, tasks, anniversaries, weather: days, updatedAt: new Date().toISOString() };
 }
 
 /** /api/state 응답과 첫 화면이 같이 쓰는 공개용 상태(태블릿에 필요한 필드만) + 세팅 필요 여부 */

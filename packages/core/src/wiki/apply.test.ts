@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Change } from "../types";
+import { needsSetup, type Change } from "../types";
 import { ChangeError, applyChange, type WikiFiles } from "./apply";
 import { readWiki } from "./read";
 
@@ -108,6 +108,27 @@ describe("readWiki", () => {
   it("구성원이 있으면 '가족'을 덧붙인다", () => {
     const w = memWiki({ ...base, "members/haneul.md": "---\nid: haneul\nname: 하늘\nrole: child\ncolor: blue\n---\n" });
     expect(readWiki(w.files).members.map((m) => m.id)).toEqual(["haneul", "family"]);
+  });
+
+  it("값 하나가 깨져도 구성원·config는 살고, 경고는 파일 이름과 함께 모이며, 세팅 필요로 바뀌지 않는다", () => {
+    const w = memWiki({
+      ...base,
+      "config.md": "---\nfamilyName: 햇살네\nfamilyColor: Gray\nsetupCompletedAt: 깨진 값\n---\n",
+      "members/haneul.md": "---\nid: haneul\nname: 하늘\ncolor: Blue\nslack: U00-DAD\n---\n",
+      "members/bad.md": "---\nname: 아이디 없음\n---\n",
+    });
+    const s = readWiki(w.files);
+    expect(s.config).toMatchObject({ familyName: "햇살네", familyColor: "gray", setupCompletedAt: undefined });
+    expect(s.members.map((m) => m.id)).toEqual(["haneul", "family"]);
+    expect(s.members[0]).toMatchObject({ color: "gray", slackId: undefined });
+    expect(needsSetup(s)).toBe(false);
+    expect(s.warnings.filter((x) => x.startsWith("config.md:"))).toHaveLength(2);
+    expect(s.warnings.filter((x) => x.startsWith("members/haneul.md:"))).toHaveLength(2);
+    expect(s.warnings.filter((x) => x.startsWith("members/bad.md:"))).toHaveLength(1);
+  });
+
+  it("정상 위키는 경고가 없다", () => {
+    expect(readWiki(memWiki(base).files).warnings).toEqual([]);
   });
 
   describe("형식 보호 (applyChange가 스스로 검증한다)", () => {
