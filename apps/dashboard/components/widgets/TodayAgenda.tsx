@@ -52,7 +52,7 @@ export function TodayAgenda({
           오늘
         </h2>
         {overflowing && (
-          <button type="button" className={s.toggle} aria-pressed={paused} aria-label={paused ? "자동 넘김 켜기" : "자동 넘김 멈춤"} onClick={() => setPaused(!paused)}>
+          <button type="button" className={s.toggle} aria-pressed={paused} aria-label="자동 넘김 멈춤" onClick={() => setPaused(!paused)}>
             <PauseIcon paused={paused} />
           </button>
         )}

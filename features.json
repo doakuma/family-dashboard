@@ -59,8 +59,8 @@
         5
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
+      "passes": true,
+      "review": "pass",
       "note": "재리뷰 대기: role이 없거나 틀리면 child(최소 권한)로 읽고 경고(스펙 rev 51). 필드 단위 관용 읽기는 rev 46 그대로"
     },
     {
@@ -156,8 +156,8 @@
         13
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
+      "passes": true,
+      "review": "pass",
       "note": "오너 디자인 결정(스펙 rev 52) 반영 후 재리뷰 대기: 자동 넘김 토글, 지난 일정 흐림, D-day 강조"
     },
     {
@@ -168,8 +168,8 @@
         14
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
+      "passes": true,
+      "review": "pass",
       "note": "오너 디자인 결정(스펙 rev 52) 반영 후 재리뷰 대기: 자동 넘김 토글, 지난 일정 흐림, D-day 강조"
     },
     {

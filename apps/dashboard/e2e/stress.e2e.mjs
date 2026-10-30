@@ -161,7 +161,7 @@ try {
     await page.goto(`${LOCAL}/${DAY}`);
     const box = page.locator("[data-auto-scroll]");
     await box.waitFor();
-    const btn = page.getByRole("button", { name: "자동 넘김 멈춤" });
+    const btn = page.getByRole("button", { name: "자동 넘김 멈춤", pressed: false });
     await btn.waitFor();
     const bb = await btn.boundingBox();
     assert.ok(bb && bb.width >= 48 && bb.height >= 48, `터치 영역 48px 미만(${bb?.width}x${bb?.height})`);
@@ -169,20 +169,20 @@ try {
     await sleep(5500); // 순환이 움직이고 있는지 확인한 뒤 끈다
     assert.ok((await box.evaluate((el) => el.scrollTop)) > 1, "끄기 전에 순환 중이어야 해요");
     await btn.click();
-    const on = page.getByRole("button", { name: "자동 넘김 켜기" });
+    const on = page.getByRole("button", { name: "자동 넘김 멈춤", pressed: true });
     assert.equal(await on.getAttribute("aria-pressed"), "true");
     await sleep(300);
     const p1 = await box.evaluate((el) => el.scrollTop);
     await sleep(4000);
     assert.ok(Math.abs((await box.evaluate((el) => el.scrollTop)) - p1) < 1, "멈춤인데 scrollTop이 움직여요");
     await page.reload();
-    await page.getByRole("button", { name: "자동 넘김 켜기" }).waitFor();
+    await page.getByRole("button", { name: "자동 넘김 멈춤", pressed: true }).waitFor();
     await sleep(6500); // 처음 3.5초 대기를 지나도 안 움직여야 한다
     assert.ok((await box.evaluate((el) => el.scrollTop)) < 1, "새로고침 뒤에도 멈춤이 유지돼야 해요");
     await assertNoPageScroll(page, 1280, 800, "토글 멈춤");
     if (shots) await page.screenshot({ path: join(repo, "docs/screens/stress-agenda-paused-1280.png") });
-    await page.getByRole("button", { name: "자동 넘김 켜기" }).click();
-    await page.getByRole("button", { name: "자동 넘김 멈춤" }).waitFor();
+    await page.getByRole("button", { name: "자동 넘김 멈춤", pressed: true }).click();
+    await page.getByRole("button", { name: "자동 넘김 멈춤", pressed: false }).waitFor();
     await sleep(6500);
     assert.ok((await box.evaluate((el) => el.scrollTop)) > 1, "켜면 다시 순환해야 해요");
     ok("토글: 48px 이상, 끄면 scrollTop 고정, 새로고침 뒤 유지, 켜면 재개");
