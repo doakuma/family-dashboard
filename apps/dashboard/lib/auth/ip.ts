@@ -62,17 +62,3 @@ export function isPrivateIp(addr: string | null | undefined): boolean {
   if ((g0 & 0xffc0) === 0xfe80) return true; // fe80::/10
   return false;
 }
-
-/** custom server가 소켓 주소를 담아 주는 헤더. 밖에서 온 값은 서버가 항상 덮어쓴다. */
-export const PEER_HEADER = "x-hsh-peer";
-
-/**
- * custom server용: 요청 헤더에서 밖에서 보낸 PEER_HEADER를 지우고, 소켓 주소가 내부망이면 그 값을 담는다.
- * 내부망이 아니면 false(요청을 거부해야 한다).
- */
-export function stampPeer(headers: Record<string, string | string[] | undefined>, remoteAddress: string | undefined): boolean {
-  delete headers[PEER_HEADER];
-  if (!isPrivateIp(remoteAddress)) return false;
-  headers[PEER_HEADER] = remoteAddress;
-  return true;
-}

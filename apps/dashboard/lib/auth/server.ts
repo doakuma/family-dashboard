@@ -2,6 +2,7 @@
 // Next가 페이지/라우트를 따로 번들해도 같은 인스턴스를 쓰도록 globalThis에 둔다.
 import "server-only";
 import { cookies } from "next/headers";
+import { isAllowedOrigin } from "./host";
 import { createLockout, type Lockout } from "./lockout";
 import { checkPin, type PinCheck } from "./pin-check";
 import { createSessionCodec, SESSION_COOKIE, type Session, type SessionCodec } from "./session";
@@ -28,16 +29,15 @@ export async function readSession(): Promise<Session | undefined> {
   return authState().codec.verify((await cookies()).get(SESSION_COOKIE)?.value);
 }
 
-/** 폼 POST의 출처 확인: Origin(없으면 Referer)의 host가 요청 Host와 같아야 한다. SameSite=Strict와 함께 쓰는 이중 장치. */
+/** 폼 POST의 출처 확인: Origin(없으면 Referer)이 DASHBOARD_BASE_URL의 origin과 같아야 한다(Host 헤더는 보지 않음). SameSite=Strict와 함께 쓰는 이중 장치. */
 export function isSameOrigin(req: Request): boolean {
-  const from = req.headers.get("origin") ?? req.headers.get("referer");
-  const host = req.headers.get("host");
-  if (!from || !host) return false;
-  try {
-    return new URL(from).host === host;
-  } catch {
-    return false;
-  }
+  return isAllowedOrigin(req.headers.get("origin") ?? req.headers.get("referer"), process.env);
+}
+
+/** 잠겨 있으면 남은 시간(ms), 아니면 undefined (화면 안내용) */
+export function lockRemainingMs(): number | undefined {
+  const c = authState().lockout.check();
+  return c.locked ? c.retryAfterMs : undefined;
 }
 
 export function retryMinutes(ms: number): number {
