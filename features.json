@@ -205,9 +205,9 @@
         17
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
-      "note": "리뷰 통과(8584258..7d0a15d) 후 [중간] 4건·[낮음] 반영으로 코드 변경 -> 재리뷰 대기. 결정 0004. 지역표는 기상청 원본 대조 전(#26 때 오너)."
+      "passes": true,
+      "review": "pass",
+      "note": "리뷰 통과(fd94f06, 오너 반영). 결정 0004. 지역표는 기상청 원본 대조 전(#26 때 오너). 후속 [낮음] 3건(별도 처리): schema.ts:150 Windows 예약어를 서버 스키마에서도 거르기, ReviewStep.tsx:29 extraKeys 중복 규칙, setup.e2e 가림 검사 선택자를 data-testid로."
     },
     {
       "id": 19,
