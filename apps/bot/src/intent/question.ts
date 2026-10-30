@@ -29,6 +29,8 @@ export interface Question {
   memberIds: string[];
   /** 사용자 원문에 실제로 있는 단어만 */
   keyword?: string;
+  /** 사용자가 물은 항목 이름인데 위키 어디에도 없는 단어. 있으면 "위키에 없어요"로만 답한다 */
+  missingKeyword?: string;
 }
 
 export interface WikiFacts {
@@ -50,14 +52,19 @@ const MAX_LINES = 20;
 const NON_KEYWORD =
   /[일월화수목금토]요일|오늘|내일|모레|글피|어제|이번|다음|지난|저번|주말|^주$|^달$|\d+(월|일|년|주)|^있[어나니는]|^있었|^뭐|^언제|^알려|^보여|^말해|일정|약속|스케줄|^할일$|^할$|^일$|장보기|생일|기념일|^있$|^없/;
 
-function cleanKeyword(raw: string | undefined, text: string, members: Member[], titles: string[]): string | undefined {
+function cleanKeyword(
+  raw: string | undefined,
+  text: string,
+  members: Member[],
+  titles: string[],
+): { keyword?: string; missing?: string } {
   const kept = (raw ?? "")
     .split(/\s+/)
     .filter((t) => t && !NON_KEYWORD.test(t));
   const kw = kept.join(" ").trim();
-  if (kw.length < 2 || !text.includes(kw) || members.some((m) => m.name === kw)) return undefined;
-  // 위키 어디에도 없는 단어면 필터로 쓰지 않는다(없는 일정이 '없어요'로 둔갑하지 않게)
-  return titles.some((t) => t.includes(kw)) ? kw : undefined;
+  if (kw.length < 2 || !text.includes(kw) || members.some((m) => m.name === kw)) return {};
+  // 위키 제목에 맞으면 필터. 어디에도 없으면 관계없는 목록 대신 "그 이름은 위키에 없어요"로 답한다
+  return titles.some((t) => t.includes(kw)) ? { keyword: kw } : { missing: kw };
 }
 
 export function buildQuestion(
@@ -93,7 +100,7 @@ export function buildQuestion(
   const memberIds = members.filter((m) => m.id !== "family" && (text.includes(m.name) || (m.id !== m.name && containsWord(text, m.id)))).map((m) => m.id);
   if (/(^|\s)(나|내|제)(\s|가|의|$)/.test(text) && senderId && !memberIds.includes(senderId)) memberIds.push(senderId);
 
-  const keyword = cleanKeyword(o.keyword, text, members, titles);
+  const { keyword, missing: missingKeyword } = cleanKeyword(o.keyword, text, members, titles);
 
   // 기간: 코드가 원문에서 계산한 값이 LLM 값보다 우선.
   // 둘 다 없으면 "언제"를 묻거나 기념일만 물을 땐 365일, 키워드가 있으면 400일, 아니면 앞으로 7일.
@@ -105,7 +112,7 @@ export function buildQuestion(
       range = { from: today, to: addDays(today, whenAsked ? WHEN_DAYS : keyword ? 400 : DEFAULT_DAYS - 1) };
     }
   }
-  return { range, targets, taskList, memberIds, keyword };
+  return { range, targets, taskList, memberIds, keyword, missingKeyword };
 }
 
 function containsWord(text: string, w: string): boolean {
@@ -128,9 +135,12 @@ function llmRange(o: LlmOutput, today: string): DateRange | undefined {
 const mdOf = (today: string) => (d: string) =>
   `${d.slice(0, 4) === today.slice(0, 4) ? "" : `${d.slice(0, 4)}년 `}${Number(d.slice(5, 7))}/${Number(d.slice(8))}(${weekdayKo(d)})`;
 /** 받침이 있으면 이, 없으면 가 */
+/** 받침이 있으면 은, 없으면 는 */
+const eunneun = (w: string) => ((w.charCodeAt(w.length - 1) - 0xac00) % 28 !== 0 ? "은" : "는");
 const iga = (w: string) => ((w.charCodeAt(w.length - 1) - 0xac00) % 28 !== 0 ? "이" : "가");
 
 export function composeAnswer(q: Question, wiki: WikiFacts, today: string): string {
+  if (q.missingKeyword) return `'${q.missingKeyword}'${eunneun(q.missingKeyword)} 위키에 없어요.`;
   const md = mdOf(today);
   const rangeLabel = (r: DateRange) => (r.from === r.to ? md(r.from) : `${md(r.from)}~${md(r.to)}`);
   const nameOf = (id: string) => wiki.members.find((m) => m.id === id)?.name ?? "";

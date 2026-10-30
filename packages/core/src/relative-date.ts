@@ -17,6 +17,9 @@ const WD = "일월화수목금토";
 /** 그 주의 월요일 */
 export const mondayOf = (date: string) => addDays(date, -((weekdayOf(date) + 6) % 7));
 
+/** 날짜 표현이 들어 있는지(공백 뺀 문장 기준). 해석 가능 여부와는 별개 */
+const DATE_HINT = /오늘|내일|모레|글피|어제|이번|다음|담주|지난|저번|금주|금월|주말|[일월화수목금토]요일|\d+월|\d+일|\d{4}년/;
+
 /** s는 공백을 뺀 문장, text는 원문. "금주"는 단어 시작에서만("지금 주문"에 안 맞게) */
 const weekOffset = (s: string, text: string): number | undefined => {
   if (/다다음주/.test(s)) return 2;
@@ -33,15 +36,17 @@ const weekOffset = (s: string, text: string): number | undefined => {
  *       이번 주/다음 주/다다음 주/지난 주, 이번 달/다음 달/지난 달, M월 D일(올해, 한 달 넘게 지났으면 내년).
  */
 export function resolveDateRange(text: string, today: string): DateRange | undefined {
-  // "A 말고 B", "A 아니고 B": B만 해석한다. B에서 못 읽으면 포기(undefined)해서 호출한 쪽이 다른 값을 쓰게 한다.
+  // "A 말고 B", "A 아니고 B": B에 날짜 표현이 있으면 B만 해석한다. 있는데 못 읽으면 포기(undefined)해서 호출한 쪽이 다른 값을 쓰게 한다.
+  // B에 날짜 표현이 없으면("토요일에 핼러윈 말고 뭐 있어?") 말고 앞쪽 A를 그대로 해석한다.
   // B에 요일만 있고 주 표현이 없으면 A의 주를 이어받는다("다음 주 수요일 말고 목요일" = 다음 주 목요일).
   const neg = /말고|아니고|아니라/.exec(text);
   if (neg) {
     const before = text.slice(0, neg.index).replace(/\s+/g, "");
     const after = text.slice(neg.index + neg[0].length);
+    if (!DATE_HINT.test(after.replace(/\s+/g, ""))) return resolveDateRange(text.slice(0, neg.index), today);
     const wk = weekOffset(before, text.slice(0, neg.index));
     const hasWeek = weekOffset(after.replace(/\s+/g, ""), after) !== undefined || /주말/.test(after.replace(/\s+/g, ""));
-    const prefix = wk !== undefined && !hasWeek && /[일월화수목금토]요일/.test(after) ? ["이번 주", "다음 주", "다다음 주"][wk] ?? "" : "";
+    const prefix = wk !== undefined && !hasWeek && /[일월화수목금토]요일/.test(after) ? ({ "-1": "지난 주", 0: "이번 주", 1: "다음 주", 2: "다다음 주" } as Record<number, string>)[wk] ?? "" : "";
     return resolveDateRange(`${prefix} ${after}`, today);
   }
   const s = text.replace(/\s+/g, "");

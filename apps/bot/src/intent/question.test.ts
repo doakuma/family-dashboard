@@ -191,9 +191,15 @@ describe("질문 응답: 리뷰 되돌림 수정", () => {
       expect(a).not.toContain("위키에 없어요");
     }
   });
-  it("원문에 있지만 위키 제목 어디에도 없는 keyword는 버린다", async () => {
+  it("원문에 있지만 위키 제목 어디에도 없는 keyword는 관계없는 목록 대신 없다고 답한다", async () => {
     const a = await ask("이번 주 토요일 수영 뭐 있어?", { intent: "question", keyword: "수영" });
-    expect(a).toContain("핼러윈 파티");
+    expect(a).toBe("'수영'은 위키에 없어요.");
+    expect(await ask("치과 말고 학원 언제야?", { intent: "question", keyword: "학원" })).toBe("'학원'은 위키에 없어요.");
+  });
+  it("'토요일에 핼러윈 말고 뭐 있어?' -> 말고 뒤에 날짜가 없으면 앞쪽 날짜(토요일)로 답한다", async () => {
+    const a = await ask("토요일에 핼러윈 말고 뭐 있어?");
+    expect(a).toContain("10/31(토)");
+    expect(a).toContain("치과");
   });
   it("제목에 맞는 keyword는 그대로 필터", async () => {
     const a = await ask("치과 언제야?", { intent: "question", keyword: "치과" });
