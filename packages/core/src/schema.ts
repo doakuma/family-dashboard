@@ -127,6 +127,10 @@ const kmaRegId = z.string().regex(KMA_REG_ID_RE, "예: 11B00000");
 
 /** 프론트매터 값은 따옴표로 감싸면 읽을 때 달라져서 쓰기가 거부된다(stringifyFrontmatter). 폼에서 미리 걸러낸다. */
 const notQuoted = (s: string) => !/^(["']).*\1$/.test(s);
+/** Windows 예약 파일 이름(확장자가 붙어도 예약): members/<id>.md 가 만들어지지 않을 수 있어 새 구성원 id로 받지 않는다. */
+export const isWindowsReservedName = (id: string) => /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(id);
+export const WINDOWS_RESERVED_MESSAGE = "윈도우 예약 이름이라 id로 쓸 수 없어요";
+
 const QUOTED = "따옴표로 감싼 값은 쓸 수 없어요";
 
 const setupConfigSchema = familyConfigSchema.omit({ setupCompletedAt: true }).extend({
@@ -149,7 +153,7 @@ const setupAnniversarySchema = z.object({ monthDay: realMonthDay, title, member:
 export const setupSchema = z
   .object({
     config: setupConfigSchema,
-    members: z.array(memberSchema.extend({ id: memberIdSchema.max(32).refine((id) => id !== FAMILY_ID, "family는 예약 id"), name: plain(40).refine(notQuoted, QUOTED) })).min(1, "구성원을 한 명 이상 넣어 주세요").max(SETUP_MAX_MEMBERS, `구성원은 ${SETUP_MAX_MEMBERS}명까지예요`),
+    members: z.array(memberSchema.extend({ id: memberIdSchema.max(32).refine((id) => id !== FAMILY_ID, "family는 예약 id").refine((id) => !isWindowsReservedName(id), WINDOWS_RESERVED_MESSAGE), name: plain(40).refine(notQuoted, QUOTED) })).min(1, "구성원을 한 명 이상 넣어 주세요").max(SETUP_MAX_MEMBERS, `구성원은 ${SETUP_MAX_MEMBERS}명까지예요`),
     anniversaries: z.array(setupAnniversarySchema).max(SETUP_MAX_ANNIVERSARIES),
   })
   .superRefine((v, ctx) => {

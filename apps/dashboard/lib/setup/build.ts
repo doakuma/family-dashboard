@@ -27,8 +27,13 @@ export function birthdayAnniversaries(members: readonly MemberDraft[]): Annivers
   );
 }
 
+/** 추가 기념일(날짜가 유효한 것만)을 draft key와 함께. 화면 목록의 React key가 필요한 곳용 - 유효성 규칙은 여기 한 곳. */
+export function extraAnniversaryRows(d: Draft): { key: string; anniversary: Anniversary }[] {
+  return d.anniversaries.flatMap((a) => (validMonthDay(a.month, a.day) ? [{ key: a.key, anniversary: { monthDay: `${pad2(a.month)}-${pad2(a.day)}`, title: a.title.trim(), member: a.member } }] : []));
+}
+
 export function extraAnniversaries(d: Draft): Anniversary[] {
-  return d.anniversaries.flatMap((a) => (validMonthDay(a.month, a.day) ? [{ monthDay: `${pad2(a.month)}-${pad2(a.day)}`, title: a.title.trim(), member: a.member }] : []));
+  return extraAnniversaryRows(d).map((r) => r.anniversary);
 }
 
 export function toMembers(d: Draft): Member[] {

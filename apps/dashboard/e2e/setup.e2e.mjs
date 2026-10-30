@@ -168,7 +168,7 @@ try {
   // 오류 필드가 하단 고정 버튼에 가리지 않는다 (WCAG 2.4.11)
   const covered = await phone.evaluate(() => {
     const a = document.activeElement?.getBoundingClientRect();
-    const f = document.querySelector("form > div:last-child")?.getBoundingClientRect();
+    const f = document.querySelector('[data-testid="setup-footer"]')?.getBoundingClientRect();
     return Boolean(a && f && a.bottom > f.top);
   });
   assert.equal(covered, false, "포커스된 입력이 하단 버튼에 가림");

@@ -1,6 +1,6 @@
 // 단계별 입력 검증. 메시지는 한국어로 필드 옆에 보여 준다(필드 키 -> 메시지).
 // 최종 방어선은 서버의 setupSchema(@hsh/core)이고, 여기서 통과한 값은 그 스키마도 통과해야 한다(테스트로 확인).
-import { CALENDAR_ID_RE, CONTROL_CHARS, KMA_NX_RANGE, KMA_NY_RANGE, KMA_REG_ID_RE, SETUP_MAX_MEMBERS, familyConfigSchema, findRegion, isDate } from "@hsh/core";
+import { CALENDAR_ID_RE, CONTROL_CHARS, KMA_NX_RANGE, KMA_NY_RANGE, KMA_REG_ID_RE, SETUP_MAX_MEMBERS, WINDOWS_RESERVED_MESSAGE, familyConfigSchema, findRegion, isDate, isWindowsReservedName } from "@hsh/core";
 import { isPickableColor } from "./colors";
 import type { AnnivDraft, Draft, MemberDraft } from "./draft";
 
@@ -71,6 +71,7 @@ export function validateMembers(d: Draft, now: Date = new Date()): Errors {
     else if (id.length > 32) e[`${k}.id`] = "32자 이하로 입력해 주세요";
     else if (!/^[A-Za-z0-9_-]+$/.test(id)) e[`${k}.id`] = "영문·숫자·-·_만 쓸 수 있어요";
     else if (id.toLowerCase() === "family") e[`${k}.id`] = "family는 '가족 전체'가 쓰는 id예요";
+    else if (isWindowsReservedName(id)) e[`${k}.id`] = WINDOWS_RESERVED_MESSAGE;
     else if (seen.has(id.toLowerCase())) e[`${k}.id`] = "다른 구성원과 같은 id예요";
     if (id) seen.set(id.toLowerCase(), seen.get(id.toLowerCase()) ?? m.key);
   }

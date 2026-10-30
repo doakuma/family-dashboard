@@ -1,6 +1,6 @@
 import { setupSchema } from "@hsh/core";
 import { describe, expect, it } from "vitest";
-import { serverIssuesToErrors, toPreviewState, toSetupInput, birthdayAnniversaries } from "./build";
+import { extraAnniversaries, extraAnniversaryRows, serverIssuesToErrors, toPreviewState, toSetupInput, birthdayAnniversaries } from "./build";
 import { addAnniversary, addMember, initialDraft, updateAnniversary, updateMember, type Draft } from "./draft";
 import { firstErrorStep, stepOfField, validMonthDay, validateAnniversaries, validateCalendar, validateHome, validateMembers, validateStep } from "./validate";
 
@@ -76,6 +76,8 @@ describe("2단계: 구성원", () => {
     expect(e("family")).toMatch(/family/);
     expect(e("FAMILY")).toMatch(/family/);
     expect(e("x".repeat(33))).toMatch(/32자/);
+    for (const r of ["con", "NUL", "Com1", "lpt9"]) expect(e(r)).toMatch(/예약/);
+    expect(e("com10")).toBeUndefined();
     expect(e("mom")).toBeUndefined();
     expect(validateMembers(updateMember(good(), "m2", { id: "MEMBER-1" }), NOW)["member.m2.id"]).toMatch(/같은 id/);
   });
@@ -148,6 +150,7 @@ describe("검증 통과 = 서버 스키마 통과", () => {
       { ...good(), regionKey: "" },
       updateMember(good(), "m1", { id: "family" }),
       updateMember(good(), "m2", { id: "MEMBER-1" }),
+      updateMember(good(), "m2", { id: "Con" }),
       updateMember(good(), "m1", { role: "child" }),
       updateAnniversary(good(), good().anniversaries[0]!.key, { month: "2", day: "30" }),
       { ...good(), calendarId: "primary" },
@@ -163,6 +166,15 @@ describe("검증 통과 = 서버 스키마 통과", () => {
       if (d.familyName === "") continue;
       expect(setupSchema.safeParse(input).success, JSON.stringify(input.members)).toBe(false);
     }
+  });
+
+  it("추가 기념일 행은 유효한 날짜만, draft key와 짝으로 돌려준다", () => {
+    const d = good();
+    const key = d.anniversaries[0]!.key;
+    const bad = addAnniversary(d, { title: "없는 날", month: "2", day: "30", member: "family" });
+    const rows = extraAnniversaryRows(bad);
+    expect(rows.map((r) => r.key)).toEqual([key]);
+    expect(rows.map((r) => r.anniversary)).toEqual(extraAnniversaries(bad));
   });
 
   it("firstErrorStep·stepOfField", () => {

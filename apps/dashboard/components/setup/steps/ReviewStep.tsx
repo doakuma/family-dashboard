@@ -1,10 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
 import { colorOf } from "@/lib/palette";
-import { birthdayAnniversaries, extraAnniversaries, toPreviewState } from "@/lib/setup/build";
+import { birthdayAnniversaries, extraAnniversaryRows, toPreviewState } from "@/lib/setup/build";
 import { findRegion } from "@hsh/core";
 import { COLOR_LABELS, isPickableColor } from "@/lib/setup/colors";
-import { memberLabel, validMonthDay } from "@/lib/setup/validate";
+import { memberLabel } from "@/lib/setup/validate";
 import { DashboardPreview } from "../DashboardPreview";
 import s from "../setup.module.css";
 import type { StepProps } from "./types";
@@ -24,9 +24,7 @@ export function ReviewStep({ draft, errors, onChange, needsOverwrite, writable, 
   const state = useMemo(() => toPreviewState(draft, now), [draft, now]);
   const region = draft.regionMode === "list" ? findRegion(draft.regionKey)?.label : draft.manual.label.trim();
   const birthdays = birthdayAnniversaries(draft.members);
-  const extras = extraAnniversaries(draft);
-  // extras는 draft.anniversaries 중 날짜가 유효한 것만 같은 순서로 뽑은 것이라 draft key와 짝이 맞는다
-  const extraKeys = draft.anniversaries.filter((a) => validMonthDay(a.month, a.day)).map((a) => a.key);
+  const extras = extraAnniversaryRows(draft);
   const md = (monthDay: string) => `${Number(monthDay.slice(0, 2))}월 ${Number(monthDay.slice(3))}일`;
 
   return (
@@ -86,8 +84,8 @@ export function ReviewStep({ draft, errors, onChange, needsOverwrite, writable, 
         </p>
         {extras.length > 0 && (
           <ul className={s.list} aria-label="추가한 기념일">
-            {extras.map((a, i) => (
-              <li key={extraKeys[i]} className={s.item}>
+            {extras.map(({ key, anniversary: a }) => (
+              <li key={key} className={s.item}>
                 {md(a.monthDay)} · {a.title}
               </li>
             ))}

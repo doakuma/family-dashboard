@@ -82,7 +82,7 @@ export function StepFrame({ step, title, lead, children, errorCount, focusTick, 
             </p>
           )}
           <div className={s.body}>{children}</div>
-          <div className={s.footer}>
+          <div className={s.footer} data-testid="setup-footer">
             {onBack && (
               <Button variant="secondary" onClick={onBack} disabled={busy}>
                 이전
