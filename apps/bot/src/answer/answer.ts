@@ -208,6 +208,7 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
 function collect(ctx: AnswerContext, range: DateRange, kinds: Set<QuestionKind>, wanted: Set<string>, keyword?: string): Item[] {
   const nameOf = (id?: string) => ctx.members.find((m) => m.id === id)?.name ?? "";
   const kw = keyword ? norm(keyword) : undefined;
+  const yearOf = (d: string) => (d.slice(0, 4) === ctx.today.slice(0, 4) ? "" : `${d.slice(0, 4)}년 `);
   const hit = (title: string) => !kw || norm(title).includes(kw);
   const items: Item[] = [];
 
@@ -222,7 +223,7 @@ function collect(ctx: AnswerContext, range: DateRange, kinds: Set<QuestionKind>,
         date: e.date,
         sortTime: e.allDay || !e.start ? "00:00" : e.start,
         eventId: e.id,
-        line: `• ${formatWhen(e.date, e.start, e.allDay)}${time} ${e.title}${who ? ` (${who})` : ""}${e.share ? ` · 공유: ${e.share}` : ""}`,
+        line: `• ${yearOf(e.date)}${formatWhen(e.date, e.start, e.allDay)}${time} ${e.title}${who ? ` (${who})` : ""}${e.share ? ` · 공유: ${e.share}` : ""}`,
       });
     }
   }
@@ -231,7 +232,7 @@ function collect(ctx: AnswerContext, range: DateRange, kinds: Set<QuestionKind>,
       if (!hit(a.title)) continue;
       if (wanted.size && !(a.member && wanted.has(a.member))) continue;
       for (let d = nextOccurrence(a.monthDay, range.from); d <= range.to; d = nextOccurrence(a.monthDay, addDays(d, 1))) {
-        items.push({ date: d, sortTime: "00:00", anniversary: a.title, line: `• ${formatWhen(d, undefined, true)} 🎉 ${a.title} (매년)` });
+        items.push({ date: d, sortTime: "00:00", anniversary: a.title, line: `• ${yearOf(d)}${formatWhen(d, undefined, true)} 🎉 ${a.title} (매년)` });
       }
     }
   }

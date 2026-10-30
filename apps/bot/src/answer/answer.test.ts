@@ -384,6 +384,11 @@ describe("날짜가 분명한 질문은 LLM keyword가 그날 일정을 지우�
     expect(r.text).toContain("핼러윈 파티");
     expect(r.text).not.toContain("없어요");
   });
+  it("LLM 범위(qFrom/qTo)만 있어도 제목에 없는 keyword는 버린다", async () => {
+    const { r } = await ask("그날 계획 뭐야", { intent: "question", qKeyword: "계획", qFrom: "2026-10-31", qTo: "2026-10-31" });
+    expect(r.status).toBe("answered");
+    expect(r.text).toContain("핼러윈 파티");
+  });
   it("제목에 있는 keyword는 그대로 거른다", async () => {
     const { r } = await ask("내일 핼러윈 있어?", { intent: "question", qKeyword: "핼러윈" });
     expect(r.status === "answered" && r.eventIds).toEqual(["evt-1"]);
@@ -413,9 +418,15 @@ describe("이름만 묻는 질문 (날짜 없음)", () => {
     const s = state({ anniversaries: [...anniversaries, { monthDay: "08-15", title: "하늘 생일", member: "haneul" }] });
     const { r } = await ask("하늘 생일 언제야?", { intent: "question", qKeyword: "생일" }, s);
     expect(r.status).toBe("answered");
-    expect(r.text).toContain("8/15(일)");
+    expect(r.text).toContain("2027년 8/15(일)");
     expect(r.text).toContain("하늘 생일");
     expect(r.text).not.toContain("아빠 생일");
+  });
+  it('"치과 말고 피아노 언제야?" -> 피아노은 위키에 없다고 답한다', async () => {
+    const { r } = await ask("치과 말고 피아노 언제야?", { intent: "question", qKeyword: "피아노" });
+    expect(r.status).toBe("empty");
+    expect(r.text).toContain("피아노");
+    expect(r.text).toContain("없어요");
   });
   it('"수영 언제야?" -> 위키에 없다고 답한다(관계없는 목록을 보여 주지 않는다)', async () => {
     const { r } = await ask("수영 언제야?", { intent: "question", qKeyword: "수영" });
