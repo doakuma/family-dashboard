@@ -141,6 +141,6 @@ describe("extractIntent", () => {
   });
 
   it("질문", async () => {
-    expect(await run({ intent: "question" })).toEqual({ type: "question" });
+    expect((await run({ intent: "question" })).type).toBe("question");
   });
 });

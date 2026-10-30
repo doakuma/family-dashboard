@@ -157,3 +157,9 @@
 ## 2026-10-30 · #18 #31 #32 후속 리뷰 통과
 - 리뷰어 통과 → #18 #31 #32 passes=true·review=pass (오너 반영). 남은 낮음은 각 note.
 - 운영 방식 변경: 이후 할 일은 할 일당 새 대화(프로젝트 문서 claude/agent-team.md '대화 운영 방식').
+
+## 2026-10-30 · #10 질문 응답 (슬랙 연결 제외)
+- LLM은 질문을 구조화 필드(`from`/`to`/`targets`/`keyword`)로만 바꾸고, 답 문장은 코드(`intent/question.ts composeAnswer`)가 위키 항목으로 조립한다. 답에 쓰이는 글자는 위키의 제목·시간·구성원 이름과 고정 문장뿐이라 LLM의 id·제목·본문은 답에 못 들어간다(keyword도 사용자 원문에 있는 단어만). 항목이 없으면 "…위키에 없어요", LLM 실패·형식 오류·unknown은 `NO_ANSWER`("잘 모르겠어요…").
+- 상대 날짜는 core `resolveDateRange`(결정적, 브라우저 안전)가 원문에서 계산해 LLM 날짜보다 우선, 못 읽을 때만 검증된 LLM 날짜(오늘-366~+400일, 366일 이하), 둘 다 없으면 앞으로 7일(키워드가 있으면 400일). **주는 월요일 시작**(월~일): 이번 주말=토~일, 일요일에 "이번 주 토요일"은 어제, 요일만 말하면 오늘 이후 가장 가까운 날(오늘 포함), "M월 D일"은 올해(한 달 넘게 지났으면 내년). 구성원 필터는 원문에 이름이 있을 때만(가족 전체 일정은 포함).
+- 붙이기: `answerQuestion(input, llm)` -> `{intent, text?}`(질문·unknown이면 text, 쓰기 의도면 text 없음). `pnpm --filter @hsh/bot try "이번 주 토요일 뭐 있어?" [--now 2026-10-29T22:00] [--offline]`(--offline은 LLM 없이 질문으로 간주해 코드 쪽만 시험). try는 위키를 readOnly로 읽는다.
+- 검증: pnpm check(534 테스트). 남은 문제: 실제 LLM이 question 필드를 잘 채우는지는 미확인(비용 없이 가짜 LLM만), 슬랙 응답 연결 #9, 아이 계정 권한 #21. #10은 passes=false, review=pending.

@@ -1,0 +1,59 @@
+import { describe, expect, it } from "vitest";
+import { mondayOf, resolveDateRange } from "./relative-date";
+
+const r = (t: string, today: string) => resolveDateRange(t, today);
+const one = (d: string) => ({ from: d, to: d });
+// 2026-10-29는 목요일, 2026-11-01은 일요일
+describe("resolveDateRange (주는 월요일 시작)", () => {
+  it("월요일 기준", () => {
+    expect(mondayOf("2026-10-29")).toBe("2026-10-26");
+    expect(mondayOf("2026-11-01")).toBe("2026-10-26"); // 일요일은 그 주의 마지막
+    expect(mondayOf("2026-10-26")).toBe("2026-10-26");
+  });
+  it("오늘·내일·모레", () => {
+    expect(r("오늘 뭐 있어?", "2026-10-29")).toEqual(one("2026-10-29"));
+    expect(r("내일 뭐 있어", "2026-10-29")).toEqual(one("2026-10-30"));
+    expect(r("모레는?", "2026-10-29")).toEqual(one("2026-10-31"));
+    expect(r("내일모레", "2026-10-29")).toEqual(one("2026-10-31"));
+  });
+  it("이번 주 / 다음 주 X요일", () => {
+    expect(r("이번 주 토요일 뭐 있어?", "2026-10-29")).toEqual(one("2026-10-31"));
+    expect(r("이번주 월요일", "2026-10-29")).toEqual(one("2026-10-26"));
+    expect(r("다음 주 화요일", "2026-10-29")).toEqual(one("2026-11-03"));
+    expect(r("다다음 주 금요일", "2026-10-29")).toEqual(one("2026-11-13"));
+  });
+  it("일요일(주의 마지막날)에 말해도 월요일 시작 기준", () => {
+    expect(r("이번 주 토요일", "2026-11-01")).toEqual(one("2026-10-31"));
+    expect(r("이번 주 일요일", "2026-11-01")).toEqual(one("2026-11-01"));
+    expect(r("다음 주 월요일", "2026-11-01")).toEqual(one("2026-11-02"));
+    expect(r("이번 주", "2026-11-01")).toEqual({ from: "2026-10-26", to: "2026-11-01" });
+  });
+  it("요일만 말하면 오늘 이후 가장 가까운 날(오늘 포함)", () => {
+    expect(r("토요일", "2026-10-29")).toEqual(one("2026-10-31"));
+    expect(r("목요일", "2026-10-29")).toEqual(one("2026-10-29"));
+    expect(r("수요일", "2026-10-29")).toEqual(one("2026-11-04"));
+  });
+  it("주말·주·달", () => {
+    expect(r("이번 주말", "2026-10-29")).toEqual({ from: "2026-10-31", to: "2026-11-01" });
+    expect(r("다음 주말", "2026-10-29")).toEqual({ from: "2026-11-07", to: "2026-11-08" });
+    expect(r("다음 주 뭐 있어", "2026-10-29")).toEqual({ from: "2026-11-02", to: "2026-11-08" });
+    expect(r("이번 달", "2026-10-29")).toEqual({ from: "2026-10-01", to: "2026-10-31" });
+    expect(r("다음 달", "2026-10-29")).toEqual({ from: "2026-11-01", to: "2026-11-30" });
+  });
+  it("월말·연말 경계", () => {
+    expect(r("내일", "2026-10-31")).toEqual(one("2026-11-01"));
+    expect(r("모레", "2026-12-31")).toEqual(one("2027-01-02"));
+    expect(r("다음 주 월요일", "2026-12-31")).toEqual(one("2027-01-04"));
+    expect(r("이번 주", "2026-12-31")).toEqual({ from: "2026-12-28", to: "2027-01-03" });
+    expect(r("다음 달", "2026-12-15")).toEqual({ from: "2027-01-01", to: "2027-01-31" });
+    expect(r("이번 달", "2028-02-10")).toEqual({ from: "2028-02-01", to: "2028-02-29" });
+  });
+  it("M월 D일: 올해, 한 달 넘게 지났으면 내년, 없는 날짜는 거부", () => {
+    expect(r("11월 8일", "2026-10-29")).toEqual(one("2026-11-08"));
+    expect(r("1월 5일", "2026-12-20")).toEqual(one("2027-01-05"));
+    expect(r("2월 30일", "2026-10-29")).toBeUndefined();
+  });
+  it("알 수 없으면 undefined", () => {
+    expect(r("치과 언제야", "2026-10-29")).toBeUndefined();
+  });
+});

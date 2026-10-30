@@ -108,9 +108,10 @@
         6,
         8
       ],
-      "status": "todo",
+      "status": "in_progress",
+      "note": "슬랙 연결 없이 로직까지 구현(순수 함수 answerQuestion, 코드가 답 조립, 상대 날짜 파서는 월요일 시작). 슬랙 핸들러 연결은 #9, 권한은 #21.",
       "passes": false,
-      "review": null
+      "review": "pending"
     },
     {
       "id": 11,

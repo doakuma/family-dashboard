@@ -15,6 +15,7 @@ import {
   type Member,
   type Task,
 } from "@hsh/core";
+import { buildQuestion, type Question } from "./question";
 import { buildSystemPrompt, llmOutputJsonSchema, llmOutputSchema, type LlmOutput } from "./prompt";
 
 export type Intent =
@@ -22,7 +23,8 @@ export type Intent =
   | { type: "change"; changes: Change[]; preview: string }
   /** 대상이 여럿이라 골라야 함 */
   | { type: "choose"; kind: "event.update" | "event.remove" | "task.done"; candidates: string[]; patch?: Partial<Event>; preview: string }
-  | { type: "question" }
+  /** 위키를 읽어 답하는 질문(쓰기 없음). 답 문장은 composeAnswer가 만든다 */
+  | { type: "question"; query: Question }
   | { type: "unknown"; reason: string };
 
 export interface ExtractInput {
@@ -75,7 +77,7 @@ function toIntent(o: LlmOutput, ctx: Ctx): Intent {
 
   switch (o.intent) {
     case "question":
-      return { type: "question" };
+      return { type: "question", query: buildQuestion(o, ctx.text, ctx.today, ctx.members, ctx.sender?.id) };
 
     case "event.add": {
       if (!okDate(o.date)) return { type: "unknown", reason: "날짜를 알 수 없어요" };
