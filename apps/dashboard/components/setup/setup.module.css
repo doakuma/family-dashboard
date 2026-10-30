@@ -1,0 +1,231 @@
+/* /setup 마법사(휴대폰 360~430px). 대시보드와 같은 토큰·글꼴, 화려하지 않게. */
+.page {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 0;
+  min-height: 100dvh;
+  align-content: start;
+  grid-template-rows: auto 1fr;
+}
+.top {
+  display: grid;
+  gap: 0.5rem;
+}
+.brand {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.progressText {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.9375rem;
+  color: var(--ink);
+}
+.bar {
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--line);
+  overflow: hidden;
+}
+.barFill {
+  height: 100%;
+  background: var(--ink);
+}
+.form {
+  display: grid;
+  gap: 1.25rem;
+  align-content: start;
+}
+.title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.75rem;
+  line-height: 1.25;
+  outline: none; /* 단계가 바뀔 때 프로그램으로 포커스를 옮기는 제목: 포커스 링은 키보드 이동에만 필요 */
+}
+.lead {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.body {
+  display: grid;
+  gap: 1.1rem;
+}
+.summary {
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--warn);
+  border-radius: 0.6rem;
+  color: var(--warn);
+  background: var(--sheet);
+  line-height: 1.4;
+}
+.footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom));
+  margin-top: 0.5rem;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+}
+.footer > * {
+  flex: 1 1 0;
+}
+.footer > :only-child {
+  flex-basis: 100%;
+}
+
+.card {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 1rem;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+}
+.card legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+}
+.cardFixed {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border: 2px dashed var(--muted);
+  border-radius: 0.8rem;
+  color: var(--ink);
+}
+.badge {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.dot {
+  flex: none;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+}
+.details {
+  display: grid;
+  gap: 0.75rem;
+}
+.details summary {
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--ink);
+  text-decoration: underline;
+}
+.row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.list {
+  display: grid;
+  gap: 0.6rem;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+}
+.itemMain {
+  display: grid;
+  min-width: 0;
+}
+.itemSub {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.code {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  letter-spacing: 0.25em;
+  color: var(--muted);
+  font-feature-settings: "tnum";
+}
+.note {
+  padding: 0.8rem 1rem;
+  background: var(--sheet);
+  border-left: 4px solid var(--muted);
+  border-radius: 0.3rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.sectionTitle {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+.dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+.dl dt {
+  color: var(--muted);
+}
+.dl dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-height: 3rem;
+  padding: 0.5rem 0;
+  line-height: 1.45;
+}
+.check input {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.1rem;
+}
+.done {
+  display: grid;
+  gap: 1rem;
+  padding-top: 2rem;
+}
+
+/* 6단계 미리보기: 1280x800 태블릿 화면을 그대로 그린 뒤 줄여서 보여 준다 */
+.previewFrame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border: 2px solid var(--muted);
+  border-radius: 0.6rem;
+}
+.previewStage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1280px;
+  height: 800px;
+  transform-origin: top left;
+  pointer-events: none;
+}
+.previewStage > main {
+  height: 800px; /* Dashboard의 100dvh를 이 무대 크기로 */
+  width: 1280px;
+}
+.slot {
+  display: grid;
+  gap: 0.5rem;
+}

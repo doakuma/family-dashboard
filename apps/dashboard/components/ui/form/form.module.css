@@ -1,0 +1,173 @@
+/* 재사용 폼 조각(휴대폰 우선). 색은 토큰만. 터치 대상은 최소 48px. */
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+.label {
+  font-weight: 600;
+  color: var(--ink);
+}
+.optional {
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 0.35rem;
+  font-size: 0.875rem;
+}
+.hint {
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.error {
+  font-size: 0.9375rem;
+  color: var(--warn);
+  line-height: 1.4;
+}
+.input,
+.select {
+  width: 100%;
+  min-height: 3rem; /* 48px */
+  padding: 0.6rem 0.85rem;
+  font: inherit;
+  font-size: 1rem; /* 16px 미만이면 iOS가 포커스 때 확대한다 */
+  color: var(--ink);
+  background: var(--sheet);
+  border: 2px solid var(--muted);
+  border-radius: 0.6rem;
+}
+.input[aria-invalid="true"],
+.select[aria-invalid="true"],
+.group[aria-invalid="true"] {
+  border-color: var(--warn);
+}
+.input:focus-visible,
+.select:focus-visible,
+.choice input:focus-visible + span,
+.swatch input:focus-visible + span,
+.button:focus-visible,
+.link:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* 라디오를 큰 버튼처럼 */
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.group[aria-invalid="true"] {
+  border: 2px solid var(--warn);
+  border-radius: 0.8rem;
+  padding: 0.35rem;
+}
+.choice {
+  position: relative;
+  flex: 1 1 8rem;
+}
+.choice input,
+.swatch input {
+  /* 입력 요소는 화면에서만 숨기고(스크린리더·키보드는 그대로), 실제 표시와 터치는 라벨 안의 span이 맡는다 */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.choice span,
+.swatch span {
+  cursor: pointer;
+}
+.choice span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.5rem 0.85rem;
+  text-align: center;
+  color: var(--ink);
+  background: var(--sheet);
+  border: 2px solid var(--muted);
+  border-radius: 0.6rem;
+}
+.choice input:checked + span {
+  color: var(--sheet);
+  background: var(--ink);
+  border-color: var(--ink);
+  font-weight: 600;
+}
+
+/* 색 고르기: 색 견본 + 이름(색만으로 구분하지 않는다) */
+.swatch {
+  position: relative;
+  flex: 0 0 auto;
+}
+.swatch span {
+  display: grid;
+  justify-items: center;
+  gap: 0.2rem;
+  min-width: 3.5rem;
+  min-height: 3rem;
+  padding: 0.4rem 0.3rem 0.3rem;
+  font-size: 0.8125rem;
+  color: var(--ink);
+  background: var(--sheet);
+  border: 2px solid var(--line);
+  border-radius: 0.6rem;
+}
+.swatch i {
+  display: block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+}
+.swatch input:checked + span {
+  border-color: var(--ink);
+  font-weight: 600;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 3rem;
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 0.6rem;
+  border: 2px solid var(--ink);
+  cursor: pointer;
+}
+.primary {
+  color: var(--sheet);
+  background: var(--ink);
+}
+.secondary {
+  color: var(--ink);
+  background: var(--sheet);
+}
+.quiet {
+  color: var(--ink);
+  background: transparent;
+  border-color: var(--muted);
+  font-weight: 500;
+}
+.button[disabled] {
+  color: var(--muted);
+  background: transparent;
+  border: 2px dashed var(--muted);
+  cursor: not-allowed;
+}
+.link {
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  padding: 0.75rem 0;
+  min-height: 3rem;
+  text-decoration: underline;
+  cursor: pointer;
+}

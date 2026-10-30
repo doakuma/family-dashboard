@@ -86,3 +86,12 @@ ul {
     transition: none !important;
   }
 }
+
+/* 휴대폰 화면(/setup 마법사): 태블릿 화면의 rem 기준(뷰포트 비례)과 스크롤 금지를 풀고, 읽기 좋은 16px·세로 스크롤로.
+   :has()로 걸어서 대시보드 화면(태블릿)에는 영향이 없다. */
+html:has([data-surface="phone"]) {
+  font-size: 16px;
+}
+html:has([data-surface="phone"]) body {
+  overflow: auto;
+}
