@@ -324,8 +324,8 @@
         15
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
+      "passes": true,
+      "review": "pass",
       "note": "스킨 2종(default, paper=임시 검증용) + 토큰 계약(skins/contract.ts) + data-skin 전환(폴링 반영, CSS 전부 번들) + 구성원 색 슬롯 --member-*. config skin/character(관용 읽기), /api/state skin(character none 고정), ?skin= 미리보기. 기준 3가지(스킨×톤 AA, --text-floor 12px, 슬롯 ΔE>=20·3:1) 테스트. 결정 0005. 바꾸는 곳(/setup·/settings·슬랙)은 #30. default의 coral·amber를 조금 어둡게 조정(오너 확인). 후속 반영: 배치 불변 검사(선택자·선언 테스트 + boundingBox e2e), gap·pad 공통 토큰, 서버가 data-skin·themeColor 렌더(첫 로드 깜빡임 해결), ?skin/?at/?mode는 개발 모드·HSH_PREVIEW_QUERY=1에서만. 재리뷰 대기."
     },
     {
