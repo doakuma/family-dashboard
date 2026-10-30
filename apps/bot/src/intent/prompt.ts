@@ -47,13 +47,13 @@ export type LlmOutput = z.infer<typeof llmOutputSchema>;
 export const llmOutputJsonSchema: Record<string, unknown> = z.toJSONSchema(llmOutputSchema);
 
 function calendarTable(today: string): string {
-  // 이번 주 월요일부터 3주
-  const monday = addDays(today, -((weekdayOf(today) + 6) % 7));
+  // 이번 주 일요일부터 3주(주는 일~토, 대시보드 달력과 같다)
+  const sunday = addDays(today, -weekdayOf(today));
   const labels = ["이번 주", "다음 주", "다다음 주"];
   return labels
     .map((label, w) => {
       const days = Array.from({ length: 7 }, (_, i) => {
-        const d = addDays(monday, w * 7 + i);
+        const d = addDays(sunday, w * 7 + i);
         return `${WEEKDAYS_KO[weekdayOf(d)]} ${d}${d === today ? "(오늘)" : ""}`;
       });
       return `- ${label}: ${days.join(", ")}`;
@@ -80,7 +80,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 - 오늘: ${ctx.today} (${WEEKDAYS_KO[weekdayOf(ctx.today)]}요일), 현재 시각 ${ctx.now}, 시간대 Asia/Seoul
 - 보낸 사람: ${ctx.sender ? `${ctx.sender.id} (${ctx.sender.name})` : "알 수 없음"}
 
-## 달력 (주는 월요일 시작. "다음 주 화요일" = 아래 '다음 주' 줄의 화요일)
+## 달력 (주는 일요일 시작~토요일. "다음 주 화요일" = 아래 '다음 주' 줄의 화요일. 단 "이번 주 일요일"은 돌아오는 일요일(오늘이 일요일이면 오늘), "다음 주 일요일"은 그다음 일요일이다. "이번 주말" = 이번 주 토요일 + 돌아오는 일요일)
 ${calendarTable(ctx.today)}
 
 ## 구성원
@@ -94,7 +94,7 @@ ${tasks || "- (없음)"}
 
 ## 규칙
 - intent는 event.add, event.update, event.remove, task.add, task.done, anniversary.add, question, unknown 중 하나.
-- 날짜는 위 달력에서 찾아 YYYY-MM-DD로. 요일만 말하면 오늘 이후 가장 가까운 그 요일. "내일" = 오늘+1일, "모레" = 오늘+2일.
+- 날짜는 위 달력에서 찾아 YYYY-MM-DD로. 요일만 말하면 오늘 이후 가장 가까운 그 요일(과거형 질문 "~했어/있었지"는 가장 최근에 지난 그 요일). 연도 없는 날짜도 같다. "내일" = 오늘+1일, "모레" = 오늘+2일.
 - 시간은 24시간제 HH:MM. "오전/오후"가 없는 1~6시는 오후(13:00~18:00)로 본다. 시간이 없으면 allDay=true.
 - members에는 위 구성원 id만 쓴다. 메시지에 사람이 없으면 비워 둔다.
 - title은 짧은 명사구(예: "치과", "가을 소풍"). 날짜·시간·사람 이름은 title에 넣지 않는다.

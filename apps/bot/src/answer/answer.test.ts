@@ -367,3 +367,85 @@ describe("떨어진 날짜", () => {
     expect(r.text).toContain("하나씩");
   });
 });
+
+// 스펙 rev 62 '날짜 해석': 주는 일요일 시작. 기준은 위의 now = 2026-10-30(금).
+describe("rev 62: 일요일 시작 주", () => {
+  it("이번 주 = 일~토(10/25~10/31), 다음 주 = 11/1~11/7", async () => {
+    const a = await askA("이번 주 뭐 있어?", { intent: "question" });
+    expect(a.r.range).toEqual({ from: "2026-10-25", to: "2026-10-31" });
+    const b = await askA("다음 주 뭐 있어?", { intent: "question" });
+    expect(b.r.range).toEqual({ from: "2026-11-01", to: "2026-11-07" });
+    expect(b.r.eventIds).toEqual(["evt-4", "evt-5"]);
+  });
+  it("일요일(11/1) 당일에 '이번 주 토요일'은 앞으로 올 토요일(11/7), '이번 주 일요일'은 오늘", async () => {
+    const sunday = new Date("2026-11-01T03:00:00Z");
+    const run = async (text: string) => (await answerQuestion({ text, now: sunday, familyId: FAMILY }, { wiki: fakeRepo().repo, llm: fakeLlm({ intent: "question" }) })) as { range?: unknown };
+    expect((await run("이번 주 토요일 뭐 있어?")).range).toEqual({ from: "2026-11-07", to: "2026-11-07" });
+    expect((await run("이번 주 일요일 뭐 있어?")).range).toEqual({ from: "2026-11-01", to: "2026-11-01" });
+  });
+  it("토요일(10/31) 당일에 '이번 주 일요일'은 내일(11/1)", async () => {
+    const saturday = new Date("2026-10-31T03:00:00Z");
+    const r = (await answerQuestion({ text: "이번 주 일요일 뭐 있어?", now: saturday, familyId: FAMILY }, { wiki: fakeRepo().repo, llm: fakeLlm({ intent: "question" }) })) as { range?: unknown };
+    expect(r.range).toEqual({ from: "2026-11-01", to: "2026-11-01" });
+  });
+  it("과거형 질문은 연도 없는 날짜를 지난 날로 읽는다", async () => {
+    const past = await askA("10월 24일 뭐 했어?", { intent: "question" });
+    expect(past.r.range).toEqual({ from: "2026-10-24", to: "2026-10-24" });
+    const future = await askA("10월 24일 일정", { intent: "question" });
+    expect(future.r.range).toEqual({ from: "2027-10-24", to: "2027-10-24" });
+  });
+});
+
+// 브랜치 hsh-10-question-alt의 회귀 케이스를 main 구조로 옮긴 것
+describe("회귀: 날짜가 분명하면 LLM keyword가 그날 일정을 지우지 않는다", () => {
+  it.each([
+    ["이번 주 토요일 계획?", "계획"],
+    ["이번 주 토요일 가족 행사?", "행사"],
+    ["이번 주 토요일 하늘이 뭐 해?", "하늘이"],
+  ])("%s", async (text, qKeyword) => {
+    const { r } = await askA(text, { intent: "question", qKeyword });
+    expect(r.status).toBe("answered");
+    expect(r.text).toContain("핼러윈 파티");
+    expect(r.text).not.toContain("없어요");
+  });
+  it("위키 제목에 있는 keyword는 날짜가 있어도 필터로 쓴다", async () => {
+    const { r } = await askA("이번 주 토요일 미술학원 있어?", { intent: "question", qKeyword: "미술학원" });
+    expect(r.eventIds).toEqual(["evt-2"]);
+    const none = await askA("다음 주 미술학원 있어?", { intent: "question", qKeyword: "미술학원" });
+    expect(none.r.status).toBe("empty");
+  });
+});
+
+describe("회귀: 말고", () => {
+  it("'이번 주 말고 다음 주 뭐 있어?' -> 뒤쪽(다음 주)만", async () => {
+    const { r } = await askA("이번 주 말고 다음 주 뭐 있어?", { intent: "question" });
+    expect(r.range).toEqual({ from: "2026-11-01", to: "2026-11-07" });
+    expect(r.eventIds).toEqual(["evt-4", "evt-5"]);
+  });
+  it("'토요일에 핼러윈 말고 뭐 있어?' -> 뒤에 날짜가 없으면 앞쪽(토요일)", async () => {
+    const { r } = await askA("토요일에 핼러윈 말고 뭐 있어?", { intent: "question" });
+    expect(r.range).toEqual({ from: "2026-10-31", to: "2026-10-31" });
+    expect(r.text).toContain("미술학원");
+  });
+});
+
+describe("회귀: 생일·없는 일정", () => {
+  const w = state({ anniversaries: [...anniversaries, { monthDay: "08-15", title: "하늘 생일", member: "haneul" }] });
+  it("'하늘 생일 언제야?' -> 다음 돌아오는 하늘 생일(구성원 없는 기념일은 제외)", async () => {
+    for (const out of [{ intent: "question", qKeyword: "생일" }, { intent: "question" }, { intent: "question", qKeyword: "하늘 생일" }]) {
+      const { r } = await askA("하늘 생일 언제야?", out, w);
+      expect(r.status).toBe("answered");
+      expect(r.text).toContain("8/15(일)"); // main은 연도를 표기하지 않는다(alt와 다른 점)
+      expect(r.text).toContain("하늘 생일");
+      expect(r.text).not.toContain("엄마 생일");
+      expect(r.text).not.toContain("아빠 생일"); // 가족(family) 구성원 기념일도 하늘 질문에선 제외
+    }
+  });
+  it("'수영 언제야?' -> 위키에 없다고 답하고 관계없는 목록을 내지 않는다", async () => {
+    const { r } = await askA("수영 언제야?", { intent: "question", qKeyword: "수영" });
+    expect(r.status).toBe("empty");
+    expect(r.text).toContain("수영");
+    expect(r.text).toContain("없어요");
+    expect(r.text).not.toContain("치과");
+  });
+});

@@ -140,10 +140,16 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
   for (const id of q.memberIds ?? []) if (ctx.members.some((m) => m.id === id && id !== "family")) wanted.add(id);
   const memberPrefix = [...wanted].map(nameOf).join("·");
   // 키워드는 질문에 글자 그대로 있을 때만 쓴다(없는 말로 걸러서 "없어요"라고 잘못 답하지 않게)
-  const keyword = q.keyword && norm(q.text).includes(norm(q.keyword)) ? q.keyword : undefined;
+  let keyword = q.keyword && norm(q.text).includes(norm(q.keyword)) ? q.keyword : undefined;
+  const picked = chooseRange(q, today);
+  // 날짜가 분명한 질문에서 일정 제목에 없는 말("계획"·"행사"·"하늘이")은 필터가 아니라 군더더기다: 그날 일정을 지우지 않는다
+  if (keyword && picked && typeof picked === "object") {
+    const kw = norm(keyword);
+    const known = [...ctx.events.map((e) => e.title), ...ctx.anniversaries.map((a) => a.title)].some((t) => norm(t).includes(kw));
+    if (!known) keyword = undefined;
+  }
   const prefix = `${memberPrefix ? `${memberPrefix} ` : ""}${keyword ? `'${keyword}' ` : ""}`;
 
-  const picked = chooseRange(q, today);
   if (picked === "too_long") return clarify(`한 번에 보여 드리기엔 기간이 너무 길어요. 두 달 이내로 다시 물어봐 주세요. (${EXAMPLE})`);
   if (picked === "ambiguous") return clarify(`날짜가 띄엄띄엄 떨어져 있어서 하나로 묶기 어려워요. 하나씩 나눠서 물어봐 주세요. (${EXAMPLE})`);
   const upcoming = !picked && (!!keyword || annivOnly);

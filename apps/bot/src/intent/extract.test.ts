@@ -37,7 +37,7 @@ describe("프롬프트", () => {
   it("오늘·달력·구성원·대상 id를 넣는다", () => {
     const p = buildSystemPrompt({ today: "2026-10-29", now: "22:00", members, events, tasks });
     expect(p).toContain("오늘: 2026-10-29 (목요일)");
-    expect(p).toContain("- 다음 주: 월 2026-11-02, 화 2026-11-03");
+    expect(p).toContain("- 다음 주: 일 2026-11-01, 월 2026-11-02, 화 2026-11-03");
     expect(p).toContain("- evt-a1b2: 2026-11-03 15:00 치과 (haneul)");
     expect(p).toContain("- task-e5f6: [장보기] 우유");
   });
