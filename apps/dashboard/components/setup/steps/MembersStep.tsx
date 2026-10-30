@@ -34,6 +34,13 @@ export function MembersStep({ draft, errors, onChange }: StepProps) {
     focusNew.current = next.members.at(-1)?.key;
     onChange(next);
   };
+  // 삭제하면 이웃 카드(없으면 앞 카드)의 이름 칸으로 포커스: 눌렀던 버튼이 사라져 포커스가 문서 처음으로 튀지 않게
+  const remove = (key: string) => {
+    const i = draft.members.findIndex((m) => m.key === key);
+    const neighbor = draft.members[i + 1] ?? draft.members[i - 1];
+    focusNew.current = neighbor?.key;
+    onChange(removeMember(draft, key));
+  };
   const patch = (key: string, p: Partial<Omit<MemberDraft, "key" | "idEdited">>) => onChange(updateMember(draft, key, p));
 
   return (
@@ -65,7 +72,7 @@ export function MembersStep({ draft, errors, onChange }: StepProps) {
               />
             </Disclosure>
             {draft.members.length > 1 && (
-              <Button variant="quiet" aria-label={`${label} 삭제`} onClick={() => onChange(removeMember(draft, m.key))}>
+              <Button variant="quiet" aria-label={`${label} 삭제`} onClick={() => remove(m.key)}>
                 이 구성원 삭제
               </Button>
             )}

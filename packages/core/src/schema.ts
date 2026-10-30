@@ -147,11 +147,12 @@ const setupAnniversarySchema = z.object({ monthDay: realMonthDay, title, member:
 export const setupSchema = z
   .object({
     config: setupConfigSchema,
-    members: z.array(memberSchema.extend({ name: plain(40).refine(notQuoted, QUOTED) })).min(1, "구성원을 한 명 이상 넣어 주세요").max(SETUP_MAX_MEMBERS, `구성원은 ${SETUP_MAX_MEMBERS}명까지예요`),
+    members: z.array(memberSchema.extend({ id: memberIdSchema.max(32).refine((id) => id !== FAMILY_ID, "family는 예약 id"), name: plain(40).refine(notQuoted, QUOTED) })).min(1, "구성원을 한 명 이상 넣어 주세요").max(SETUP_MAX_MEMBERS, `구성원은 ${SETUP_MAX_MEMBERS}명까지예요`),
     anniversaries: z.array(setupAnniversarySchema).max(SETUP_MAX_ANNIVERSARIES),
   })
   .superRefine((v, ctx) => {
     const seen = new Set<string>();
+    const ids = new Set(v.members.map((m) => m.id));
     v.members.forEach((m, i) => {
       const k = m.id.toLowerCase();
       if (seen.has(k)) ctx.addIssue({ code: "custom", path: ["members", i, "id"], message: "이미 쓰는 id예요" });
@@ -159,7 +160,7 @@ export const setupSchema = z
     });
     if (!v.members.some((m) => m.role === "guardian")) ctx.addIssue({ code: "custom", path: ["members"], message: "보호자가 한 명 이상 있어야 해요" });
     v.anniversaries.forEach((a, i) => {
-      if (a.member && a.member !== FAMILY_ID && !seen.has(a.member.toLowerCase())) ctx.addIssue({ code: "custom", path: ["anniversaries", i, "member"], message: "등록되지 않은 구성원이에요" });
+      if (a.member && a.member !== FAMILY_ID && !ids.has(a.member)) ctx.addIssue({ code: "custom", path: ["anniversaries", i, "member"], message: "등록되지 않은 구성원이에요" });
     });
     const c = v.config;
     const grid = [c.kmaNx, c.kmaNy, c.kmaMidLandRegId, c.kmaMidTaRegId];

@@ -35,7 +35,6 @@ export interface ApplyOutcome extends ApplyResult {
   pushError?: string;
 }
 
-/** git 실행 오류에서 사람이 읽을 원인만 뽑는다(stderr의 error·fatal·rejected 줄 우선). */
 /** applySetup 결과: 커밋 하나와 그 요약 */
 export interface SetupOutcome {
   summary: string;
@@ -44,6 +43,7 @@ export interface SetupOutcome {
   pushError?: string;
 }
 
+/** git 실행 오류에서 사람이 읽을 원인만 뽑는다(stderr의 error·fatal·rejected 줄 우선). */
 export function gitReason(e: unknown): string {
   const err = (typeof e === "object" && e !== null ? e : {}) as { stderr?: unknown; message?: unknown };
   const raw = (typeof err.stderr === "string" && err.stderr.trim()) || (typeof err.message === "string" ? err.message : String(e));

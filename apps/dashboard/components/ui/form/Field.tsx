@@ -52,6 +52,35 @@ export function Field({
   );
 }
 
+/**
+ * 여러 입력(월·일 등)이 하나의 값을 이룰 때: 오류 하나를 묶음 아래에 보이고 모든 입력에 같은 aria 속성을 준다.
+ * 첫 입력의 id는 호출자가 정한다(오류 포커스 대상).
+ */
+export function FieldGroup({
+  id,
+  error,
+  className,
+  children,
+}: {
+  /** 오류 문구 id의 바탕 (`${id}-error`) */
+  id: string;
+  error?: string;
+  className?: string;
+  children: (aria: Pick<ControlProps, "aria-invalid" | "aria-describedby">) => ReactNode;
+}) {
+  const errorId = error ? `${id}-error` : undefined;
+  return (
+    <>
+      <div className={className}>{children({ "aria-invalid": error ? true : undefined, "aria-describedby": errorId })}</div>
+      {error && (
+        <p id={errorId} className={s.error}>
+          {error}
+        </p>
+      )}
+    </>
+  );
+}
+
 export interface TextFieldProps {
   id: string;
   label: string;

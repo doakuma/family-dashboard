@@ -91,6 +91,8 @@ ul {
    :has()로 걸어서 대시보드 화면(태블릿)에는 영향이 없다. */
 html:has([data-surface="phone"]) {
   font-size: 16px;
+  /* 하단에 고정된 이전/다음 버튼(약 5rem + 안전 영역)에 포커스된 입력칸이 가리지 않게 (WCAG 2.4.11) */
+  scroll-padding-bottom: calc(7rem + env(safe-area-inset-bottom));
 }
 html:has([data-surface="phone"]) body {
   overflow: auto;

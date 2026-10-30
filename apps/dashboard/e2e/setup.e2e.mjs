@@ -1,6 +1,7 @@
 // /setup 마법사 E2E (pnpm check에는 포함되지 않음). 사전: `pnpm --filter @hsh/dashboard build`, Playwright 설치.
 //   node apps/dashboard/e2e/setup.e2e.mjs            (태블릿 자동 전환 대기 때문에 약 1~2분)
 //   SKIP_TABLET_WAIT=1 node ...                      (전환 대기 생략)
+//   --shots                                          (docs/screens/setup-*.png 캡처 저장. 없으면 저장하지 않는다)
 // 빈 임시 위키(git init) + 임시 PIN으로 운영 모드 서버를 띄워: QR 토큰 -> PIN -> 6단계 -> 시작하기 -> 위키 커밋과 /api/state를 확인한다.
 // 단계별 캡처(390x844)는 docs/screens/setup-*.png.
 import { execFileSync, spawn } from "node:child_process";
@@ -20,7 +21,8 @@ try {
 
 const root = resolve(import.meta.dirname, "..");
 const shots = resolve(root, "../../docs/screens");
-mkdirSync(shots, { recursive: true });
+const saveShots = process.argv.includes("--shots");
+if (saveShots) mkdirSync(shots, { recursive: true });
 const PORT = 3219;
 const BASE = `http://localhost:${PORT}`;
 const LOCAL = `http://127.0.0.1:${PORT}`;
@@ -48,7 +50,9 @@ async function waitFor(url) {
 }
 let n = 0;
 const ok = (msg) => console.log(`ok ${++n} ${msg}`);
-const shot = (page, name) => page.screenshot({ path: join(shots, `setup-${name}.png`) });
+const shot = async (page, name) => {
+  if (saveShots) await page.screenshot({ path: join(shots, `setup-${name}.png`) });
+};
 
 /** 보이는 입력·버튼의 높이가 48px 이상인지, 가로로 넘치지 않는지 */
 async function assertLayout(page, where) {
@@ -151,9 +155,23 @@ try {
   await phone.getByRole("heading", { name: "구성원 추가" }).waitFor();
   assert.equal(await activeId(phone), "step-title", "단계가 바뀌면 제목으로 포커스");
   assert.equal((await stepText(phone)).replace(/\s+/g, ""), "단계2/6");
+  // 이전으로 1단계에 돌아와도 제목으로 포커스, 다시 다음으로 2단계
+  await phone.getByRole("button", { name: "이전" }).click();
+  await phone.getByRole("heading", { name: "우리 집" }).waitFor();
+  assert.equal(await activeId(phone), "step-title", "이전으로 1단계에 와도 제목으로 포커스");
+  await phone.getByRole("button", { name: "다음" }).click();
+  await phone.getByRole("heading", { name: "구성원 추가" }).waitFor();
+  assert.equal(await activeId(phone), "step-title");
   await phone.getByRole("button", { name: "다음" }).click(); // 이름 비어 있음
   await phone.getByText("이름을(를) 입력해 주세요").waitFor();
   assert.equal(await activeId(phone), "f-member-m1-name");
+  // 오류 필드가 하단 고정 버튼에 가리지 않는다 (WCAG 2.4.11)
+  const covered = await phone.evaluate(() => {
+    const a = document.activeElement?.getBoundingClientRect();
+    const f = document.querySelector("form > div:last-child")?.getBoundingClientRect();
+    return Boolean(a && f && a.bottom > f.top);
+  });
+  assert.equal(covered, false, "포커스된 입력이 하단 버튼에 가림");
   await phone.getByLabel("이름").fill("엄마");
   await phone.getByLabel("생일").fill("1988-03-12");
   await phone.getByRole("button", { name: /구성원 추가/ }).click();
@@ -309,7 +327,7 @@ try {
   if (!process.env.SKIP_TABLET_WAIT) {
     await tablet.getByText("가족 세팅이 필요해요").waitFor({ state: "detached", timeout: 75_000 });
     await tablet.getByText("햇살네").first().waitFor();
-    await tablet.screenshot({ path: join(shots, "setup-8-tablet-after.png") });
+    if (saveShots) await tablet.screenshot({ path: join(shots, "setup-8-tablet-after.png") });
     ok("태블릿이 1분 안에 대시보드로 전환");
   }
 } finally {

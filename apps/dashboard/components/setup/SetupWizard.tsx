@@ -1,7 +1,8 @@
 "use client";
-import { setupSchema, type SetupIssue } from "@hsh/core";
+import { setupSchema } from "@hsh/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clearDraft, initialDraft, loadDraft, saveDraft, STEP_COUNT, type Draft } from "@/lib/setup/draft";
+import { parseCompleteResponse } from "@/lib/setup/response";
 import { serverIssuesToErrors, toSetupInput } from "@/lib/setup/build";
 import { firstErrorStep, stepOfField, validateStep, type Errors } from "@/lib/setup/validate";
 import { StepFrame } from "./StepFrame";
@@ -38,13 +39,6 @@ function sessionStore(): Storage | undefined {
 }
 
 type Phase = { kind: "edit" } | { kind: "saving" } | { kind: "done"; pushed: boolean; pushError?: string };
-
-interface ApiFail {
-  ok: false;
-  code?: string;
-  message?: string;
-  issues?: SetupIssue[];
-}
 
 /** 6단계 마법사 본체. 입력은 클라이언트 상태(+sessionStorage)로 들고 있다가 마지막에 한 번 서버로 보낸다. */
 export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
@@ -132,11 +126,11 @@ export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
       setMessage("서버에 연결하지 못했어요. 집 와이파이에 연결되어 있는지 확인하고 다시 눌러 주세요.");
       return;
     }
-    let body: { ok: true; pushed: boolean; pushError?: string } | ApiFail | undefined;
+    let body: ReturnType<typeof parseCompleteResponse>;
     try {
-      body = (await res.json()) as typeof body;
+      body = parseCompleteResponse(await res.json());
     } catch {
-      body = undefined;
+      body = undefined; // JSON이 아님
     }
     if (res.ok && body?.ok) {
       clearDraft(sessionStore());
@@ -145,7 +139,7 @@ export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
     }
     setPhase({ kind: "edit" });
     const f = body && !body.ok ? body : undefined;
-    if (res.status === 401) setMessage("세팅 시간이 지나 연결이 끊겼어요. 태블릿의 QR코드를 다시 찍어 PIN을 입력하면 이어서 할 수 있어요. 입력한 내용은 이 화면에 남아 있어요.");
+    if (res.status === 401) setMessage("세팅 시간이 지나 연결이 끊겼어요. 태블릿의 QR코드를 다시 찍어 새 탭에서 PIN을 입력한 뒤, 이 화면(원래 탭)으로 돌아와 시작하기를 다시 눌러 주세요. 입력한 내용은 이 화면에 남아 있어요.");
     else if (f?.code === "invalid" && f.issues) {
       const errs = serverIssuesToErrors(draft, f.issues);
       const step = firstErrorStep(errs) ?? 6;

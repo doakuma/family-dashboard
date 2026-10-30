@@ -28,11 +28,13 @@ const FOCUSABLE = "input,select,textarea,button";
 export function StepFrame({ step, title, lead, children, errorCount, focusTick, nextLabel = "다음", onBack, onNext, busy, nextVariant = "primary" }: StepFrameProps) {
   const heading = useRef<HTMLHeadingElement>(null);
   const form = useRef<HTMLFormElement>(null);
-  const firstStep = useRef(step);
+  const shownStep = useRef(step);
 
-  // 단계가 바뀌면 제목으로 포커스(스크린리더가 새 단계를 읽고, 키보드 사용자가 위에서부터 시작). 첫 진입에는 옮기지 않는다.
+  // 단계가 바뀌면 제목으로 포커스(스크린리더가 새 단계를 읽고, 키보드 사용자가 위에서부터 시작). 마운트 때 보인 단계 그대로면 옮기지 않는다.
+  // '지금 보이는 단계'를 ref로 들고 비교하므로 2단계에서 '이전'으로 1단계에 돌아와도 옮긴다.
   useEffect(() => {
-    if (firstStep.current === step) return;
+    if (shownStep.current === step) return;
+    shownStep.current = step;
     heading.current?.focus();
     window.scrollTo({ top: 0 });
   }, [step]);
@@ -43,6 +45,8 @@ export function StepFrame({ step, title, lead, children, errorCount, focusTick, 
     const bad = form.current?.querySelector<HTMLElement>('[aria-invalid="true"],[data-invalid="true"]');
     const target = bad?.matches(FOCUSABLE) ? bad : (bad?.querySelector<HTMLElement>(FOCUSABLE) ?? bad);
     target?.focus();
+    // 하단 고정 버튼에 가리지 않게 화면 가운데로 (WCAG 2.4.11)
+    target?.scrollIntoView({ block: "center" });
   }, [focusTick]);
 
   const submit = (e: FormEvent) => {

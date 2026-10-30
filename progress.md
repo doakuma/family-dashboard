@@ -94,3 +94,9 @@
 - 리뷰어 통과: #18 passes=true·review=pass, #17 덧붙임 확인 review=pass (오너 반영).
 - 오너 결정(스펙 rev 57): 보호자 1명 이상·구성원 12명 상한 유지, log.md 세팅 한 줄 유지, 지역표 원본 대조는 #26 때 오너가 직접.
 - 남은 문제: 리뷰 [중간] 4건(1단계 포커스, 하단 고정 버튼 가림, applySetup 포트 타입, 완료 응답 검증) 후속. 봇이 위키에 쓰기 시작하면(#9) 프로세스 간 잠금 결정 필요.
+
+## 2026-10-30 · #18 리뷰 후속 수정
+- [중간] 이전으로 1단계에 와도 제목 포커스(ref로 지금 단계 비교), 하단 고정 버튼 가림 방지(phone scroll-padding-bottom + 오류 필드 scrollIntoView center), 서버가 setupSchema.safeParse 후 data만 넘기고 실패 시 422(포트는 SetupInput 유지), 완료 응답을 zod(`lib/setup/response.ts`)로 검증하고 실패 시 일반 문구.
+- [낮음] 401 안내(새 탭 PIN 후 원래 탭), 구성원·기념일 삭제 후 포커스 이동, fs-wiki JSDoc 위치, setupSchema id 32자·기념일 구성원 정확 일치, Windows 예약어 slug -2, build.ts 캐스팅 제거, ReviewStep key, 월·일을 공용 FieldGroup으로.
+- setup e2e는 `--shots`일 때만 캡처, 2단계->이전->1단계 포커스·하단 버튼 가림 검증 추가. docs/screens/day-nov.png를 sample-wiki 기준으로 재캡처(11/15 일정 포함).
+- 검증: pnpm check(379 테스트)·build, e2e 3종 통과(setup은 SKIP_TABLET_WAIT). 남은 문제: 실기기 키보드·가림은 #24. #18은 passes=false, review=pending(재리뷰 대기).

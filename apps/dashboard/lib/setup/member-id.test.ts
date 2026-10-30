@@ -26,6 +26,14 @@ describe("suggestMemberId", () => {
     expect(suggestMemberId("Family", [])).toBe("family-2");
     expect(suggestMemberId("family", [])).toBe("family-2");
   });
+  it("Windows 예약 이름(con, nul, com1, lpt9 ...)은 -2 접미", () => {
+    expect(suggestMemberId("Con", [])).toBe("con-2");
+    expect(suggestMemberId("nul", [])).toBe("nul-2");
+    expect(suggestMemberId("COM1", [])).toBe("com1-2");
+    expect(suggestMemberId("lpt9", [])).toBe("lpt9-2");
+    expect(suggestMemberId("con", ["con-2"])).toBe("con-3");
+    expect(suggestMemberId("com10", [])).toBe("com10"); // 예약 아님
+  });
   it("결과는 항상 memberIdSchema를 통과하고 family가 아니다", () => {
     for (const n of ["", "하늘", "!!", "A b C", "x".repeat(100), "엄마 Mom", "😀", "Ünïcode", "family"]) {
       const id = suggestMemberId(n, []);

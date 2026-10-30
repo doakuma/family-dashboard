@@ -14,13 +14,16 @@ export function latinSlug(name: string): string {
     .replace(/-+$/, "");
 }
 
+/** Windows 예약 파일 이름(확장자가 붙어도 예약). members/<id>.md 가 만들어지지 않을 수 있어 id로 쓰지 않는다. */
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/;
+
 /** taken(대소문자 무시)과 겹치지 않는 id. 'family'는 예약이라 항상 피한다. */
 export function suggestMemberId(name: string, taken: Iterable<string>): string {
   const used = new Set([...taken].map((t) => t.toLowerCase()));
   used.add("family");
   const slug = latinSlug(name);
   if (slug.length >= 2) {
-    if (!used.has(slug)) return slug;
+    if (!used.has(slug) && !WINDOWS_RESERVED.test(slug)) return slug;
     for (let n = 2; ; n++) {
       const cand = `${slug}-${n}`;
       if (!used.has(cand)) return cand;

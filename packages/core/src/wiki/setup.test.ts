@@ -87,6 +87,13 @@ describe("setupSchema", () => {
     expect(bad((s) => void (s.members[1]!.id = "하늘"))).toContain("members.1.id");
   });
 
+  it("구성원 id는 32자까지", () => {
+    expect(bad((s) => void (s.members[1]!.id = "a".repeat(33)))).toContain("members.1.id");
+    const s = valid();
+    s.members[1]!.id = "a".repeat(32);
+    expect(setupSchema.safeParse(s).success).toBe(true);
+  });
+
   it("보호자가 없거나 구성원이 없으면 거부", () => {
     expect(bad((s) => void (s.members[0]!.role = "child"))).toContain("members");
     expect(bad((s) => void (s.members = []))).toContain("members");
@@ -95,6 +102,7 @@ describe("setupSchema", () => {
   it("기념일: 없는 날(04-31), 등록 안 된 구성원 거부, 2월 29일·family는 허용", () => {
     expect(bad((s) => void (s.anniversaries[0]!.monthDay = "04-31"))).toContain("anniversaries.0.monthDay");
     expect(bad((s) => void (s.anniversaries[0]!.member = "ghost"))).toContain("anniversaries.0.member");
+    expect(bad((s) => void (s.anniversaries[1]!.member = "MOM"))).toContain("anniversaries.1.member"); // 정확히 일치해야 한다
     const s = valid();
     s.anniversaries[0]!.monthDay = "02-29";
     expect(setupSchema.safeParse(s).success).toBe(true);

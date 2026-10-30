@@ -116,9 +116,10 @@ export function serverIssuesToErrors(d: Draft, issues: readonly SetupIssue[]): E
 /** 6단계 미리보기: 입력값으로 만든 /api/state 모양. 일정·할 일은 비어 있고 날씨는 호출자가 예시를 넣는다. */
 export function toPreviewState(d: Draft, now: Date, weather: WeatherDay[] = []): ApiState {
   const input = toSetupInput(d);
+  const config: DashboardState["config"] = { ...input.config, setupCompletedAt: now.toISOString() };
   const state: DashboardState = {
-    config: { ...input.config, setupCompletedAt: now.toISOString() },
-    members: [...input.members, familyMember(input.config as DashboardState["config"])],
+    config,
+    members: [...input.members, familyMember(config)],
     events: [],
     tasks: [],
     anniversaries: input.anniversaries,

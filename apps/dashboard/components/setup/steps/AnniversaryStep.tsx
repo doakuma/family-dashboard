@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/form/Button";
-import { SelectField, TextField } from "@/components/ui/form/Field";
+import { Field, FieldGroup, SelectField, TextField } from "@/components/ui/form/Field";
 import { birthdayAnniversaries } from "@/lib/setup/build";
 import { addAnniversary, removeAnniversary, updateAnniversary } from "@/lib/setup/draft";
 import { fieldId, memberLabel } from "@/lib/setup/validate";
@@ -10,6 +10,7 @@ import f from "@/components/ui/form/form.module.css";
 import type { StepProps } from "./types";
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1));
+const ADD_ID = "anniv-add";
 const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
 
 /** 4단계: 기념일. 구성원 생일은 자동으로 들어가고(미리보기), 결혼기념일 등은 직접 추가한다. */
@@ -18,10 +19,18 @@ export function AnniversaryStep({ draft, errors, onChange }: StepProps) {
   const focusNew = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (!focusNew.current) return;
-    document.getElementById(fieldId(`anniv.${focusNew.current}.title`))?.focus();
+    const k = focusNew.current;
+    if (!k) return;
     focusNew.current = undefined;
+    // "add"는 마지막 기념일을 지워 이웃이 없을 때: 눌렀던 버튼이 사라졌으니 추가 버튼으로
+    document.getElementById(k === "add" ? ADD_ID : fieldId(`anniv.${k}.title`))?.focus();
   }, [draft.anniversaries.length]);
+
+  const remove = (key: string) => {
+    const i = draft.anniversaries.findIndex((a) => a.key === key);
+    focusNew.current = (draft.anniversaries[i + 1] ?? draft.anniversaries[i - 1])?.key ?? "add";
+    onChange(removeAnniversary(draft, key));
+  };
 
   const add = (init: { title?: string } = {}) => {
     const next = addAnniversary(draft, init);
@@ -58,44 +67,40 @@ export function AnniversaryStep({ draft, errors, onChange }: StepProps) {
         {draft.anniversaries.map((a, i) => {
           const k = `anniv.${a.key}`;
           const dateError = errors[`${k}.date`];
-          const dateHint = `${fieldId(`${k}.date`)}-error`;
           return (
             <fieldset key={a.key} className={s.card}>
               <legend>{`기념일 ${i + 1}`}</legend>
               <TextField id={fieldId(`${k}.title`)} label="제목" value={a.title} onChange={(title) => onChange(updateAnniversary(draft, a.key, { title }))} error={errors[`${k}.title`]} hint="예: 결혼기념일" maxLength={100} enterKeyHint="next" />
-              <div className={s.row2}>
-                <div className={f.field}>
-                  <label htmlFor={fieldId(`${k}.date`)} className={f.label}>
-                    월
-                  </label>
-                  <select id={fieldId(`${k}.date`)} className={f.select} value={a.month} onChange={(e) => onChange(updateAnniversary(draft, a.key, { month: e.target.value }))} aria-invalid={dateError ? true : undefined} aria-describedby={dateError ? dateHint : undefined}>
-                    <option value="">월</option>
-                    {MONTHS.map((m) => (
-                      <option key={m} value={m}>
-                        {m}월
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className={f.field}>
-                  <label htmlFor={`${fieldId(`${k}.date`)}-day`} className={f.label}>
-                    일
-                  </label>
-                  <select id={`${fieldId(`${k}.date`)}-day`} className={f.select} value={a.day} onChange={(e) => onChange(updateAnniversary(draft, a.key, { day: e.target.value }))} aria-invalid={dateError ? true : undefined} aria-describedby={dateError ? dateHint : undefined}>
-                    <option value="">일</option>
-                    {DAYS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}일
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {dateError && (
-                <p id={dateHint} className={f.error}>
-                  {dateError}
-                </p>
-              )}
+              <FieldGroup id={fieldId(`${k}.date`)} error={dateError} className={s.row2}>
+                {(aria) => (
+                  <>
+                    <Field id={fieldId(`${k}.date`)} label="월">
+                      {(c) => (
+                        <select {...c} {...aria} className={f.select} value={a.month} onChange={(e) => onChange(updateAnniversary(draft, a.key, { month: e.target.value }))}>
+                          <option value="">월</option>
+                          {MONTHS.map((m) => (
+                            <option key={m} value={m}>
+                              {m}월
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </Field>
+                    <Field id={`${fieldId(`${k}.date`)}-day`} label="일">
+                      {(c) => (
+                        <select {...c} {...aria} className={f.select} value={a.day} onChange={(e) => onChange(updateAnniversary(draft, a.key, { day: e.target.value }))}>
+                          <option value="">일</option>
+                          {DAYS.map((d) => (
+                            <option key={d} value={d}>
+                              {d}일
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </Field>
+                  </>
+                )}
+              </FieldGroup>
               <SelectField id={fieldId(`${k}.member`)} label="누구의 기념일인가요" value={a.member} onChange={(member) => onChange(updateAnniversary(draft, a.key, { member }))} error={errors[`${k}.member`]}>
                 <option value="family">가족 전체</option>
                 {draft.members.map((m, mi) => (
@@ -104,13 +109,13 @@ export function AnniversaryStep({ draft, errors, onChange }: StepProps) {
                   </option>
                 ))}
               </SelectField>
-              <Button variant="quiet" aria-label={`기념일 ${i + 1} 삭제`} onClick={() => onChange(removeAnniversary(draft, a.key))}>
+              <Button variant="quiet" aria-label={`기념일 ${i + 1} 삭제`} onClick={() => remove(a.key)}>
                 이 기념일 삭제
               </Button>
             </fieldset>
           );
         })}
-        <Button variant="secondary" onClick={() => add()}>
+        <Button id={ADD_ID} variant="secondary" onClick={() => add()}>
           기념일 추가
         </Button>
         {!draft.anniversaries.some((a) => a.title.trim() === "결혼기념일") && (

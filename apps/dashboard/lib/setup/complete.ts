@@ -1,6 +1,6 @@
 // POST /api/setup/complete의 본체: 본문 모양 확인 -> repo.applySetup -> HTTP 응답으로 번역. (세션·출처·본문 크기 검사는 route.ts)
 // repo는 WikiRepository.applySetup만 안다(위키 쓰기는 항상 저장소 메서드 하나).
-import { SetupError, type SetupIssue, type WikiRepository } from "@hsh/core";
+import { SetupError, setupSchema, type SetupIssue, type WikiRepository } from "@hsh/core";
 
 export type CompleteBody =
   | { ok: true; commit: string; pushed: boolean; pushError?: string }
@@ -17,9 +17,14 @@ export async function runSetup(raw: unknown, repo: Pick<WikiRepository, "applySe
   if (!isRecord(raw) || !("setup" in raw) || (raw.overwrite !== undefined && typeof raw.overwrite !== "boolean")) {
     return { status: 400, body: { ok: false, code: "bad_request", message: "요청 형식이 올바르지 않아요" } };
   }
+  // 포트는 검증된 SetupInput만 받는다. 검증 실패는 422(필드별 issues). 구현(applySetup)도 쓰기 직전에 다시 검증한다.
+  const parsed = setupSchema.safeParse(raw.setup);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => ({ path: i.path.join("."), message: i.message }));
+    return { status: 422, body: { ok: false, code: "invalid", message: "입력한 내용을 다시 확인해 주세요", issues } };
+  }
   try {
-    // setup의 검증은 applySetup(setupSchema)이 한다. 여기서 한 번 더 모양을 만들지 않는다.
-    const r = await repo.applySetup(raw.setup as Parameters<WikiRepository["applySetup"]>[0], { overwrite: raw.overwrite === true });
+    const r = await repo.applySetup(parsed.data, { overwrite: raw.overwrite === true });
     return { status: 200, body: { ok: true, commit: r.commit, pushed: r.pushed, ...(r.pushError ? { pushError: r.pushError } : {}) } };
   } catch (e) {
     if (e instanceof SetupError) {
