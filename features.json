@@ -376,9 +376,9 @@
         18
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
-      "note": "familyId 브랜드 타입, WriteResult{version,synced,syncError?}, ConfigProvider(+EnvConfigProvider, 앱 process.env eslint 금지), LlmAdapter 코어 포트, 슬랙 InstallationStore(authorize 연결). 동작 변경 없음. git-crypt·금지 패턴 필터·DB 저장소·멀티 테넌트 동작은 하지 않음."
+      "passes": true,
+      "review": "pass",
+      "note": "familyId 브랜드 타입, WriteResult{version,synced,syncError?}, ConfigProvider(+EnvConfigProvider, 앱 process.env eslint 금지), LlmAdapter 코어 포트, 슬랙 InstallationStore(authorize 연결). 동작 변경 없음. git-crypt·금지 패턴 필터·DB 저장소·멀티 테넌트 동작은 하지 않음. 리뷰 통과. 후속: [중간] 봇 시작 시 토큰 검증(app.start 전 authorize/whoami, 실패 시 exit 1) — #9 전에. [낮음] whoami 부분값 캐시, installation.ts:26·env-config.ts:27 캐스팅, eslint process.env 우회 패턴, applySetup 가족 불일치 테스트."
     }
   ]
 }

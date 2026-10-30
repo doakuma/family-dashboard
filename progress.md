@@ -106,3 +106,7 @@
 - 3 `ConfigProvider` 포트 + `EnvConfigProvider`; 대시보드는 서버 전용 `lib/config.ts`. 앱의 `process.env` 직접 참조는 eslint가 막고 예외는 server.ts·proxy.ts뿐. 4 `LlmAdapter` core 포트(구현은 봇). 5 `EnvInstallationStore` + `authorizeWith`(Bolt authorize 훅), Socket Mode 유지.
 - 문서: 0003 '현재 코드와의 차이'에 반영 결과, wiki-format.md·0004의 commit/pushed 용어 갱신. features #18 passes=true·review=pass 반영(오너 지시), #32 추가(passes=false, review=pending).
 - 남은 문제: 봇 슬랙 연결은 실제 토큰이 없어 단위 테스트만(authorize 훅 실연결 미확인). 가족별 설정(`get(key, familyId)`)·메시지→가족 매핑은 서비스 전환 때.
+
+## 2026-10-30 · #32 리뷰 통과
+- 리뷰어 통과 → features.json #32 passes=true·review=pass (오너 반영). 비밀값 클라이언트 번들 미노출 확인.
+- 남은 문제: 봇 토큰 검증이 첫 이벤트로 미뤄짐([중간], #9 전에 시작 시 검증), 낮음 5건은 #32 note 참고.
