@@ -38,7 +38,8 @@ fixtures/sample-wiki  예시 가족 위키 (개발·시안·테스트용)
 ```bash
 pnpm install
 pnpm typecheck          # 전체 타입 체크
-pnpm --filter @hsh/dashboard dev
+pnpm --filter @hsh/dashboard dev        # server.ts(내부망 검사) 경유. 운영은 build 후 start
+pnpm -s pin:hash                         # 관리자 PIN -> .env에 넣을 ADMIN_PIN_HASH 한 줄
 pnpm --filter @hsh/bot dev
 pnpm --filter @hsh/bot try "다음 주 화요일 3시 하늘 치과"   # 슬랙 없이 의도 추출 시험
 pnpm check              # typecheck + lint + test

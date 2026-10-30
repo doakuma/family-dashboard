@@ -27,7 +27,7 @@ hooks:
 ## 끝낼 때
 1. `pnpm check`(typecheck + lint + test)가 통과해야 한다.
 2. `progress.md`에 날짜·할 일 번호·한 일·남은 문제를 3~5줄로 추가한다.
-3. `features.json`의 `status`·`note`는 갱신하되 `passes`는 바꾸지 않는다. 그건 리뷰 통과 후 오너/리뷰어 몫이다.
+3. `features.json`의 `status`·`note`는 갱신하되 `passes`는 바꾸지 않는다. `passes`는 `pnpm check` 통과 + 리뷰 통과 후에만 true이고, 리뷰어가 제안하면 오너가 반영한다.
    보고서에 "할 일 문서 갱신 필요: #번호 → 상태"를 남긴다.
 4. 보고 형식:
    ```

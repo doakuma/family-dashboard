@@ -33,3 +33,9 @@
 - #7: pull 큐잉, commit 실패 시 파일·스테이징 롤백, `{commit, pushed}` 분리, 독립 git 루트 확인. #5·#4: applyChange가 changeSchema로 재검증, Member·FamilyConfig 스키마를 읽기·쓰기 공용, frontmatter 줄바꿈 거부. #8: 후보 여럿이면 선택 후 끝 시간 계산, LLM 응답 검증·timeout.
 - #13 #16 #15: /api/state zod 검증+needsSetup, 세팅 화면↔대시보드 폴링 전환, 글자 명암비 4.5:1(야간 muted·warn 조정), dashboard 테스트 포함, `docs/wiki-format.md` 추가.
 - 남은 문제: 오너 결정 대기(Change 유니언 확장, PIN 저장 위치, passes 정의). `/api/state`는 아직 인증 없음(#17). Anthropic 호출·실제 Ollama 미검증, 태블릿 실기기 확인은 #24.
+
+## 2026-10-30 · #17 관리자 PIN, 내부망 접근 제한
+- PIN은 `.env`의 `ADMIN_PIN_HASH`(scrypt+salt, `pnpm -s pin:hash`)만. QR 토큰(메모리, 30분, 일회용, `DASHBOARD_BASE_URL` 기반) -> PIN -> 세션 쿠키(HttpOnly·Strict·서명·30분), 5회 실패 15분 잠금. `/settings`는 PIN만. 결정 기록 `docs/decisions/0002`.
+- 내부망: Next 16은 `proxy.ts`이지만 소켓 주소를 못 얻고 XFF는 위조 가능 -> `server.ts`(커스텀 서버)가 소켓으로 거르고 `x-hsh-peer`에 덮어써 넘김. `dev`/`start`가 `node server.ts`로 바뀜. `/api/state`는 `toPublicState`(허용 목록)로 축소, 나이는 서버가 `turns`로 계산.
+- 검증: `pnpm check` 통과, `node apps/dashboard/e2e/auth.e2e.mjs`(Playwright, check에는 미포함) 통과.
+- 남은 문제: 실제 사설망 밖 주소에서의 거부는 단위 테스트만(여기선 외부 소켓 불가). 토큰이 `/` HTML에 노출(PIN이 실제 방어선). `/setup` 마법사는 #18, `/settings` 본체 없음. 리뷰 전이라 passes=false. 태블릿 실기기·Windows 노트북에서 `node server.ts` 확인 필요(#24).

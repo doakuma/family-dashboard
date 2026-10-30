@@ -1,5 +1,5 @@
 {
-  "$comment": "status: todo | partial | done | owner(오너가 할 일). passes는 pnpm check 통과, review는 hsh-reviewer 판정.",
+  "$comment": "status: todo | partial | done | owner(오너가 할 일). passes: pnpm check 통과 + 리뷰 통과 후에만 true(구현자는 바꾸지 않고, 리뷰어가 제안하면 오너가 반영). review: hsh-reviewer 판정. 결정 기록 0002.",
   "features": [
     {
       "id": 1,
@@ -189,9 +189,10 @@
       "deps": [
         4
       ],
-      "status": "todo",
+      "status": "done",
       "passes": false,
-      "review": null
+      "review": "pending",
+      "note": "ADMIN_PIN_HASH(scrypt, pnpm pin:hash), 일회용 세팅 토큰 QR, 세션 쿠키, 5회 잠금, proxy+custom server 내부망 제한, /api/state 공개용 축소. /setup 마법사 본체는 #18. 결정 0002"
     },
     {
       "id": 18,
