@@ -1,9 +1,9 @@
 // POST /api/setup/complete의 본체: 본문 모양 확인 -> repo.applySetup -> HTTP 응답으로 번역. (세션·출처·본문 크기 검사는 route.ts)
 // repo는 WikiRepository.applySetup만 안다(위키 쓰기는 항상 저장소 메서드 하나).
-import { SetupError, setupSchema, type SetupIssue, type WikiRepository } from "@hsh/core";
+import { SetupError, setupSchema, type FamilyId, type SetupIssue, type WikiRepository } from "@hsh/core";
 
 export type CompleteBody =
-  | { ok: true; commit: string; pushed: boolean; pushError?: string }
+  | { ok: true; synced: boolean; syncError?: string }
   | { ok: false; code: "bad_request" | "invalid" | "already_done" | "needs_confirm" | "read_only" | "write_failed"; message: string; issues?: SetupIssue[] };
 
 export interface CompleteResult {
@@ -13,7 +13,7 @@ export interface CompleteResult {
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
-export async function runSetup(raw: unknown, repo: Pick<WikiRepository, "applySetup">, log: (m: string) => void = console.error): Promise<CompleteResult> {
+export async function runSetup(raw: unknown, repo: Pick<WikiRepository, "applySetup">, familyId: FamilyId, log: (m: string) => void = console.error, info: (m: string) => void = console.info): Promise<CompleteResult> {
   if (!isRecord(raw) || !("setup" in raw) || (raw.overwrite !== undefined && typeof raw.overwrite !== "boolean")) {
     return { status: 400, body: { ok: false, code: "bad_request", message: "요청 형식이 올바르지 않아요" } };
   }
@@ -24,8 +24,10 @@ export async function runSetup(raw: unknown, repo: Pick<WikiRepository, "applySe
     return { status: 422, body: { ok: false, code: "invalid", message: "입력한 내용을 다시 확인해 주세요", issues } };
   }
   try {
-    const r = await repo.applySetup(parsed.data, { overwrite: raw.overwrite === true });
-    return { status: 200, body: { ok: true, commit: r.commit, pushed: r.pushed, ...(r.pushError ? { pushError: r.pushError } : {}) } };
+    const r = await repo.applySetup(familyId, parsed.data, { overwrite: raw.overwrite === true });
+    // 저장 버전은 서버 로그에만 남기고 응답에는 싣지 않는다(저장 방식의 세부를 화면에 내보내지 않음).
+    info(`[setup] 위키 저장 version=${r.version} synced=${r.synced}`);
+    return { status: 200, body: { ok: true, synced: r.synced, ...(r.syncError ? { syncError: r.syncError } : {}) } };
   } catch (e) {
     if (e instanceof SetupError) {
       const status = { invalid: 422, already_done: 409, needs_confirm: 409, read_only: 503 }[e.code] as 409 | 422 | 503;

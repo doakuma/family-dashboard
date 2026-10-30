@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isAllowedHost, isAllowedOrigin, parseHostHeader } from "./host";
 
-const prod = { NODE_ENV: "production", DASHBOARD_BASE_URL: "http://hsh.lan:3000" };
+const prod = { nodeEnv: "production", dashboardBaseUrl: "http://hsh.lan:3000" };
 
 describe("parseHostHeader", () => {
   it("이름·IPv4·IPv6, 포트 유무", () => {
@@ -26,15 +26,15 @@ describe("isAllowedHost", () => {
     }
   });
   it("BASE_URL이 없으면 localhost·사설 IP만", () => {
-    const env = { NODE_ENV: "production" };
+    const env = { nodeEnv: "production" };
     expect(isAllowedHost("hsh.lan:3000", env)).toBe(false);
     expect(isAllowedHost("192.168.0.5:3000", env)).toBe(true);
   });
   it("BASE_URL 기본 포트는 생략과 같다", () => {
-    expect(isAllowedHost("hsh.lan", { DASHBOARD_BASE_URL: "http://hsh.lan" })).toBe(true);
-    expect(isAllowedHost("hsh.lan:80", { DASHBOARD_BASE_URL: "http://hsh.lan" })).toBe(true);
-    expect(isAllowedHost("hsh.lan", { DASHBOARD_BASE_URL: "https://hsh.lan" })).toBe(true); // 헤더에 포트가 없으면 BASE_URL 스킴의 기본 포트
-    expect(isAllowedHost("hsh.lan:80", { DASHBOARD_BASE_URL: "https://hsh.lan" })).toBe(false);
+    expect(isAllowedHost("hsh.lan", { dashboardBaseUrl: "http://hsh.lan" })).toBe(true);
+    expect(isAllowedHost("hsh.lan:80", { dashboardBaseUrl: "http://hsh.lan" })).toBe(true);
+    expect(isAllowedHost("hsh.lan", { dashboardBaseUrl: "https://hsh.lan" })).toBe(true); // 헤더에 포트가 없으면 BASE_URL 스킴의 기본 포트
+    expect(isAllowedHost("hsh.lan:80", { dashboardBaseUrl: "https://hsh.lan" })).toBe(false);
   });
 });
 
@@ -48,12 +48,12 @@ describe("isAllowedOrigin", () => {
     expect(isAllowedOrigin(null, prod)).toBe(false);
   });
   it("개발 모드에서는 localhost:PORT도 허용", () => {
-    const dev = { NODE_ENV: "development", PORT: "3100" };
+    const dev = { nodeEnv: "development", port: 3100 };
     expect(isAllowedOrigin("http://localhost:3100", dev)).toBe(true);
     expect(isAllowedOrigin("http://127.0.0.1:3100", dev)).toBe(true);
     expect(isAllowedOrigin("http://localhost:3000", dev)).toBe(false);
   });
   it("운영에서 BASE_URL이 없으면 모두 거부(닫는 쪽으로 실패)", () => {
-    expect(isAllowedOrigin("http://localhost:3000", { NODE_ENV: "production" })).toBe(false);
+    expect(isAllowedOrigin("http://localhost:3000", { nodeEnv: "production" })).toBe(false);
   });
 });

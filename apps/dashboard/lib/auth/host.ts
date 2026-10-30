@@ -1,11 +1,9 @@
 // 주의: server.ts가 Node로 직접 불러오는 파일이라 상대 import에는 .ts 확장자를 붙인다.
 // Host·Origin 허용 목록 (DNS 리바인딩 방어, 결정 기록 0002).
 // 소켓 주소가 내부망이어도, 공격자 도메인이 집 내부망 IP로 풀리도록 바꾸면 브라우저가 그 도메인(Host)으로 내부 서버를 부를 수 있다.
-// 그래서 Host는 우리가 아는 이름·IP 리터럴만 받는다: DASHBOARD_BASE_URL의 host, localhost/127.0.0.1/[::1], 사설 IP 리터럴.
-import { resolveBaseUrl } from "./base-url.ts";
+// 그래서 Host는 우리가 아는 이름·IP 리터럴만 받는다: dashboardBaseUrl의 host, localhost/127.0.0.1/[::1], 사설 IP 리터럴.
+import { resolveBaseUrl, type NetConfig } from "./base-url.ts";
 import { isPrivateIp } from "./ip.ts";
-
-type Env = { DASHBOARD_BASE_URL?: string; NODE_ENV?: string; PORT?: string };
 
 const defaultPort = (protocol: string) => (protocol === "https:" ? "443" : "80");
 
@@ -20,23 +18,23 @@ export function parseHostHeader(value: string | null | undefined): { hostname: s
 }
 
 /** 이 Host 헤더로 온 요청을 받아도 되는가 */
-export function isAllowedHost(hostHeader: string | null | undefined, env: Env): boolean {
+export function isAllowedHost(hostHeader: string | null | undefined, cfg: NetConfig): boolean {
   const h = parseHostHeader(hostHeader);
   if (!h) return false;
   if (h.hostname === "localhost" || h.hostname === "127.0.0.1" || h.hostname === "::1") return true;
   // IP 리터럴은 DNS로 다른 곳을 가리키게 바꿀 수 없다. 이름(도메인)은 isPrivateIp가 false라서 여기서 걸러진다.
   if (isPrivateIp(h.hostname)) return true;
-  const base = resolveBaseUrl(env);
+  const base = resolveBaseUrl(cfg);
   if (!base.ok) return false;
   const u = new URL(base.url);
   return h.hostname === u.hostname.replace(/^\[|\]$/g, "").toLowerCase() && (h.port ?? defaultPort(u.protocol)) === (u.port || defaultPort(u.protocol));
 }
 
 /**
- * 폼 POST의 출처 확인: Origin(없으면 Referer)의 origin이 DASHBOARD_BASE_URL의 origin과 같아야 한다.
+ * 폼 POST의 출처 확인: Origin(없으면 Referer)의 origin이 dashboardBaseUrl의 origin과 같아야 한다.
  * 요청 Host 헤더와 비교하지 않는다(Host는 요청자가 정하는 값). 개발 모드에서만 localhost 계열을 더 받는다.
  */
-export function isAllowedOrigin(from: string | null | undefined, env: Env): boolean {
+export function isAllowedOrigin(from: string | null | undefined, cfg: NetConfig): boolean {
   if (!from) return false;
   let origin: string;
   try {
@@ -45,10 +43,10 @@ export function isAllowedOrigin(from: string | null | undefined, env: Env): bool
     return false;
   }
   const allowed: string[] = [];
-  const base = resolveBaseUrl(env);
+  const base = resolveBaseUrl(cfg);
   if (base.ok) allowed.push(base.url);
-  if (env.NODE_ENV !== "production") {
-    const port = env.PORT || "3000";
+  if (cfg.nodeEnv !== "production") {
+    const port = cfg.port || 3000;
     allowed.push(`http://localhost:${port}`, `http://127.0.0.1:${port}`);
   }
   return allowed.includes(origin);

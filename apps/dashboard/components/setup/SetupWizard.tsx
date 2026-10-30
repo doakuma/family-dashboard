@@ -38,7 +38,7 @@ function sessionStore(): Storage | undefined {
   }
 }
 
-type Phase = { kind: "edit" } | { kind: "saving" } | { kind: "done"; pushed: boolean; pushError?: string };
+type Phase = { kind: "edit" } | { kind: "saving" } | { kind: "done"; synced: boolean; syncError?: string };
 
 /** 6단계 마법사 본체. 입력은 클라이언트 상태(+sessionStorage)로 들고 있다가 마지막에 한 번 서버로 보낸다. */
 export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
@@ -134,7 +134,7 @@ export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
     }
     if (res.ok && body?.ok) {
       clearDraft(sessionStore());
-      setPhase({ kind: "done", pushed: body.pushed, pushError: body.pushError });
+      setPhase({ kind: "done", synced: body.synced, syncError: body.syncError });
       return;
     }
     setPhase({ kind: "edit" });
@@ -165,7 +165,7 @@ export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
             세팅 완료!
           </h1>
           <p>태블릿이 1분 안에 바뀝니다. 이 화면은 닫아도 돼요.</p>
-          {phase.pushError && <p className={s.note}>위키는 이 노트북에 저장됐고, GitHub에 올리는 데 실패했어요. 다음 저장 때 다시 시도해요.</p>}
+          {phase.syncError && <p className={s.note}>위키는 이 노트북에 저장됐고, GitHub에 올리는 데 실패했어요. 다음 저장 때 다시 시도해요.</p>}
           <p className={s.itemSub}>슬랙 연결은 앱이 준비되면 안내해 드릴게요.</p>
         </main>
       </div>

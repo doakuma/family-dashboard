@@ -1,3 +1,4 @@
+import { DEFAULT_FAMILY_ID } from "@hsh/core";
 import { FsWikiRepository } from "@hsh/core/node";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -6,7 +7,7 @@ import { describe, expect, it } from "vitest";
 describe("stress-wiki 픽스처", () => {
   it("경고 없이 읽히고, 80자 제목과 오늘 14건이 있다", async () => {
     const repo = new FsWikiRepository({ root: join(import.meta.dirname, "../../../fixtures/stress-wiki"), readOnly: true });
-    const s = await repo.read();
+    const s = await repo.read(DEFAULT_FAMILY_ID);
     expect(s.warnings).toEqual([]);
     expect(s.events.filter((e) => e.date === "2026-11-03")).toHaveLength(14);
     expect(Math.max(...s.events.map((e) => e.title.length))).toBe(80);

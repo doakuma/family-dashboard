@@ -2,6 +2,7 @@
 // Next가 페이지/라우트를 따로 번들해도 같은 인스턴스를 쓰도록 globalThis에 둔다.
 import "server-only";
 import { cookies } from "next/headers";
+import { config, netConfig } from "../config";
 import { isAllowedOrigin } from "./host";
 import { createLockout, type Lockout } from "./lockout";
 import { checkPin, type PinCheck } from "./pin-check";
@@ -22,7 +23,7 @@ export function authState(): AuthState {
 }
 
 export function verifyAdminPin(pin: string): PinCheck {
-  return checkPin({ lockout: authState().lockout, storedHash: process.env.ADMIN_PIN_HASH }, pin);
+  return checkPin({ lockout: authState().lockout, storedHash: config.get("adminPinHash") }, pin);
 }
 
 export async function readSession(): Promise<Session | undefined> {
@@ -31,7 +32,7 @@ export async function readSession(): Promise<Session | undefined> {
 
 /** 폼 POST의 출처 확인: Origin(없으면 Referer)이 DASHBOARD_BASE_URL의 origin과 같아야 한다(Host 헤더는 보지 않음). SameSite=Strict와 함께 쓰는 이중 장치. */
 export function isSameOrigin(req: Request): boolean {
-  return isAllowedOrigin(req.headers.get("origin") ?? req.headers.get("referer"), process.env);
+  return isAllowedOrigin(req.headers.get("origin") ?? req.headers.get("referer"), netConfig());
 }
 
 /** 잠겨 있으면 남은 시간(ms), 아니면 undefined (화면 안내용) */

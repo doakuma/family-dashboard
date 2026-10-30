@@ -1,5 +1,6 @@
 // draft -> 서버로 보내는 SetupInput, 서버 오류 경로 -> 화면 필드, 6단계 미리보기 상태.
 import {
+  DEFAULT_FAMILY_ID,
   familyMember,
   findRegion,
   regionToConfigFields,
@@ -118,6 +119,7 @@ export function toPreviewState(d: Draft, now: Date, weather: WeatherDay[] = []):
   const input = toSetupInput(d);
   const config: DashboardState["config"] = { ...input.config, setupCompletedAt: now.toISOString() };
   const state: DashboardState = {
+    familyId: DEFAULT_FAMILY_ID, // 미리보기용 - 공개 상태에는 어차피 안 나간다
     config,
     members: [...input.members, familyMember(config)],
     events: [],

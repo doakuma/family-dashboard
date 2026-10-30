@@ -14,6 +14,7 @@ nextEnv.loadEnvConfig(process.cwd(), dev);
 const { isAllowedHost } = await import("./lib/auth/host.ts");
 const { PEER_SECRET_ENV, createPeerSecret, stampPeer } = await import("./lib/auth/peer.ts");
 
+// 부트스트랩이라 ConfigProvider(@hsh/core)를 쓰지 않는다: Node가 직접 실행하는 파일이라 확장자 없는 core 모듈을 못 불러온다.
 const port = Number(process.env.PORT ?? 3000);
 const hostname = process.env.HOSTNAME_BIND ?? "0.0.0.0";
 
@@ -24,7 +25,7 @@ process.env[PEER_SECRET_ENV] = peerSecret;
 /** 소켓 주소가 내부망이고 Host가 허용 목록에 있어야 통과. 통과하면 주소+증명 헤더를 (덮어써서) 붙인다. */
 const stamp = (req: IncomingMessage) => {
   const peerOk = stampPeer(req.headers, req.socket.remoteAddress, peerSecret);
-  return peerOk && isAllowedHost(req.headers.host, process.env);
+  return peerOk && isAllowedHost(req.headers.host, { dashboardBaseUrl: process.env.DASHBOARD_BASE_URL, nodeEnv: process.env.NODE_ENV, port });
 };
 
 // 요청 처리기는 Next를 준비한 뒤에 붙인다(그 전에 들어온 요청은 503).

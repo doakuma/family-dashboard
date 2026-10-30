@@ -1,7 +1,7 @@
 // POST /api/setup/complete 응답을 화면에서 읽는 모양. 서버가 보낸 JSON이라도 믿고 캐스팅하지 않고 safeParse한다.
 import { z } from "zod";
 
-const okBody = z.object({ ok: z.literal(true), pushed: z.boolean(), pushError: z.string().optional() });
+const okBody = z.object({ ok: z.literal(true), synced: z.boolean(), syncError: z.string().optional() });
 const failBody = z.object({
   ok: z.literal(false),
   code: z.string().optional(),
