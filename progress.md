@@ -110,3 +110,10 @@
 ## 2026-10-30 · #32 리뷰 통과
 - 리뷰어 통과 → features.json #32 passes=true·review=pass (오너 반영). 비밀값 클라이언트 번들 미노출 확인.
 - 남은 문제: 봇 토큰 검증이 첫 이벤트로 미뤄짐([중간], #9 전에 시작 시 검증), 낮음 5건은 #32 note 참고.
+
+## 2026-10-30 · #28 스킨 토큰 구조 + 스킨 2종 (스펙 rev 44, 결정 0005)
+- `apps/dashboard/skins/<id>/{tokens.css,manifest.json}` + 계약 `contract.ts`. `[data-skin][data-tone=dim]`로 기존 mode/tone 축과 독립. default(기존 값 이전) + paper(임시 검증용, `temporary:true`). 구성원 색은 `lib/palette.ts` -> `var(--member-<name>)` 슬롯 8개, 모서리 4단·그림자·배경 장식·날씨 아이콘색도 토큰화.
+- core: `SKIN_IDS`/`CHARACTER_IDS`, config `skin`·`character`(없으면 그대로, 모르는 값이면 default/none + 경고), `DashboardState.skin/character`, `/api/state`에 skin(character none 고정). `useSkin`이 폴링 때 data-skin 교체, `?skin=<id>` 미리보기. 바꾸는 UI는 #30.
+- 테스트: 글자 대비를 스킨 × 톤 4조합으로 확장, 글자 크기 하한 `--text-floor`(12px), 슬롯 8개 ΔE>=20·바탕 3:1, 계약·폴더·layout import 일치. reviewer 채점에 스킨 항목 추가.
+- 검증: pnpm check(453 테스트)·build, e2e 4종(auth·stress·setup·skin 신규) 통과, 캡처 `docs/screens/skin-*.png`.
+- 남은 문제: default가 아닌 스킨은 첫 로드 때 default가 잠깐 보임(hydration 전). default의 coral·amber를 3:1 때문에 조금 어둡게 함(오너 확인). 실기기 가독성은 #24. #28은 passes=false, review=pending.

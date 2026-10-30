@@ -59,6 +59,8 @@ kmaNy: 127
 kmaMidLandRegId: 11B00000
 kmaMidTaRegId: 11B10101
 familyColor: gray
+skin: default
+character: none
 setupCompletedAt: 2026-10-20T20:00:00+09:00
 ---
 ```
@@ -66,6 +68,9 @@ setupCompletedAt: 2026-10-20T20:00:00+09:00
 `familyName`이 없거나 깨지면 config가 없는 것으로 읽는다 → 세팅 필요.
 `timezone` 기본 `Asia/Seoul`, `familyColor` 기본 `gray`. `kmaNx/Ny`는 정수. `calendarId`는 공백 없는 문자열(선택).
 `setupCompletedAt`은 ISO 8601(시간대 포함).
+`skin`(선택, 기본 `default`): 화면 스킨 id. 지금은 `default`·`paper`(임시 검증용)이고 폴더 `apps/dashboard/skins/<id>/`와 같다. 태블릿은 다음 폴링 때 새로고침 없이 바꾼다.
+`character`(선택, 기본 `none`): 캐릭터 층. 지금은 `none`뿐(#29). 둘 다 없으면 없는 그대로 두고(다시 쓸 때 줄이 생기지 않는다), **값이 있는데 모르는 값이면** 각각 `default`/`none`으로 읽고 `warnings`에 남긴다.
+구성원 `color`는 이름(coral 등)만 위키에 있고 실제 색값은 스킨의 색 슬롯 8개(`--member-<name>`)가 정한다.
 
 세팅 필요 판정(`needsSetup`): config가 없거나 구성원이 0명. `setupCompletedAt`은 판정에 쓰지 않으므로 값이 깨져도 QR 세팅 화면으로 바뀌지 않는다.
 
@@ -73,7 +78,7 @@ setupCompletedAt: 2026-10-20T20:00:00+09:00
 
 - **필수값**(구성원 `id`·`name`, config `familyName`)이 없거나 스키마에 안 맞으면 그 파일을 버린다(구성원은 목록에서 빠지고, config는 없는 것 = 세팅 필요).
 - **그 밖의 필드**는 값이 틀리면 **그 필드만** 기본값(없음 포함)으로 읽고 나머지는 살린다. 예: `color: Blue` -> `gray`, `familyColor: Gray` -> `gray`,
-  `calendarId: abc def` -> 없음, `slack: U00-DAD` -> 없음, 모르는 `timezone` -> `Asia/Seoul`, 깨진 `setupCompletedAt` -> 없음, 정수가 아닌 `kmaNx` -> 없음.
+  `calendarId: abc def` -> 없음, `slack: U00-DAD` -> 없음, 모르는 `timezone` -> `Asia/Seoul`, 깨진 `setupCompletedAt` -> 없음, 모르는 `skin`·`character` -> `default`·`none`, 정수가 아닌 `kmaNx` -> 없음.
   `role`이 없거나 `guardian`·`child`가 아니면 최소 권한인 `child`로 읽고 경고한다(스펙 rev 51).
 - 대체·건너뜀은 `readWiki()` 결과의 `warnings: string[]`(`파일: 필드: 내용`)에 모인다. 화면에는 내지 않고 대시보드 서버가 로그(`[wiki] …`)에 남긴다(내용이 바뀔 때만).
 - **쓰기 쪽 스키마(`memberSchema`·`familyConfigSchema`, `formatMemberFile`·`formatConfigFile`)는 엄격 그대로**다. 관용은 읽기에만 있다.
