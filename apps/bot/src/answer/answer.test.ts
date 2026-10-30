@@ -449,3 +449,44 @@ describe("회귀: 생일·없는 일정", () => {
     expect(r.text).not.toContain("치과");
   });
 });
+
+describe("회귀: 말고 + LLM keyword", () => {
+  it("말고 앞쪽 keyword는 필터가 아니라 제외 조건", async () => {
+    const { r } = await askA("토요일에 핼러윈 말고 뭐 있어?", { intent: "question", qKeyword: "핼러윈" });
+    expect(r.range).toEqual({ from: "2026-10-31", to: "2026-10-31" });
+    expect(r.eventIds).toEqual(["evt-2"]);
+    expect(r.text).not.toContain("핼러윈 파티");
+  });
+  it("'치과 말고 학원 언제야?' -> 학원(말고 뒤)으로 답한다", async () => {
+    const { r } = await askA("치과 말고 학원 언제야?", { intent: "question", qKeyword: "학원" });
+    expect(r.status).toBe("answered");
+    expect(r.text).toContain("미술학원");
+    expect(r.text).not.toContain("치과");
+    const none = await askA("치과 말고 피아노 언제야?", { intent: "question", qKeyword: "피아노" });
+    expect(none.r.status).toBe("empty");
+    expect(none.r.text).toContain("피아노");
+  });
+  it("'11월 3일 말고 4일' / '다음 주 토요일 말고 일요일' / 못 읽으면 되묻기", async () => {
+    expect((await askA("11월 3일 말고 4일 뭐 있어?", { intent: "question" })).r.range).toEqual({ from: "2026-11-04", to: "2026-11-04" });
+    expect((await askA("다음 주 토요일 말고 일요일은?", { intent: "question" })).r.range).toEqual({ from: "2026-11-08", to: "2026-11-08" });
+    expect((await askA("치과 말고 31일 뭐 있어?", { intent: "question" })).r.status).toBe("clarify");
+  });
+});
+
+describe("회귀: keyword 버림 (alt 186-213 이식)", () => {
+  it.each([
+    ["이번 주 토요일 수영 뭐 있어?", "수영"],
+    ["이번 주 토요일 하는 날이야?", "하는 날이야"],
+    ["이번 주 토요일 뭐 있어?", "토요일"],
+    ["이번 주 토요일 뭐 있어?", "있어"],
+    ["이번 주 토요일 뭐 있어?", "이번 주 토요일"],
+  ])("%s / keyword=%s", async (text, qKeyword) => {
+    const { r } = await askA(text, { intent: "question", qKeyword });
+    expect(r.text).toContain("핼러윈 파티");
+    expect(r.text).not.toContain("없어요");
+  });
+  it("LLM 기간(qFrom/qTo)만 있는 '그날 계획 뭐야'에서도 keyword를 버린다", async () => {
+    const { r } = await askA("그날 계획 뭐야", { intent: "question", qKeyword: "계획", qFrom: "2026-10-31", qTo: "2026-10-31" });
+    expect(r.text).toContain("핼러윈 파티");
+  });
+});

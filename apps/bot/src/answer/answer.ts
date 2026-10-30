@@ -141,6 +141,13 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
   const memberPrefix = [...wanted].map(nameOf).join("·");
   // 키워드는 질문에 글자 그대로 있을 때만 쓴다(없는 말로 걸러서 "없어요"라고 잘못 답하지 않게)
   let keyword = q.keyword && norm(q.text).includes(norm(q.keyword)) ? q.keyword : undefined;
+  // "치과 말고 …": 말고 앞쪽에만 있는 keyword는 찾는 것이 아니라 뺄 것이다 -> 필터 대신 제외 조건
+  let exclude: string | undefined;
+  const cut = q.text.indexOf("말고");
+  if (keyword && cut >= 0 && norm(q.text.slice(0, cut)).includes(norm(keyword)) && !norm(q.text.slice(cut + 2)).includes(norm(keyword))) {
+    exclude = keyword;
+    keyword = undefined;
+  }
   const picked = chooseRange(q, today);
   // 날짜가 분명한 질문에서 일정 제목에 없는 말("계획"·"행사"·"하늘이")은 필터가 아니라 군더더기다: 그날 일정을 지우지 않는다
   if (keyword && picked && typeof picked === "object") {
@@ -163,7 +170,7 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
   if (picked || upcoming) {
     const range: DateRange = picked ?? { from: today, to: addDays(today, UPCOMING_DAYS) };
     const noun = calendarKinds.has("events") ? "일정" : "기념일";
-    const items = collect(ctx, range, calendarKinds, wanted, keyword);
+    const items = collect(ctx, range, calendarKinds, wanted, keyword, exclude);
     const shown = items.slice(0, picked ? MAX_LINES : UPCOMING_LIMIT);
     const label = picked ? (range.from === range.to ? formatDay(range.from) : `${formatDay(range.from)}~${formatDay(range.to)}`) : "";
     out.range = range;
@@ -206,10 +213,11 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
 }
 
 /** 범위 안의 일정·기념일(매년 반복은 범위 안 발생일로 펼친다) */
-function collect(ctx: AnswerContext, range: DateRange, kinds: Set<QuestionKind>, wanted: Set<string>, keyword?: string): Item[] {
+function collect(ctx: AnswerContext, range: DateRange, kinds: Set<QuestionKind>, wanted: Set<string>, keyword?: string, exclude?: string): Item[] {
   const nameOf = (id?: string) => ctx.members.find((m) => m.id === id)?.name ?? "";
   const kw = keyword ? norm(keyword) : undefined;
-  const hit = (title: string) => !kw || norm(title).includes(kw);
+  const ex = exclude ? norm(exclude) : undefined;
+  const hit = (title: string) => (!kw || norm(title).includes(kw)) && !(ex && norm(title).includes(ex));
   const items: Item[] = [];
 
   if (kinds.has("events")) {

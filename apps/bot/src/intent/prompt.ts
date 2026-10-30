@@ -80,7 +80,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 - 오늘: ${ctx.today} (${WEEKDAYS_KO[weekdayOf(ctx.today)]}요일), 현재 시각 ${ctx.now}, 시간대 Asia/Seoul
 - 보낸 사람: ${ctx.sender ? `${ctx.sender.id} (${ctx.sender.name})` : "알 수 없음"}
 
-## 달력 (주는 일요일 시작~토요일. "다음 주 화요일" = 아래 '다음 주' 줄의 화요일. 단 "이번 주 일요일"은 돌아오는 일요일(오늘이 일요일이면 오늘), "다음 주 일요일"은 그다음 일요일이다. "이번 주말" = 이번 주 토요일 + 돌아오는 일요일)
+## 달력 (주는 일요일 시작~토요일. "다음 주 화요일" = 아래 '다음 주' 줄의 화요일. 단 "이번 주 일요일"은 돌아오는 일요일(오늘이 일요일이면 오늘), "다음 주 일요일"은 그다음 일요일이다. 주말은 토+일 한 쌍: 오늘이 토·일이면 오늘이 든 주말이 "이번 주말", 아니면 다가오는 토+일. "다음 주말" = 그 +7일, "지난 주말" = 그 −7일)
 ${calendarTable(ctx.today)}
 
 ## 구성원

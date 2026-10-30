@@ -2,7 +2,7 @@
 // 스펙 rev 62 '날짜 해석'(질문·쓰기 공통):
 // - 주는 일요일~토요일(대시보드 달력, intent/prompt.ts의 calendarTable과 같다). "이번 주" = 오늘이 든 일~토.
 // - "X주 일요일"만 예외: 이번 주 일요일 = 돌아오는 일요일(일요일 당일이면 오늘), 다음 주 일요일 = 그다음, 지난 주 일요일 = 이번 −7.
-// - "이번/다음 주말" = 그 주 토요일 + 그다음 날 일요일. 일요일 당일의 "이번 주말"은 오늘만(진행 중인 주말).
+// - 주말 단위 W0 = 오늘이 토·일이면 오늘이 든 토+일, 아니면 다가오는 토+일. "주말"·"이번 주말" = W0, "다음 주말" = W0+7, "지난 주말" = W0-7(오너 확인 전 임시).
 // - 연도 없는 날짜·"M월"·요일만: 과거형 질문(했어/있었지 등)이면 가장 최근에 지난 날(오늘 제외, "M월"은 이번 달이면 이번 달),
 //   그 외는 다가오는 날(오늘 포함, "M월"은 이번 달이면 이번 달). 연도를 말하면 그대로 쓴다.
 import { addDays, addMonths, diffDays, isDate, weekdayOf } from "@hsh/core";
@@ -32,12 +32,21 @@ const monthEnd = (month: string) => addDays(`${addMonths(month, 1)}-01`, -1);
 const upcomingSunday = (d: string) => addDays(d, (7 - weekdayOf(d)) % 7);
 
 /**
- * 과거형 질문인가: '었/았/했/였/갔/왔/봤…' 계열 어미가 있으면 과거형. 미래 약속을 되묻는 "~하기로 했지"는 제외한다.
+ * 과거형 질문인가. 질문 문장(물음표 있는 문장이 있으면 그 마지막, 없으면 마지막 문장)에서 쉼표로 나눈 절 중
+ * 서술어 끝이 과거 어미(었어/았어/했어/었지/했나/했니/었더라/있었/없었 …)인 것이 있으면 과거형이다.
+ * "으면/던/다 올/기로 했(었)/하자고 했/어야"처럼 끝이 과거 어미가 아니거나 미래 약속을 되묻는 꼴은 과거로 보지 않는다.
  * 결정적 규칙이며 LLM 값은 쓰지 않는다.
  */
-const PAST_CUE = /[었았했였갔왔봤썼줬셨]/;
-const PAST_EXCLUDE = /기로\s*했|하자고\s*했/g;
-export const isPastQuestion = (text: string): boolean => PAST_CUE.test(text.replace(PAST_EXCLUDE, " "));
+const PAST_END = /[었았였했갔왔봤썼줬셨](?:어요?|지요?|죠|나요?|니|더라|네요?|다|습니다|습니까|구나)?$/;
+const PAST_EXCLUDE = /기로\s*했|하자고\s*했/;
+export function isPastQuestion(text: string): boolean {
+  const sentences = text.split(/(?<=[?？!.\n])/).map((x) => x.trim()).filter(Boolean);
+  const target = [...sentences].reverse().find((x) => /[?？]$/.test(x)) ?? sentences.at(-1) ?? "";
+  return target
+    .split(/[,，]/)
+    .map((c) => c.replace(/[^가-힣]+$/, "").trim())
+    .some((c) => c !== "" && !PAST_EXCLUDE.test(c) && PAST_END.test(c));
+}
 
 /** 연도 없는 MM-DD: 과거형이면 오늘 이전 가장 최근, 아니면 오늘 이후(오늘 포함) 가장 가까운 날. 2/29처럼 없는 해는 건너뛴다. */
 function yearlessDate(monthDay: string, today: string, past: boolean): string | undefined {
@@ -61,12 +70,31 @@ type Found = DateRange | DateRange[] | undefined;
 export function resolveRange(text: string, today: string, opts: ResolveOptions = {}): DateRange | { error: "too_long" | "ambiguous" } | undefined {
   const found: DateRange[] = [];
   const past = opts.past ?? isPastQuestion(text);
-  // "이번 주 말고 다음 주": 말고 뒤에 날짜가 있으면 뒤쪽만, 없으면("토요일에 핼러윈 말고 뭐 있어?") 앞쪽만 읽는다
+  // "A 말고 B": 뒤쪽 날짜를 읽는다. 뒤쪽이 일부만("4일", "일요일")이면 앞쪽의 월·주 수식을 물려받고,
+  // 날짜 표현이 아예 없으면("토요일에 핼러윈 말고 뭐 있어?") 앞쪽만 읽는다. 일부인데 못 읽으면 ambiguous.
   const cut = text.indexOf("말고");
   if (cut >= 0) {
-    const tail = resolveRange(text.slice(cut + 2), today, { past });
-    if (tail) return tail;
-    return resolveRange(text.slice(0, cut), today, { past });
+    const head = text.slice(0, cut);
+    const tail = text.slice(cut + 2);
+    const sub = { past };
+    const headWeek = head.match(/(다다음|다음|이번|지난|저번)\s*주/);
+    const tailHasWeek = /주|달|오늘|내일|모레|어제|글피|그제|그저께/.test(tail);
+    if (headWeek && !tailHasWeek && !/\d/.test(tail) && /[일월화수목금토]요일/.test(tail)) {
+      return resolveRange(`${headWeek[0]} ${tail}`, today, sub) ?? { error: "ambiguous" };
+    }
+    const full = resolveRange(tail, today, sub);
+    if (full) return full;
+    const onlyDay = tail.match(/(?<![\d/])(\d{1,2})\s*일(?![정요])/);
+    if (onlyDay && !/월|\//.test(tail)) {
+      const h = resolveRange(head, today, sub);
+      if (h && "from" in h && h.from === h.to) {
+        const d = `${h.from.slice(0, 8)}${String(Number(onlyDay[1])).padStart(2, "0")}`;
+        return isDate(d) ? { from: d, to: d } : { error: "ambiguous" };
+      }
+      return { error: "ambiguous" };
+    }
+    if (/\d|요일/.test(tail)) return { error: "ambiguous" };
+    return resolveRange(head, today, sub);
   }
   let s = text;
   const take = (re: RegExp, fn: (m: RegExpMatchArray) => Found) => {
@@ -77,6 +105,12 @@ export function resolveRange(text: string, today: string, opts: ResolveOptions =
     s = s.replace(re, " ");
   };
   const day = (d: string): DateRange => ({ from: d, to: d });
+  // 주말 단위 W0: 오늘이 토·일이면 오늘이 든 토+일, 아니면 다가오는 토+일. off주 만큼 7일씩 민다.
+  const weekend = (off: number): DateRange => {
+    const dow = weekdayOf(today);
+    const sat = dow === 0 ? addDays(today, -1) : addDays(today, 6 - dow);
+    return { from: addDays(sat, 7 * off), to: addDays(sat, 7 * off + 1) };
+  };
 
   // 1) 절대 날짜: "2027년 1월 5일", "2027-01-05", "11월 3일", "11/3" (해가 없으면 과거형은 지난 날, 아니면 다가오는 날)
   const ymd = (y: string | undefined, mo: string, d: string): Found => {
@@ -95,7 +129,7 @@ export function resolveRange(text: string, today: string, opts: ResolveOptions =
       const off = WEEK_OFFSET[m[1] ?? ""] ?? 0;
       const sunday = addDays(sundayOf(today), 7 * off); // 그 주(일~토)의 시작
       const sat = addDays(sunday, 6);
-      if (m[2]) return off === 0 && weekdayOf(today) === 0 ? day(today) : { from: sat, to: addDays(sat, 1) };
+      if (m[2]) return weekend(off);
       if (m[3]) {
         return [...m[3].matchAll(/([일월화수목금토])요일/g)].map((w) => {
           const idx = WEEKDAY_INDEX[w[1] ?? ""] ?? 0;
@@ -132,13 +166,8 @@ export function resolveRange(text: string, today: string, opts: ResolveOptions =
   s = s.replace(/내일\s*모레/g, "모레");
   for (const [w, n] of DAY_WORDS) take(new RegExp(w, "g"), () => day(addDays(today, n)));
 
-  // 5) 주말(그냥): 다가오는 주말. 토요일이면 오늘~내일, 일요일이면 오늘만
-  take(/주말/g, () => {
-    const dow = weekdayOf(today);
-    if (dow === 0) return day(today);
-    const sat = addDays(today, 6 - dow);
-    return { from: sat, to: addDays(sat, 1) };
-  });
+  // 5) 주말(그냥) = W0
+  take(/주말/g, () => weekend(0));
 
   // 6) 요일만: 과거형이면 오늘 이전 가장 최근 그 요일, 아니면 오늘 이후 가장 가까운 그 요일(오늘 포함)
   take(/([일월화수목금토])요일/g, (m) => {
