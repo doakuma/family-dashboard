@@ -7,6 +7,7 @@ import { useKioskGuards } from "@/hooks/useKioskGuards";
 import { useNow } from "@/hooks/useNow";
 import { useSkin } from "@/hooks/useSkin";
 import { useSetupQr, type SetupQrView } from "@/hooks/useSetupQr";
+import { monthStatus } from "@/lib/view";
 import { Dashboard } from "./Dashboard";
 import { SetupNeeded } from "./SetupNeeded";
 
@@ -35,7 +36,7 @@ export function Screen({ initial, initialQr, at, mode, skinPreview }: ScreenProp
   return (
     // data-surface="tablet": 키오스크 CSS(핀치·당겨서 새로고침·글자 선택 차단)는 이 표식이 있을 때만 건다(휴대폰 /setup은 그대로)
     <div data-surface="tablet" style={{ display: "contents" }}>
-      {state.needsSetup ? <SetupNeeded qr={qr} /> : <Dashboard state={state} offline={offline} monthLoaded={loadedMonth === month} at={at} mode={mode} browse={{ view, handlers }} />}
+      {state.needsSetup ? <SetupNeeded qr={qr} /> : <Dashboard state={state} offline={offline} monthStatus={monthStatus(loadedMonth, month, offline)} at={at} mode={mode} browse={{ view, handlers }} />}
     </div>
   );
 }

@@ -59,3 +59,11 @@ export function whenLabel(e: Pick<Event, "allDay" | "start" | "end">): string {
   if (e.allDay || !e.start) return "종일";
   return e.end ? `${e.start}-${e.end}` : e.start;
 }
+
+/** 달력이 그 달 일정을 보여 줄 수 있는 상태. 응답한 달이 보는 달과 같을 때만 ready, 아니면 폴링이 실패한 쪽이면 failed, 아니면 loading. */
+export type MonthStatus = "ready" | "loading" | "failed";
+
+export function monthStatus(loadedMonth: string | undefined, month: string, offline: boolean): MonthStatus {
+  if (loadedMonth === month) return "ready";
+  return offline ? "failed" : "loading";
+}

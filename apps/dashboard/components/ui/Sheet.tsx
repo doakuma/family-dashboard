@@ -53,7 +53,7 @@ export function Sheet({
       const first = items[0]!;
       const last = items[items.length - 1]!;
       const active = document.activeElement;
-      if (e.shiftKey && (active === first || active === el || !items.includes(active as HTMLElement))) {
+      if (e.shiftKey && (active === first || active === el || !(active instanceof HTMLElement && items.includes(active)))) {
         e.preventDefault();
         last.focus();
       } else if (!e.shiftKey && active === last) {

@@ -16,6 +16,7 @@
 }
 
 .month {
+  flex: none;
   font-family: var(--font-display);
   font-weight: 400;
   font-size: 2.4rem;
@@ -99,6 +100,7 @@
 }
 
 .nav {
+  flex: none;
   display: flex;
   gap: 0.5rem;
 }
@@ -198,7 +200,16 @@
   color: var(--muted);
 }
 
+/* 남는 폭 안에서만 보이고 최대 2줄(넘으면 말줄임) - ‹ › 버튼이 밀리지 않게 */
 .status {
+  flex: 1 1 0;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;

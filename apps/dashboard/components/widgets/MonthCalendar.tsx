@@ -3,14 +3,14 @@ import { WEEKDAYS_KO, monthGrid, weekdayOf, type Event } from "@hsh/core";
 import { useRef } from "react";
 import { useSwipe } from "@/hooks/useSwipe";
 import { colorOf } from "@/lib/palette";
-import { LIMITS, limit } from "@/lib/view";
+import { LIMITS, limit, type MonthStatus } from "@/lib/view";
 import type { MemberMap } from "./MemberDot";
 import s from "./MonthCalendar.module.css";
 
 export interface MonthCalendarProps {
   events: Event[];
   /** 그 달 일정이 아직 안 왔거나(loading) 못 가져왔을 때(failed): 칸을 비워 두고 누를 수 없게 하며 안내를 보인다. 기본 ready */
-  status?: "ready" | "loading" | "failed";
+  status?: MonthStatus;
   today: string;
   members: MemberMap;
   /** 보여 줄 달(YYYY-MM). 없으면 오늘이 속한 달 */

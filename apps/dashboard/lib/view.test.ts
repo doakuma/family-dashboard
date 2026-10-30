@@ -4,7 +4,7 @@ import { SKIN_IDS, type Event } from "@hsh/core";
 import { describe, expect, it } from "vitest";
 import { contrast, over } from "../skins/color";
 import { readSkinTokens } from "../skins/read-tokens";
-import { DDAY_SOON_DAYS, LIMITS, STALE_AFTER_MS, isNight, isPast, isSoon, isStale, limit, orderAgenda, displayOf, whenLabel } from "./view";
+import { DDAY_SOON_DAYS, LIMITS, STALE_AFTER_MS, isNight, isPast, isSoon, isStale, limit, orderAgenda, displayOf, monthStatus, whenLabel } from "./view";
 
 describe("isNight", () => {
   it("23:00부터 05:59까지가 야간", () => {
@@ -249,4 +249,19 @@ describe("투명도(opacity)를 반영한 명암비", () => {
       }
     });
   }
+});
+
+describe("monthStatus", () => {
+  it("응답한 달이 보는 달이면 폴링이 실패 중이어도 ready", () => {
+    expect(monthStatus("2026-10", "2026-10", false)).toBe("ready");
+    expect(monthStatus("2026-10", "2026-10", true)).toBe("ready");
+  });
+  it("다른 달 응답이면 불러오는 중, 폴링이 실패 중이면 failed", () => {
+    expect(monthStatus("2026-10", "2026-11", false)).toBe("loading");
+    expect(monthStatus("2026-10", "2026-11", true)).toBe("failed");
+  });
+  it("아직 응답한 달이 없어도 보는 달과 같다고 치지 않는다", () => {
+    expect(monthStatus(undefined, "2026-10", false)).toBe("loading");
+    expect(monthStatus(undefined, "2026-10", true)).toBe("failed");
+  });
 });
