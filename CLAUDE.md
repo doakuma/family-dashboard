@@ -11,6 +11,7 @@ apps/bot         Node + Slack Bolt (Socket Mode)
 packages/core    공통 타입·어댑터 인터페이스·날짜 유틸·위키 파서/apply (브라우저 안전)
 packages/core/node  FsWikiRepository (Node 전용: 파일 + git)
 fixtures/sample-wiki  예시 가족 위키 (개발·시안·테스트용)
+fixtures/stress-wiki  화면 스트레스 픽스처 (80자 제목, 하루 14건 등. e2e·캡처용)
 ```
 
 ## 원칙
@@ -19,7 +20,7 @@ fixtures/sample-wiki  예시 가족 위키 (개발·시안·테스트용)
 - LLM은 메시지를 `Change`로 바꾸기만 한다. 파일 쓰기는 `WikiRepository.apply`가 결정적으로 처리한다.
 - 위젯은 `@hsh/core` 타입만 안다. 입력·저장·외부 서비스는 어댑터 뒤에 둔다.
 - 위젯은 재사용 가능한 컴포넌트로 만들고, 데이터 어댑터와 분리한다.
-- 태블릿 화면은 보기 전용이다. 입력 UI, 누를 수 있어 보이는 모양을 쓰지 않는다.
+- 태블릿은 쓰기 UI를 두지 않는다. 보기용 터치(달력 둘러보기, 오늘 일정 스크롤)만 허용하고, 체크리스트처럼 누르면 완료될 것 같은 모양은 쓰지 않는다. 화면 전체는 스크롤하지 않는다(스크롤은 오늘 일정 같은 지정 영역 안에서만, 스크롤바 없이).
 - 레이아웃은 고정 px 대신 fr·minmax 기반 CSS Grid로 만든다.
 - 캐릭터·테마는 오리지널만 쓴다. 기존 IP 캐릭터는 금지한다.
 - 비밀값은 `.env`에만 둔다. `.env`를 읽거나 커밋하지 않는다.

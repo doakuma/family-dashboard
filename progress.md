@@ -32,10 +32,19 @@
 - #14: 오늘 일정 칸 `min-width:0`으로 긴 제목 말줄임. 스트레스 픽스처(긴 제목·하루 8건) 1280×800·1024×600 겹침 없음, 캡처 `docs/screens/stress-agenda-1280.png`. #14 passes=false 유지(재리뷰 대기).
 - #7: pull 큐잉, commit 실패 시 파일·스테이징 롤백, `{commit, pushed}` 분리, 독립 git 루트 확인. #5·#4: applyChange가 changeSchema로 재검증, Member·FamilyConfig 스키마를 읽기·쓰기 공용, frontmatter 줄바꿈 거부. #8: 후보 여럿이면 선택 후 끝 시간 계산, LLM 응답 검증·timeout.
 - #13 #16 #15: /api/state zod 검증+needsSetup, 세팅 화면↔대시보드 폴링 전환, 글자 명암비 4.5:1(야간 muted·warn 조정), dashboard 테스트 포함, `docs/wiki-format.md` 추가.
-- 남은 문제: 오너 결정 대기(Change 유니언 확장, PIN 저장 위치, passes 정의). `/api/state`는 아직 인증 없음(#17). Anthropic 호출·실제 Ollama 미검증, 태블릿 실기기 확인은 #24.
+- 남은 문제: Change 유니언 확장은 오너 결정 대기(PIN 저장 위치·passes 정의는 결정됨: 0002). `/api/state`는 아직 인증 없음(#17). Anthropic 호출·실제 Ollama 미검증, 태블릿 실기기 확인은 #24.
 
 ## 2026-10-30 · #17 관리자 PIN, 내부망 접근 제한
 - PIN은 `.env`의 `ADMIN_PIN_HASH`(scrypt+salt, `pnpm -s pin:hash`)만. QR 토큰(메모리, 30분, 일회용, `DASHBOARD_BASE_URL` 기반) -> PIN -> 세션 쿠키(HttpOnly·Strict·서명·30분), 5회 실패 15분 잠금. `/settings`는 PIN만. 결정 기록 `docs/decisions/0002`.
 - 내부망: Next 16은 `proxy.ts`이지만 소켓 주소를 못 얻고 XFF는 위조 가능 -> `server.ts`(커스텀 서버)가 소켓으로 거르고 `x-hsh-peer`에 덮어써 넘김. `dev`/`start`가 `node server.ts`로 바뀜. `/api/state`는 `toPublicState`(허용 목록)로 축소, 나이는 서버가 `turns`로 계산.
 - 검증: `pnpm check` 통과, `node apps/dashboard/e2e/auth.e2e.mjs`(Playwright, check에는 미포함) 통과.
 - 남은 문제: 실제 사설망 밖 주소에서의 거부는 단위 테스트만(여기선 외부 소켓 불가). 토큰이 `/` HTML에 노출(PIN이 실제 방어선). `/setup` 마법사는 #18, `/settings` 본체 없음. 리뷰 전이라 passes=false. 태블릿 실기기·Windows 노트북에서 `node server.ts` 확인 필요(#24).
+
+## 2026-10-30 · 재검토 반영 (#7 #15 #6 #14 + 스펙 rev 46·50)
+- #7: pull 충돌 시 `rebase --abort`(autostash 복구)하고 오류 반환, rebase·merge 진행 중·detached HEAD면 apply·pull 거부, readOnly는 pull도 거부. 같은 줄 충돌 시나리오·human stage 보존 테스트. push 실패는 `pushError`+경고 로그, commit은 경로 지정(`-- rels`), 롤백은 index 항목을 원래 값으로 복구.
+- #6 읽기 관용(rev 46): config·구성원은 필드 단위로 기본값 대체 + `readWiki().warnings`(대시보드 서버 로그에 변경 시에만 출력). 필수값(id·name·familyName)이 깨질 때만 파일을 버림. 쓰기 스키마는 엄격 그대로.
+  결정: `setupCompletedAt`이 깨지면 없는 것으로 읽고 경고만 남긴다. `needsSetup`은 원래 config가 읽히는지+구성원 수만 보므로 QR 화면으로 바뀌지 않는다(테스트 있음).
+- #14·#15: 오늘 일정은 남은 일정 먼저·지난 일정 아래(글자색 --muted), '외 n건' 제거, 재사용 `AutoScroll`(순환 판단은 `lib/auto-scroll.ts` 순수 함수, 터치 후 120초 재개, reduced-motion 순환 없음, 스크롤바 없음, 이 영역만 touch-action: pan-y). 야간 긴 제목 가로 넘침 수정, 야간/낮 모드와 별개의 톤 축(`data-tone`) 분리(구조만).
+  명암비: --sunday·pop 글자색 토큰화(4.5:1 이상), 테스트가 CSS에서 글자색 토큰을 모아 검사하고 opacity 규칙도 계산에 반영(다른 달 날짜 .35는 면제로 등록, 오너 확인 필요). 스트레스 픽스처 `fixtures/stress-wiki`, `e2e/stress.e2e.mjs`(1280×800·1024×600 야간 scrollWidth==뷰포트, 낮 자동 순환·화면 스크롤 0·터치), 캡처 `docs/screens/stress-*`.
+- 장부: features.json passes 정리(#1 #2 #4 #5 #14 #16 true, 나머지 false, review 필드 pass/pending/null), #27~#31 목록만 추가. CLAUDE.md 원칙 문구는 rev 50 취지로.
+- 남은 문제: 키오스크 제스처 전역 차단·달력 터치는 #31(하지 않음). 실제 태블릿 터치·해상도는 #24.

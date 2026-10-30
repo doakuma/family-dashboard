@@ -1,5 +1,5 @@
 {
-  "$comment": "status: todo | partial | done | owner(오너가 할 일). passes: pnpm check 통과 + 리뷰 통과 후에만 true(구현자는 바꾸지 않고, 리뷰어가 제안하면 오너가 반영). review: hsh-reviewer 판정. 결정 기록 0002.",
+  "$comment": "status: todo | partial | done | owner(오너가 할 일). passes: pnpm check 통과 + 리뷰 통과 후에만 true(구현자는 바꾸지 않고, 리뷰어가 제안하면 오너가 반영). review: pass | pending(재리뷰 대기) | null(아직 검토 전). 결정 기록 0002.",
   "features": [
     {
       "id": 1,
@@ -8,7 +8,7 @@
       "deps": [],
       "status": "done",
       "passes": true,
-      "review": "pending"
+      "review": "pass"
     },
     {
       "id": 2,
@@ -19,7 +19,7 @@
       ],
       "status": "done",
       "passes": true,
-      "review": "pending"
+      "review": "pass"
     },
     {
       "id": 3,
@@ -37,7 +37,7 @@
       "deps": [],
       "status": "done",
       "passes": true,
-      "review": "pending"
+      "review": "pass"
     },
     {
       "id": 5,
@@ -48,7 +48,7 @@
       ],
       "status": "done",
       "passes": true,
-      "review": "pending"
+      "review": "pass"
     },
     {
       "id": 6,
@@ -59,8 +59,9 @@
         5
       ],
       "status": "done",
-      "passes": true,
-      "review": "pending"
+      "passes": false,
+      "review": "pending",
+      "note": "재리뷰 대기: config·구성원 읽기를 필드 단위 관용으로(스펙 rev 46), readWiki가 warnings 반환"
     },
     {
       "id": 7,
@@ -70,9 +71,9 @@
         6
       ],
       "status": "done",
-      "passes": true,
+      "passes": false,
       "review": "pending",
-      "note": "리뷰 반영: pull 큐잉, commit 실패 롤백, pushed 분리, 형식 검증. PIN·Change 확장은 오너 결정 대기"
+      "note": "재리뷰 대기: pull 충돌 시 rebase abort·복구, 진행 중/detached 거부, readOnly pull 거부, push 실패 reason, 롤백이 사람의 stage 보존"
     },
     {
       "id": 8,
@@ -155,9 +156,9 @@
         13
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
-      "note": "시안: docs/screens/. 리뷰 되돌림 수정(긴 제목 말줄임) 후 재리뷰 대기"
+      "passes": true,
+      "review": "pass",
+      "note": "리뷰 통과 후 오늘 일정이 바뀜(남은 일정 먼저·AutoScroll 순환, 스펙 rev 46). 이 변경분은 다음 리뷰 때 함께 확인 요청"
     },
     {
       "id": 15,
@@ -167,8 +168,9 @@
         14
       ],
       "status": "done",
-      "passes": true,
-      "review": "pending"
+      "passes": false,
+      "review": "pending",
+      "note": "재리뷰 대기: 야간 긴 제목 가로 넘침 수정(80자 스트레스 픽스처 1280×800·1024×600), 명암비 토큰·투명도 반영, 톤 축 분리"
     },
     {
       "id": 16,
@@ -179,7 +181,7 @@
       ],
       "status": "done",
       "passes": true,
-      "review": "pending",
+      "review": "pass",
       "note": "/setup은 자리만 있음(#18). 세팅 화면↔대시보드 폴링 전환 추가"
     },
     {
@@ -295,6 +297,69 @@
       "area": "integrations",
       "deps": [],
       "status": "owner",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 27,
+      "title": "일정 share 필드: 타입·zod + 파서·쓰기에서 &그룹 토큰 보존 + 테스트",
+      "area": "common",
+      "deps": [
+        5,
+        6,
+        7
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 28,
+      "title": "스킨 토큰 구조(tokens.css + manifest, 색 슬롯 8개, night 변형) + default·두 번째 스킨 + data-skin 전환",
+      "area": "dashboard",
+      "deps": [
+        14,
+        15
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 29,
+      "title": "캐릭터 층(characters/<id>/, 스킨과 조합, none 지원)",
+      "area": "dashboard",
+      "deps": [
+        28
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 30,
+      "title": "스킨·캐릭터 고르기: /setup 1단계 미리보기, /settings, 슬랙 '스킨 <이름>' 명령(보호자만)",
+      "area": "setup",
+      "deps": [
+        18,
+        21,
+        22,
+        29
+      ],
+      "status": "todo",
+      "passes": false,
+      "review": null
+    },
+    {
+      "id": 31,
+      "title": "달력 보기 터치: 날짜·일정 상세 시트, 모든 달 이동, 120초 자동 복귀, DashboardViewState, /api/state?month, 키오스크 제스처 차단",
+      "area": "dashboard",
+      "deps": [
+        13,
+        14,
+        15
+      ],
+      "status": "todo",
       "passes": false,
       "review": null
     }
