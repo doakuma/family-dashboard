@@ -77,3 +77,8 @@
 - `ShareGroupId`·`Event.share?`, `shareGroupIdSchema`(`^[a-z0-9_-]+$`), 파서/직렬화가 `@구성원` 뒤·`#id` 앞 `&그룹` 토큰 보존. `Change`에는 share가 없어 LLM이 만들거나 바꿀 수 없고(event.update도 기존 값 유지), 제목의 단어 앞 `&`는 쓰기 거부·봇 cleanTitle이 제거.
 - 깨진 토큰(대문자·2개 이상·빈 `&`)은 줄을 살리고 share만 무시 + `readWiki().warnings`. `toPublicState`는 share를 내보내지 않음(테스트). sample-wiki에 `&cousins` 일정(evt-2b13) 추가, docs/wiki-format.md 갱신.
 - 검증: pnpm check 통과. 남은 문제: 그룹 id 대문자 허용 여부는 아래 보고 참고(소문자로 결정), 공유 동작·그룹 정의는 후속.
+
+## 2026-10-30 · #27 리뷰 되돌림 수정 (스펙 rev 54)
+- 그룹 id를 구성원 id와 같은 형식(`^[A-Za-z0-9_-]+$`)으로, 비교 헬퍼 `sameShareGroup`(대소문자 무시) 추가. 깨진 `&`토큰(2개 이상·`&`단독·`&bad!`)은 파서가 심볼 키 내부 필드로 원문을 들고 있다가 formatEventLine이 그대로 재기록(state·Change·JSON에는 안 나감), apply 테스트 추가.
+- 꼬리의 `@`/`&` 토큰은 순서 무관하게 읽고 정규 순서로 재기록, 꼬리 밖 `&x` 토큰이 제목에 남으면 경고. cleanTitle `&+`, auth.e2e 제외 키에 "share", docs/wiki-format.md 갱신.
+- 남은 문제: docs의 day-nov.png 재캡처는 메인(#18)과 충돌 방지로 하지 않음 — 메인 반영 후 재캡처 필요.
