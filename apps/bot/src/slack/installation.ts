@@ -23,7 +23,7 @@ export class EnvInstallationStore implements InstallationStore {
       isEnterpriseInstall: query.isEnterpriseInstall,
       tokenType: "bot",
       authVersion: "v2",
-    } as Installation<"v2", boolean>;
+    };
   }
 }
 
@@ -35,15 +35,22 @@ export function authorizeWith(
   store: InstallationStore,
   whoami: (token: string) => Promise<{ botId?: string; botUserId?: string }>,
 ): Authorize<boolean> {
-  const cache = new Map<string, { botId?: string; botUserId?: string }>();
+  const cache = new Map<string, { botId: string; botUserId: string }>();
   return async (source) => {
     const inst = await store.fetchInstallation({ teamId: source.teamId, enterpriseId: source.enterpriseId, isEnterpriseInstall: source.isEnterpriseInstall });
     const token = inst.bot?.token;
     if (!token) throw new Error("이 워크스페이스의 봇 설치 정보가 없어요");
     let who = cache.get(token);
     if (!who) {
-      who = { botId: inst.bot?.id || undefined, botUserId: inst.bot?.userId || undefined };
-      if (!who.botId || !who.botUserId) who = await whoami(token);
+      const botId = inst.bot?.id || undefined;
+      const botUserId = inst.bot?.userId || undefined;
+      // 두 값이 다 있을 때만 캐시한다(부분값을 캐시하면 빠진 쪽이 영영 안 채워진다). whoami가 던지면 캐시하지 않아 다음 이벤트에서 다시 시도한다.
+      if (botId && botUserId) who = { botId, botUserId };
+      else {
+        const r = await whoami(token);
+        if (r.botId && r.botUserId) who = { botId: r.botId, botUserId: r.botUserId };
+        else return { botToken: token, botId: r.botId, botUserId: r.botUserId, teamId: source.teamId, enterpriseId: source.enterpriseId };
+      }
       cache.set(token, who);
     }
     return { botToken: token, botId: who.botId, botUserId: who.botUserId, teamId: source.teamId, enterpriseId: source.enterpriseId };

@@ -26,4 +26,21 @@ describe("authorizeWith", () => {
     await authorize(src);
     expect(whoami).toHaveBeenCalledTimes(1);
   });
+  it("whoami가 한쪽 값만 주면 캐시하지 않고 다음에 다시 부른다", async () => {
+    const whoami = vi.fn<(t: string) => Promise<{ botId?: string; botUserId?: string }>>().mockResolvedValueOnce({ botId: "B1" }).mockResolvedValueOnce({ botId: "B1", botUserId: "U1" });
+    const authorize = authorizeWith(new EnvInstallationStore(cfg("xoxb-1")), whoami);
+    const src = { teamId: "T1", enterpriseId: undefined, isEnterpriseInstall: false } as const;
+    expect(await authorize(src)).toMatchObject({ botId: "B1", botUserId: undefined });
+    expect(await authorize(src)).toMatchObject({ botId: "B1", botUserId: "U1" });
+    await authorize(src);
+    expect(whoami).toHaveBeenCalledTimes(2);
+  });
+  it("whoami가 던지면 그 이벤트는 실패하고 다음 이벤트에서 다시 시도한다", async () => {
+    const whoami = vi.fn<(t: string) => Promise<{ botId?: string; botUserId?: string }>>().mockRejectedValueOnce(new Error("network")).mockResolvedValue({ botId: "B1", botUserId: "U1" });
+    const authorize = authorizeWith(new EnvInstallationStore(cfg("xoxb-1")), whoami);
+    const src = { teamId: "T1", enterpriseId: undefined, isEnterpriseInstall: false } as const;
+    await expect(authorize(src)).rejects.toThrow("network");
+    expect(await authorize(src)).toMatchObject({ botId: "B1", botUserId: "U1" });
+    expect(whoami).toHaveBeenCalledTimes(2);
+  });
 });

@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { findRegion, regionToConfigFields } from "../regions";
 import { needsSetup, type SetupInput } from "../types";
-import { DEFAULT_FAMILY_ID as FID } from "../types";
-import { FsWikiRepository } from "./fs-wiki";
+import { DEFAULT_FAMILY_ID as FID, asFamilyId } from "../types";
+import { FamilyMismatchError, FsWikiRepository } from "./fs-wiki";
 
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 
@@ -105,6 +105,15 @@ describe("FsWikiRepository.applySetup", () => {
     s.members[1]!.id = "mom";
     await expect(repo.applySetup(FID, s)).rejects.toMatchObject({ code: "invalid" });
     expect(existsSync(join(root, "config.md"))).toBe(false);
+    expect(git(root, "status", "--porcelain")).toBe("");
+  });
+
+  it("다른 가족 id로 부르면 FamilyMismatchError이고 아무것도 쓰지 않는다", async () => {
+    const repo = new FsWikiRepository({ root, familyId: asFamilyId("kim") });
+    const head = git(root, "rev-parse", "HEAD");
+    await expect(repo.applySetup(asFamilyId("lee"), setup())).rejects.toBeInstanceOf(FamilyMismatchError);
+    expect(existsSync(join(root, "config.md"))).toBe(false);
+    expect(git(root, "rev-parse", "HEAD")).toBe(head);
     expect(git(root, "status", "--porcelain")).toBe("");
   });
 

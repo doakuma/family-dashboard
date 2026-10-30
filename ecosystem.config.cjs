@@ -24,6 +24,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 10,
       restart_delay: 5000,
+      stop_exit_codes: [78], // 봇 토큰이 잘못됐을 때(설정 오류): 다시 띄워도 소용없어 멈춘다. 그 밖의 종료는 재시작
     },
   ],
 };
