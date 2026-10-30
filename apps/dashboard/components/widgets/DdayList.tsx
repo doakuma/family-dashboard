@@ -1,16 +1,15 @@
 import { diffDays, nextOccurrence, weekdayKo, type Anniversary } from "@hsh/core";
 import { colorOf } from "@/lib/palette";
+import { LIMITS } from "@/lib/view";
 import type { MemberMap } from "./MemberDot";
 import s from "./DdayList.module.css";
-
-const MAX = 5;
 
 /** 다가오는 기념일 가까운 순 5개. 생일이면 몇 살이 되는지 함께 보여 준다. */
 export function DdayList({ anniversaries, today, members }: { anniversaries: Anniversary[]; today: string; members: MemberMap }) {
   const upcoming = anniversaries
     .map((a) => ({ a, date: nextOccurrence(a.monthDay, today) }))
     .sort((x, y) => x.date.localeCompare(y.date))
-    .slice(0, MAX);
+    .slice(0, LIMITS.dday);
 
   return (
     <section className={s.dday} aria-labelledby="dday-title">

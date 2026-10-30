@@ -1,9 +1,8 @@
 import { WEEKDAYS_KO, monthGrid, weekdayOf, type Event } from "@hsh/core";
 import { colorOf } from "@/lib/palette";
+import { LIMITS, limit } from "@/lib/view";
 import type { MemberMap } from "./MemberDot";
 import s from "./MonthCalendar.module.css";
-
-const PER_CELL = 2;
 
 /** 일요일 시작 월간 달력. 칸당 최대 2건 + "외 n건". 색 막대는 첫 구성원 색. */
 export function MonthCalendar({ events, today, members }: { events: Event[]; today: string; members: MemberMap }) {
@@ -34,7 +33,7 @@ export function MonthCalendar({ events, today, members }: { events: Event[]; tod
       <ol className={s.grid} style={{ gridTemplateRows: `repeat(${days.length / 7}, minmax(0, 1fr))` }}>
         {days.map((d) => {
           const list = byDate.get(d) ?? [];
-          const more = list.length - PER_CELL;
+          const { shown, more } = limit(list, LIMITS.calendarCell);
           return (
             <li
               key={d}
@@ -46,7 +45,7 @@ export function MonthCalendar({ events, today, members }: { events: Event[]; tod
               aria-current={d === today ? "date" : undefined}
             >
               <span className={s.num}>{Number(d.slice(8))}</span>
-              {list.slice(0, PER_CELL).map((e) => (
+              {shown.map((e) => (
                 <span key={e.id} className={s.event} data-done={e.done || undefined} style={{ ["--bar" as string]: barColor(e) }}>
                   {e.title}
                 </span>

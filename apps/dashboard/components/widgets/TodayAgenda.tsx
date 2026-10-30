@@ -1,8 +1,7 @@
 import { addDays, type Event } from "@hsh/core";
+import { LIMITS, limit } from "@/lib/view";
 import { MemberDots, type MemberMap } from "./MemberDot";
 import s from "./TodayAgenda.module.css";
-
-const MAX = 6;
 
 function whenOf(e: Event) {
   if (e.allDay || !e.start) return "종일";
@@ -30,7 +29,7 @@ export function TodayAgenda({
 }) {
   const list = events.filter((e) => e.date === today);
   const tomorrow = events.find((e) => e.date === addDays(today, 1));
-  const shown = list.slice(0, MAX);
+  const { shown, more } = limit(list, LIMITS.agenda);
 
   return (
     <section className={s.agenda} aria-labelledby="agenda-title">
@@ -50,7 +49,7 @@ export function TodayAgenda({
               </span>
             </li>
           ))}
-          {list.length > MAX && <li className={s.more}>외 {list.length - MAX}건</li>}
+          {more > 0 && <li className={s.more}>외 {more}건</li>}
         </ol>
       )}
       {tomorrow && (
