@@ -29,6 +29,9 @@
   display: flex;
   min-height: 0;
   padding-top: 0.6rem;
+  /* 2행에 걸친 칸이라, 내용 높이가 auto 행(다가오는 날)을 밀어내지 않게 크기에 기여하지 않는다.
+     높이는 격자 영역이 정하고, 넘치는 일정은 안쪽 AutoScroll이 순환한다. */
+  contain: size;
 }
 .agenda > * {
   flex: 1;
@@ -53,6 +56,7 @@
 .night {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* 내용이 길어도 열이 화면보다 넓어지지 않게 */
   place-items: center;
   height: 100dvh;
   padding: var(--pad);

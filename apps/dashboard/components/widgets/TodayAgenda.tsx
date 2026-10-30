@@ -1,5 +1,6 @@
 import { addDays, type Event } from "@hsh/core";
-import { LIMITS, limit } from "@/lib/view";
+import { isPast, orderAgenda } from "@/lib/view";
+import { AutoScroll } from "../ui/AutoScroll";
 import { MemberDots, type MemberMap } from "./MemberDot";
 import s from "./TodayAgenda.module.css";
 
@@ -8,14 +9,10 @@ function whenOf(e: Event) {
   return e.start;
 }
 
-/** 지난 일정인지: 종일 일정은 하루 내내 '진행 중' */
-function isPast(e: Event, nowTime: string) {
-  if (e.done) return true;
-  if (e.allDay || !e.start) return false;
-  return (e.end ?? e.start) < nowTime;
-}
-
-/** 오늘 일정 시간순, 지난 일정 흐리게, 내일 첫 일정 1줄 */
+/**
+ * 오늘 일정: 남은 일정이 먼저(시간순), 지난 일정은 아래에 흐리게. 내일 첫 일정 1줄은 고정.
+ * 넘치면 목록만 천천히 자동 순환한다(AutoScroll). '외 n건' 없이 전부 싣는다.
+ */
 export function TodayAgenda({
   events,
   today,
@@ -27,30 +24,31 @@ export function TodayAgenda({
   nowTime: string;
   members: MemberMap;
 }) {
-  const list = events.filter((e) => e.date === today);
+  const { upcoming, past } = orderAgenda(events, today, nowTime);
+  const list = [...upcoming, ...past];
   const tomorrow = events.find((e) => e.date === addDays(today, 1));
-  const { shown, more } = limit(list, LIMITS.agenda);
 
   return (
     <section className={s.agenda} aria-labelledby="agenda-title">
       <h2 id="agenda-title" className={s.title}>
         오늘
       </h2>
-      {shown.length === 0 ? (
+      {list.length === 0 ? (
         <p className={s.empty}>오늘은 일정이 없어요</p>
       ) : (
-        <ol className={s.list}>
-          {shown.map((e) => (
-            <li key={e.id} className={s.item} data-past={isPast(e, nowTime) || undefined}>
-              <span className={s.when}>{whenOf(e)}</span>
-              <span className={s.what}>
-                <span className={s.name}>{e.title}</span>
-                <MemberDots ids={e.members} members={members} />
-              </span>
-            </li>
-          ))}
-          {more > 0 && <li className={s.more}>외 {more}건</li>}
-        </ol>
+        <AutoScroll className={s.scroll}>
+          <ol className={s.list}>
+            {list.map((e) => (
+              <li key={e.id} className={s.item} data-past={isPast(e, nowTime) || undefined}>
+                <span className={s.when}>{whenOf(e)}</span>
+                <span className={s.what}>
+                  <span className={s.name}>{e.title}</span>
+                  <MemberDots ids={e.members} members={members} />
+                </span>
+              </li>
+            ))}
+          </ol>
+        </AutoScroll>
       )}
       {tomorrow && (
         <p className={s.tomorrow}>

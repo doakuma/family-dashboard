@@ -13,6 +13,10 @@
   margin-bottom: 0.8rem;
 }
 
+.scroll {
+  flex: 0 1 auto; /* 내용이 짧으면 내용만큼, 길면 남은 높이까지만 */
+}
+
 .list {
   display: grid;
   gap: 0.55rem;
@@ -44,11 +48,16 @@
   text-overflow: ellipsis;
 }
 
+/* 지난 일정: 글자는 --muted(명암비 4.5:1 이상)로 흐리게. 투명도로 흐리게 하면 글자 명암비가 깨진다 */
 .item[data-past] {
-  opacity: 0.38;
+  color: var(--muted);
+  font-weight: 500;
 }
 
-.more,
+.item[data-past] .what {
+  font-weight: 500;
+}
+
 .empty {
   font-size: 1.05rem;
   color: var(--muted);
