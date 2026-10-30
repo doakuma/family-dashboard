@@ -57,14 +57,19 @@ function cleanKeyword(
   text: string,
   members: Member[],
   titles: string[],
+  dated: boolean,
 ): { keyword?: string; missing?: string } {
   const kept = (raw ?? "")
     .split(/\s+/)
     .filter((t) => t && !NON_KEYWORD.test(t));
   const kw = kept.join(" ").trim();
-  if (kw.length < 2 || !text.includes(kw) || members.some((m) => m.name === kw)) return {};
+  // 구성원 이름은 조사를 떼고 비교한다("하늘이", "엄마가")
+  const isMember = members.some((m) => kw.startsWith(m.name) && kw.length - m.name.length <= 2);
+  if (kw.length < 2 || !text.includes(kw) || isMember) return {};
   // 위키 제목에 맞으면 필터. 어디에도 없으면 관계없는 목록 대신 "그 이름은 위키에 없어요"로 답한다
-  return titles.some((t) => t.includes(kw)) ? { keyword: kw } : { missing: kw };
+  if (titles.some((t) => t.includes(kw))) return { keyword: kw };
+  // 기간이 정해진 질문이면 제목에 없는 단어는 버리고 그 기간 목록으로 답한다("계획", "행사"). 없다고 답하는 건 날짜 없는 질문("수영 언제야?")뿐
+  return dated ? {} : { missing: kw };
 }
 
 export function buildQuestion(
@@ -100,13 +105,14 @@ export function buildQuestion(
   const memberIds = members.filter((m) => m.id !== "family" && (text.includes(m.name) || (m.id !== m.name && containsWord(text, m.id)))).map((m) => m.id);
   if (/(^|\s)(나|내|제)(\s|가|의|$)/.test(text) && senderId && !memberIds.includes(senderId)) memberIds.push(senderId);
 
-  const { keyword, missing: missingKeyword } = cleanKeyword(o.keyword, text, members, titles);
+  const llmR = llmRange(o, today);
+  const { keyword, missing: missingKeyword } = cleanKeyword(o.keyword, text, members, titles, !!codeRange || !!llmR);
 
   // 기간: 코드가 원문에서 계산한 값이 LLM 값보다 우선.
   // 둘 다 없으면 "언제"를 묻거나 기념일만 물을 땐 365일, 키워드가 있으면 400일, 아니면 앞으로 7일.
   let range: DateRange | undefined;
   if (targets.some((t) => t !== "tasks")) {
-    range = codeRange ?? llmRange(o, today);
+    range = codeRange ?? llmR;
     if (!range) {
       const whenAsked = /언제/.test(s) || (targets.length === 1 && targets[0] === "anniversaries");
       range = { from: today, to: addDays(today, whenAsked ? WHEN_DAYS : keyword ? 400 : DEFAULT_DAYS - 1) };

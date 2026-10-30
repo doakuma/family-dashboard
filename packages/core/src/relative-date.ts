@@ -20,6 +20,9 @@ export const mondayOf = (date: string) => addDays(date, -((weekdayOf(date) + 6) 
 /** 날짜 표현이 들어 있는지(공백 뺀 문장 기준). 해석 가능 여부와는 별개 */
 const DATE_HINT = /오늘|내일|모레|글피|어제|이번|다음|담주|지난|저번|금주|금월|주말|[일월화수목금토]요일|\d+월|\d+일|\d{4}년/;
 
+/** "말고" 뒤가 다른 때를 묻는 말(날짜는 아님) */
+const ALT_HINT = /언제|다른|딴|빼고|외에/;
+
 /** s는 공백을 뺀 문장, text는 원문. "금주"는 단어 시작에서만("지금 주문"에 안 맞게) */
 const weekOffset = (s: string, text: string): number | undefined => {
   if (/다다음주/.test(s)) return 2;
@@ -43,10 +46,14 @@ export function resolveDateRange(text: string, today: string): DateRange | undef
   if (neg) {
     const before = text.slice(0, neg.index).replace(/\s+/g, "");
     const after = text.slice(neg.index + neg[0].length);
-    if (!DATE_HINT.test(after.replace(/\s+/g, ""))) return resolveDateRange(text.slice(0, neg.index), today);
+    const compactAfter = after.replace(/\s+/g, "");
+    if (!DATE_HINT.test(compactAfter)) {
+      // "토요일 말고 다른 날", "이번 주 말고 언제가 좋아?": 대안을 묻는 말이면 A를 쓰지 않는다
+      return ALT_HINT.test(compactAfter) ? undefined : resolveDateRange(text.slice(0, neg.index), today);
+    }
     const wk = weekOffset(before, text.slice(0, neg.index));
     const hasWeek = weekOffset(after.replace(/\s+/g, ""), after) !== undefined || /주말/.test(after.replace(/\s+/g, ""));
-    const prefix = wk !== undefined && !hasWeek && /[일월화수목금토]요일/.test(after) ? ({ "-1": "지난 주", 0: "이번 주", 1: "다음 주", 2: "다다음 주" } as Record<number, string>)[wk] ?? "" : "";
+    const prefix = wk !== undefined && !hasWeek && /[일월화수목금토]요일/.test(after) ? (["지난 주", "이번 주", "다음 주", "다다음 주"][wk + 1] ?? "") : "";
     return resolveDateRange(`${prefix} ${after}`, today);
   }
   const s = text.replace(/\s+/g, "");

@@ -192,9 +192,25 @@ describe("질문 응답: 리뷰 되돌림 수정", () => {
     }
   });
   it("원문에 있지만 위키 제목 어디에도 없는 keyword는 관계없는 목록 대신 없다고 답한다", async () => {
-    const a = await ask("이번 주 토요일 수영 뭐 있어?", { intent: "question", keyword: "수영" });
-    expect(a).toBe("'수영'은 위키에 없어요.");
+    expect(await ask("수영 언제야?", { intent: "question", keyword: "수영" })).toBe("'수영'은 위키에 없어요.");
     expect(await ask("치과 말고 학원 언제야?", { intent: "question", keyword: "학원" })).toBe("'학원'은 위키에 없어요.");
+  });
+  it("기간이 정해진 질문에서는 제목에 없는 keyword를 버리고 그 기간 목록으로 답한다", async () => {
+    const cases: [string, string][] = [
+      ["이번 주 토요일 계획 있어?", "계획"],
+      ["이번 주 토요일 가족 행사 있어?", "행사"],
+      ["이번 주 토요일 하늘이 뭐 해?", "하늘이"],
+      ["이번 주 토요일 하는 날이야?", "하는 날이야"],
+      ["이번 주 토요일 수영 뭐 있어?", "수영"],
+    ];
+    for (const [text, keyword] of cases) {
+      const a = await ask(text, { intent: "question", keyword });
+      expect(a, text).toContain("핼러윈 파티");
+      expect(a, text).not.toContain("위키에 없어요");
+    }
+    // 검증된 LLM 기간만 있어도 마찬가지
+    const b = await ask("그날 계획 뭐야", { intent: "question", keyword: "계획", from: "2026-10-31", to: "2026-10-31" });
+    expect(b).toContain("핼러윈 파티");
   });
   it("'토요일에 핼러윈 말고 뭐 있어?' -> 말고 뒤에 날짜가 없으면 앞쪽 날짜(토요일)로 답한다", async () => {
     const a = await ask("토요일에 핼러윈 말고 뭐 있어?");
