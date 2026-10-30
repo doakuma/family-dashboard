@@ -33,7 +33,7 @@
   color: var(--ink);
   background: var(--sheet);
   border: 2px solid var(--muted);
-  border-radius: 0.6rem;
+  border-radius: var(--radius-sm);
 }
 .input[aria-invalid="true"],
 .select[aria-invalid="true"],
@@ -58,7 +58,7 @@
 }
 .group[aria-invalid="true"] {
   border: 2px solid var(--warn);
-  border-radius: 0.8rem;
+  border-radius: var(--radius-md);
   padding: 0.35rem;
 }
 .choice {
@@ -89,7 +89,7 @@
   color: var(--ink);
   background: var(--sheet);
   border: 2px solid var(--muted);
-  border-radius: 0.6rem;
+  border-radius: var(--radius-sm);
 }
 .choice input:checked + span {
   color: var(--sheet);
@@ -114,7 +114,7 @@
   color: var(--ink);
   background: var(--sheet);
   border: 2px solid var(--line);
-  border-radius: 0.6rem;
+  border-radius: var(--radius-sm);
 }
 .swatch i {
   display: block;
@@ -137,7 +137,7 @@
   font: inherit;
   font-size: 1rem;
   font-weight: 600;
-  border-radius: 0.6rem;
+  border-radius: var(--radius-sm);
   border: 2px solid var(--ink);
   cursor: pointer;
 }

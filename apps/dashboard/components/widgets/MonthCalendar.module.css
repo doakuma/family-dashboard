@@ -4,7 +4,8 @@
   min-height: 0;
   padding: 1.1rem 1.2rem 1.2rem;
   background: var(--sheet);
-  border-radius: 1.6rem;
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
 }
 
 .month {
@@ -97,7 +98,7 @@
   display: block;
   padding: 0.05rem 0.3rem 0.05rem 0.4rem;
   border-left: 0.28rem solid var(--bar);
-  border-radius: 0.2rem;
+  border-radius: var(--radius-xs);
   background: color-mix(in srgb, var(--bar) 13%, transparent);
   font-size: 0.88rem;
   font-weight: 600;

@@ -63,8 +63,8 @@ export async function getDashboardState(at?: Date): Promise<DashboardState> {
   const [state, days] = await Promise.all([getWiki().read(config.get("familyId")), source.week().catch(() => [])]);
   logWikiWarnings(state.warnings);
   // 경고는 화면 상태에 싣지 않는다(허용 목록으로 골라 담는다)
-  const { familyId, config: familyConfig, members, events, tasks, anniversaries } = state;
-  return { familyId, config: familyConfig, members, events, tasks, anniversaries, weather: days, updatedAt: new Date().toISOString() };
+  const { familyId, config: familyConfig, skin, character, members, events, tasks, anniversaries } = state;
+  return { familyId, config: familyConfig, skin, character, members, events, tasks, anniversaries, weather: days, updatedAt: new Date().toISOString() };
 }
 
 /** /api/state 응답과 첫 화면이 같이 쓰는 공개용 상태(태블릿에 필요한 필드만) + 세팅 필요 여부 */

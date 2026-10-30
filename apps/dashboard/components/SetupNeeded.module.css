@@ -43,7 +43,7 @@
   width: min(100%, 26rem);
   padding: 1.6rem;
   background: #fff;
-  border-radius: 1.6rem;
+  border-radius: var(--radius-lg);
 }
 
 .qr svg {

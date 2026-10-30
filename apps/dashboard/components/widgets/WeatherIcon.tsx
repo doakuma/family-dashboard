@@ -9,9 +9,10 @@ const LABEL: Record<Icon, string> = {
   snow: "눈",
 };
 
-const SUN = "#E8A317";
-const CLOUD = "#9AABB3";
-const DROP = "#3A73D6";
+// 색은 스킨 토큰(--icon-*)에서 온다
+const SUN = "var(--icon-sun)";
+const CLOUD = "var(--icon-cloud)";
+const DROP = "var(--icon-drop)";
 
 function Sun({ cx = 16, cy = 16, r = 6 }) {
   return (

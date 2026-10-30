@@ -1,0 +1,71 @@
+/* 스킨 paper (임시 검증용): 따뜻한 종이 톤. 구조·전환·대비 테스트를 위해 default와 확연히 다르게만 만들었다.
+   캐릭터·IP 요소 없음. 계약은 skins/contract.ts. */
+[data-skin="paper"] {
+  --paper: #f4ead6;
+  --sheet: #fffaf0;
+  --ink: #3a2c1f;
+  --muted: #6b5844;
+  --faint: #b7a68b; /* 장식 전용 */
+  --line: #decfb2;
+  --text-sunday: #a8341f;
+  --text-saturday: #2f5aa0;
+  --text-precip: #2f5aa0;
+  --warn: #a8341f;
+
+  --member-coral: #d9503c;
+  --member-teal: #0f7d6a;
+  --member-blue: #2f63c4;
+  --member-amber: #b07000;
+  --member-green: #4f8a2b;
+  --member-purple: #7a52bf;
+  --member-pink: #c9477f;
+  --member-gray: #857a6c;
+
+  --icon-sun: #d98e0b;
+  --icon-cloud: #b3a58e;
+  --icon-drop: #2f63c4;
+
+  --font-display: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+  --font-body: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+
+  --radius-xs: 0.1rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.35rem;
+  --radius-lg: 0.6rem;
+  --shadow-card: 0 0.1rem 0.4rem rgb(58 44 31 / 14%);
+  --gap: 1.25rem;
+  --pad: 1.5rem;
+  --deco-bg: repeating-linear-gradient(0deg, transparent 0 1.9rem, rgb(58 44 31 / 4%) 1.9rem 2rem); /* 줄 노트 느낌 */
+
+  color-scheme: light;
+}
+
+[data-skin="paper"][data-tone="dim"] {
+  --paper: #231c15;
+  --sheet: #2b231a;
+  --ink: #e6d9c3;
+  --muted: #bcab91;
+  --faint: #5e5140;
+  --line: #3b3022;
+  --text-sunday: #ff9f8a;
+  --text-saturday: #9dbcf2;
+  --text-precip: #9dbcf2;
+  --warn: #ffa08a;
+
+  --member-coral: #ee7a66;
+  --member-teal: #35b39d;
+  --member-blue: #77a3ee;
+  --member-amber: #e0a22a;
+  --member-green: #7fb85a;
+  --member-purple: #ad8ae6;
+  --member-pink: #e87dab;
+  --member-gray: #a39683;
+
+  --icon-sun: #e0a22a;
+  --icon-cloud: #7d705c;
+  --icon-drop: #77a3ee;
+
+  --deco-bg: repeating-linear-gradient(0deg, transparent 0 1.9rem, rgb(230 217 195 / 3%) 1.9rem 2rem);
+
+  color-scheme: dark;
+}

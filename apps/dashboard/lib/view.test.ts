@@ -1,7 +1,9 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { type Event } from "@hsh/core";
+import { SKIN_IDS, type Event } from "@hsh/core";
 import { describe, expect, it } from "vitest";
+import { contrast, over } from "../skins/color";
+import { readSkinTokens } from "../skins/read-tokens";
 import { DDAY_SOON_DAYS, LIMITS, STALE_AFTER_MS, isNight, isPast, isSoon, isStale, limit, orderAgenda } from "./view";
 
 describe("isNight", () => {
@@ -97,39 +99,23 @@ describe("오늘 일정 순서", () => {
   });
 });
 
-// ---- 명암비: 글자에 쓰는 색은 4.5:1 이상 (실제 CSS에서 글자색 토큰을 모아 검사, 투명도도 반영) ----
+// ---- 명암비: 글자에 쓰는 색은 4.5:1 이상 (실제 CSS에서 글자색 토큰을 모아 스킨 × 톤 전체를 검사, 투명도도 반영) ----
 const appDir = join(import.meta.dirname, "..");
-const globalsCss = readFileSync(join(appDir, "app/globals.css"), "utf8");
 const cssFiles = ["components", "components/widgets", "components/ui", "components/ui/form", "components/setup"].flatMap((d) =>
   readdirSync(join(appDir, d))
     .filter((n) => n.endsWith(".css"))
     .map((n) => ({ name: n, path: join(d, n), text: readFileSync(join(appDir, d, n), "utf8") })),
 );
 
-function tokens(block: string) {
-  return Object.fromEntries([...block.matchAll(/--([a-z-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]]));
-}
-const day = tokens(/:root\s*{([^}]*)}/.exec(globalsCss)?.[1] ?? "");
-const dim = { ...day, ...tokens(/\[data-tone="dim"\]\s*{([^}]*)}/.exec(globalsCss)?.[1] ?? "") };
-const tones = [["낮", day], ["어두운 톤", dim]] as const;
-
-const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-function lum(hex: string) {
-  const [r, g, b] = rgb(hex).map((v) => {
-    const c = v / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b ?? 0);
-}
-const ratio = (a: string, b: string) => {
-  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
-  return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
-};
-/** 투명도 alpha로 bg 위에 올린 fg의 실제 색 */
-function over(fg: string, bg: string, alpha: number) {
-  const [f, b] = [rgb(fg), rgb(bg)];
-  return `#${f.map((v, i) => Math.round(v * alpha + (b[i] ?? 0) * (1 - alpha)).toString(16).padStart(2, "0")).join("")}`;
-}
+/** 스킨 × 톤 조합. 새 스킨은 SKIN_IDS에 더하면 여기에 자동으로 들어온다. */
+const tones = SKIN_IDS.flatMap((id) => {
+  const t = readSkinTokens(id);
+  return [
+    { label: `${id} 낮`, skin: id, tone: "day" as const, t: t.day },
+    { label: `${id} 어두운 톤`, skin: id, tone: "dim" as const, t: t.dim },
+  ];
+});
+const ratio = contrast;
 
 /** CSS 규칙 [{file, selector, body}] */
 const rules = cssFiles.flatMap((f) => [...f.text.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ file: f.name, selector: (m[1] ?? "").trim().replace(/\s+/g, " "), body: m[2] ?? "" })));
@@ -158,7 +144,10 @@ describe("명암비", () => {
 
   // 글자색으로 쓰이는 토큰을 순회한다(스킨이 늘면 tones에 스킨별 토큰 집합만 더하면 된다). sheet는 ink 바탕 위 글자라 따로 검사.
   const textTokens = [...used].filter((u) => u !== "sheet");
-  for (const [name, t] of tones) {
+  it("모든 스킨·톤을 순회한다 (2종 × 낮/어두운 톤)", () => {
+    expect(tones.map((t) => t.label)).toEqual(["default 낮", "default 어두운 톤", "paper 낮", "paper 어두운 톤"]);
+  });
+  for (const { label: name, t } of tones) {
     for (const fg of textTokens) {
       for (const bg of ["paper", "sheet"] as const) {
         it(`${name}: ${fg} on ${bg} >= 4.5`, () => {
@@ -221,12 +210,13 @@ describe("투명도(opacity)를 반영한 명암비", () => {
     const rule = found.find((f) => f.file === c.file && f.selector === c.selector);
     it(`${c.file} ${c.selector}`, () => {
       expect(rule, "표에 있는 규칙이 CSS에서 사라졌어요").toBeDefined();
-      const t = c.tone === "dim" ? dim : day;
-      for (const fg of c.fg) {
-        for (const bg of c.bg) {
-          const effective = ratio(over(t[fg] ?? "", t[bg] ?? "", rule?.opacity ?? 1), t[bg] ?? "");
-          if (c.exempt) expect(effective).toBeGreaterThan(1); // 등록만 하고 면제(사유는 표에)
-          else expect(effective, `${fg} on ${bg} @${rule?.opacity}`).toBeGreaterThanOrEqual(4.5);
+      for (const { label, t } of tones.filter((x) => x.tone === c.tone)) {
+        for (const fg of c.fg) {
+          for (const bg of c.bg) {
+            const effective = ratio(over(t[fg] ?? "", t[bg] ?? "", rule?.opacity ?? 1), t[bg] ?? "");
+            if (c.exempt) expect(effective).toBeGreaterThan(1); // 등록만 하고 면제(사유는 표에)
+            else expect(effective, `${label}: ${fg} on ${bg} @${rule?.opacity}`).toBeGreaterThanOrEqual(4.5);
+          }
         }
       }
     });

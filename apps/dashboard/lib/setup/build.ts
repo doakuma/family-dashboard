@@ -1,6 +1,8 @@
 // draft -> 서버로 보내는 SetupInput, 서버 오류 경로 -> 화면 필드, 6단계 미리보기 상태.
 import {
+  DEFAULT_CHARACTER,
   DEFAULT_FAMILY_ID,
+  DEFAULT_SKIN,
   familyMember,
   findRegion,
   regionToConfigFields,
@@ -121,6 +123,8 @@ export function toPreviewState(d: Draft, now: Date, weather: WeatherDay[] = []):
   const state: DashboardState = {
     familyId: DEFAULT_FAMILY_ID, // 미리보기용 - 공개 상태에는 어차피 안 나간다
     config,
+    skin: DEFAULT_SKIN, // 스킨 고르기는 #30
+    character: DEFAULT_CHARACTER,
     members: [...input.members, familyMember(config)],
     events: [],
     tasks: [],
