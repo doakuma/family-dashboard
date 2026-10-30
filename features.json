@@ -193,7 +193,7 @@
       ],
       "status": "done",
       "passes": true,
-      "review": "pending",
+      "review": "pass",
       "note": "리뷰 통과(80290f3..bd667fd) 뒤 #18이 추가 변경: setup/page.tsx(마법사 연결·휴대폰 표면 감싸기), auth/form.ts(readSmallJson 추가), setup-token.ts(revokeAll 추가), auth.e2e.mjs 단언 1줄. 모두 덧붙임이라 기존 동작은 그대로. 해당 diff만 재확인 필요(passes는 오너 판단)"
     },
     {
@@ -205,9 +205,9 @@
         17
       ],
       "status": "done",
-      "passes": false,
-      "review": "pending",
-      "note": "6단계 마법사·applySetup 구현 완료, 리뷰 대기. 결정 0003. 지역표는 기상청 원본과 대조 전(docs/regions.md). 슬랙 연결 코드(#19)·캘린더 연결 테스트(#11)는 자리만"
+      "passes": true,
+      "review": "pass",
+      "note": "6단계 마법사·applySetup 구현 완료, 리뷰 대기. 결정 0003. 지역표는 기상청 원본과 대조 전(docs/regions.md). 슬랙 연결 코드(#19)·캘린더 연결 테스트(#11)는 자리만 리뷰 통과(8584258..7d0a15d), 후속 [중간] 4건 별도 처리."
     },
     {
       "id": 19,
