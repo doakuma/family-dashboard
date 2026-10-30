@@ -108,10 +108,10 @@
         6,
         8
       ],
-      "status": "in_progress",
-      "note": "슬랙 연결 없이 로직까지 구현(순수 함수 answerQuestion, 코드가 답 조립, 상대 날짜 파서는 월요일 시작). 슬랙 핸들러 연결은 #9, 권한은 #21.",
-      "passes": false,
-      "review": "pending"
+      "status": "done",
+      "note": "슬랙 연결 없이 question 경로(LLM은 구조화 필드만, 답은 위키 항목으로 코드가 조립) + try --offline/--now. 후속[중간]: LLM 기간만 있을 때 dated 판정('수영 언제야?'+기간→관계없는 목록, dated=!!codeRange로), ALT_HINT '다른'이 '핼러윈 말고 다른 거 있어?'의 날짜를 버림. [낮음]: 이름+2자 이내 단어를 구성원으로 봄(하늘공원), '11월 3일 말고 4일' 미해석, 생일파티 vs 생일, 가족 항목 포함. 오너 확인: 월요일 시작 주라 일요일의 '이번 주 토요일'=어제. 실제 LLM 스모크는 #9 때. 슬랙 연결 #9, 권한 #21.",
+      "passes": true,
+      "review": "pass"
     },
     {
       "id": 11,
