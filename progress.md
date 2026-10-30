@@ -100,3 +100,9 @@
 - [낮음] 401 안내(새 탭 PIN 후 원래 탭), 구성원·기념일 삭제 후 포커스 이동, fs-wiki JSDoc 위치, setupSchema id 32자·기념일 구성원 정확 일치, Windows 예약어 slug -2, build.ts 캐스팅 제거, ReviewStep key, 월·일을 공용 FieldGroup으로.
 - setup e2e는 `--shots`일 때만 캡처, 2단계->이전->1단계 포커스·하단 버튼 가림 검증 추가. docs/screens/day-nov.png를 sample-wiki 기준으로 재캡처(11/15 일정 포함).
 - 검증: pnpm check(379 테스트)·build, e2e 3종 통과(setup은 SKIP_TABLET_WAIT). 남은 문제: 실기기 키보드·가림은 #24. #18은 passes=false, review=pending(재리뷰 대기).
+
+## 2026-10-30 · #32 서비스 전환 이음새 (결정 0003, 스펙 rev 59) - 동작 변경 없음
+- 1 `FamilyId` 브랜드 타입(`DEFAULT_FAMILY_ID`, `HSH_FAMILY_ID`)을 `DashboardState`와 `WikiRepository.read/apply/applySetup` 첫 인자에. Fs 구현은 다른 id면 거부. `/api/state` 응답엔 없음(테스트). 2 결과를 `{version, synced, syncError?}`로 중립화(호출부·화면·테스트·문서 갱신, version은 서버 로그에만).
+- 3 `ConfigProvider` 포트 + `EnvConfigProvider`; 대시보드는 서버 전용 `lib/config.ts`. 앱의 `process.env` 직접 참조는 eslint가 막고 예외는 server.ts·proxy.ts뿐. 4 `LlmAdapter` core 포트(구현은 봇). 5 `EnvInstallationStore` + `authorizeWith`(Bolt authorize 훅), Socket Mode 유지.
+- 문서: 0003 '현재 코드와의 차이'에 반영 결과, wiki-format.md·0004의 commit/pushed 용어 갱신. features #18 passes=true·review=pass 반영(오너 지시), #32 추가(passes=false, review=pending).
+- 남은 문제: 봇 슬랙 연결은 실제 토큰이 없어 단위 테스트만(authorize 훅 실연결 미확인). 가족별 설정(`get(key, familyId)`)·메시지→가족 매핑은 서비스 전환 때.

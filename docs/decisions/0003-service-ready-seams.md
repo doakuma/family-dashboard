@@ -35,9 +35,11 @@
 - 저장 방식은 이미 어댑터(`WikiRepository`) 뒤에 있어 교체 비용이 국소적이다.
 - 전체 암호화는 LLM Wiki 취지(사람·LLM이 마크다운을 직접 읽음)와 충돌하므로 민감 폴더만 암호화한다.
 
-## 현재 코드와의 차이 (2026-10-30 기준, 후속 작업)
-- `WikiRepository.apply`가 `{ commit, pushed, pushError }`를 돌려준다 → 2번 위반. 중립 결과(`version`, `synced`, `syncError` 등)로 바꾼다.
-- core 타입에 `familyId` 없음 → 1번 추가 필요.
-- LLM은 `apps/bot/src/llm/client.ts`에서 `LLM_PROVIDER`(ollama | anthropic)로 이미 분리됨 → 4번은 core 포트로 올릴지만 판단. 설정은 `process.env` 직접 참조 → 3번 대상.
-- 봇은 `new App({ token })` 단일 토큰 → 5번 대상.
-- git-crypt 세팅, 키 백업 절차, 금지 패턴 필터 → 할 일 추가 필요.
+## 현재 코드와의 차이 (2026-10-30 기준, #32에서 1~5번 반영)
+- 반영됨(1) `familyId`: core에 브랜드 타입 `FamilyId`(`asFamilyId`·`isFamilyId`, MVP 값 `DEFAULT_FAMILY_ID="default"`, 설정 `HSH_FAMILY_ID`). `DashboardState`/`WikiState.familyId`, `WikiRepository.read/apply/applySetup`의 첫 인자. `FsWikiRepository`는 생성 옵션 `familyId`(폴더 하나 = 가족 하나)를 갖고 다른 id로 부르면 `FamilyMismatchError`. 위키 파일 형식은 그대로이고 `toPublicState`(/api/state)는 내보내지 않는다(테스트). 봇 메시지(`IncomingMessage`)에 가족을 싣는 것(설치 -> 가족 매핑)은 서비스 전환 때.
+- 반영됨(2) 결과 중립화: `apply`·`applySetup`이 `WriteResult { version, synced, syncError? }`를 돌려준다. `FsWikiRepository`의 `version`은 커밋 sha이고 git 용어는 구현 클래스 안에만 있다. 대시보드 응답(`/api/setup/complete`)은 `{ok, synced, syncError?}`만 내보내고 version은 서버 로그에 남긴다.
+- 반영됨(3) `ConfigProvider`: core 포트 `get(key)`와 키 타입 `AppConfig`(familyId·nodeEnv·port·wikiRepoPath·dashboardBaseUrl·adminPinHash·llm·slack). MVP 구현 `EnvConfigProvider`(`@hsh/core/node`, 호출마다 env를 읽음). 대시보드는 서버 전용 `lib/config.ts`(`server-only`)로만 쓴다. `llm` 키는 읽을 때만 검증한다. 앱 코드의 `process.env`는 eslint가 막고, 예외는 `server.ts`(Next보다 먼저 뜨는 부트스트랩, Node가 직접 실행해 core를 못 불러옴)와 `proxy.ts`(서버가 만든 내부 증명 비밀값)뿐. `loadEnvConfig` 선로딩 유지.
+  - 판단: 포트는 동기(`get`)로 했다. 환경 변수는 이미 메모리에 있고, DB 구현은 시작할 때 읽어 캐시하게 한다. 가족별 값(adminPinHash 등)이 필요해지면 `get(key, familyId)`로 넓힌다.
+- 반영됨(4) `LlmAdapter`·`LlmRequest`는 core 포트(`ports.ts`), 봇은 포트만 안다(`extractIntent(…, llm: LlmAdapter)`). 구현(Ollama/Anthropic)과 `createLlmAdapter(LlmConfig)`는 봇에 둔다 - SDK 의존이 봇에만 필요하고 core는 브라우저에서도 불러서. 설정은 `config.get("llm")`.
+- 반영됨(5) 슬랙: `EnvInstallationStore`(Bolt `InstallationStore` 호환, `fetchInstallation()`이 env 토큰 하나를 돌려줌)와 `authorizeWith(store, whoami)`. Bolt는 저장소를 직접 쓰려면 OAuth 설치 설정(clientId 등)이 필요해서 `authorize` 훅으로 잇는다. 봇 id는 `auth.test`로 한 번 채워 캐시. Socket Mode(`appToken`)는 그대로.
+- 남음: git-crypt 세팅, 키 백업 절차, 금지 패턴 필터 -> 할 일 추가 필요(별도).

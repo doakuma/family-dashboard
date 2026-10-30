@@ -365,6 +365,20 @@
       "passes": false,
       "review": null,
       "note": "수용 기준: 핀치 줌 차단 e2e 포함"
+    },
+    {
+      "id": 32,
+      "title": "서비스 전환 이음새(결정 0003)",
+      "area": "common",
+      "deps": [
+        7,
+        8,
+        18
+      ],
+      "status": "done",
+      "passes": false,
+      "review": "pending",
+      "note": "familyId 브랜드 타입, WriteResult{version,synced,syncError?}, ConfigProvider(+EnvConfigProvider, 앱 process.env eslint 금지), LlmAdapter 코어 포트, 슬랙 InstallationStore(authorize 연결). 동작 변경 없음. git-crypt·금지 패턴 필터·DB 저장소·멀티 테넌트 동작은 하지 않음."
     }
   ]
 }

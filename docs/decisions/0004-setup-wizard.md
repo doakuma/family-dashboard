@@ -5,9 +5,9 @@
 
 ## 결정
 
-### 쓰기: `WikiRepository.applySetup(setup, { overwrite? })`
+### 쓰기: `WikiRepository.applySetup(familyId, setup, { overwrite? })`
 - `Change` 유니언은 늘리지 않았다. LLM·봇 경로에서는 부를 수 없는 별도 메서드이고, 입력 타입은 `SetupInput`(config + members + anniversaries).
-- `FsWikiRepository`는 쓰기 큐 안에서 한꺼번에 처리한다: 검증(`setupSchema`) -> 세팅 필요 판정 -> 덮어쓰기 확인 -> 파일 계산(`buildSetupFiles`, 순수 함수) -> 커밋 하나 -> push. `apply`와 같은 `commitFiles`를 쓴다(파일 쓰기, 경로 지정 커밋, 실패 시 파일·index 롤백, push 실패는 `pushed:false`).
+- `FsWikiRepository`는 쓰기 큐 안에서 한꺼번에 처리한다: 검증(`setupSchema`) -> 세팅 필요 판정 -> 덮어쓰기 확인 -> 파일 계산(`buildSetupFiles`, 순수 함수) -> 커밋 하나 -> push. `apply`와 같은 `commitFiles`를 쓴다(파일 쓰기, 경로 지정 커밋, 실패 시 파일·index 롤백, push 실패는 `synced:false` - 결과는 `{version, synced, syncError?}`, #32에서 git 용어 중립화).
 - 파일: `config.md`(+`setupCompletedAt`, Asia/Seoul +09:00), `members/<id>.md`, `anniversaries.md`(MM-DD 순, 같은 줄은 한 번), 그리고 `log.md` 한 줄(`[setup]`). 커밋 메시지 `[setup] 가족 세팅: 햇살네 (구성원 2명, 기념일 3건)`, 작성자 `setup`.
 - **세팅이 필요할 때만 쓴다**(needsSetup = config가 없거나 구성원 0명). 아니면 `SetupError("already_done")` -> HTTP 409. 두 번 눌러도 큐 안에서 판정하므로 한 번만 쓴다(테스트).
 - 세팅 전이지만 이전 세팅 파일(config.md·members/*.md·기념일)이 남아 있으면 `needs_confirm`(409). 화면은 6단계에 "덮어쓰기" 체크를 보여 주고 `overwrite:true`로 다시 보낸다. 덮어쓰면 목록에 없는 이전 `members/*.md`는 지우고(같은 커밋, 롤백 시 복원) 기념일 파일은 새 내용으로 대체한다. 위키(git)에는 이전 내용이 남는다.
