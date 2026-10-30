@@ -142,7 +142,7 @@ describe("질문 응답: 기간 표현과 경계", () => {
   it("연말 경계: 12/31에 '내일'은 1/1, '모레'는 1/2", async () => {
     const eve = new Date("2026-12-31T03:00:00Z");
     expect(await ask("모레 뭐 있어?", { intent: "question" }, eve)).toContain("새해 등산");
-    expect(await ask("내일 뭐 있어?", { intent: "question" }, eve)).toBe("1/1(금) 일정은 위키에 없어요.");
+    expect(await ask("내일 뭐 있어?", { intent: "question" }, eve)).toBe("2027년 1/1(금) 일정은 위키에 없어요.");
     expect(await ask("오늘 일정", { intent: "question" }, eve)).toContain("송년 모임");
   });
   it("서버 기준 시각(서울): UTC로는 아직 전날이어도 서울 날짜로 계산", async () => {
@@ -171,7 +171,7 @@ describe("질문 응답: 할 일·기념일", () => {
   });
   it("비었으면 없다고", async () => {
     const r = await answerQuestion({ text: "장보기 뭐 남았어?", now, ...wiki, tasks: [] }, fake({ intent: "question" }));
-    expect(r.text).toBe("남은 장보기이 위키에 없어요.");
+    expect(r.text).toBe("남은 장보기가 위키에 없어요.");
   });
   it("기념일/생일 질문", async () => {
     const a = await ask("다음 달 생일 있어?");
@@ -179,6 +179,56 @@ describe("질문 응답: 할 일·기념일", () => {
     expect(a).toContain("아빠 생일");
     expect(a).not.toContain("크리스마스");
     expect(await ask("이번 달 기념일 뭐 있어?")).toBe("10/1(목)~10/31(토) 기념일은 위키에 없어요.");
+  });
+});
+
+describe("질문 응답: 리뷰 되돌림 수정", () => {
+  it("keyword가 요일·서술어여도 필터로 쓰지 않는다", async () => {
+    for (const keyword of ["토요일", "있어", "이번 주 토요일", "뭐 있어"]) {
+      const a = await ask("이번 주 토요일 뭐 있어?", { intent: "question", keyword });
+      expect(a).toContain("핼러윈 파티");
+      expect(a).toContain("치과");
+      expect(a).not.toContain("위키에 없어요");
+    }
+  });
+  it("원문에 있지만 위키 제목 어디에도 없는 keyword는 버린다", async () => {
+    const a = await ask("이번 주 토요일 수영 뭐 있어?", { intent: "question", keyword: "수영" });
+    expect(a).toContain("핼러윈 파티");
+  });
+  it("제목에 맞는 keyword는 그대로 필터", async () => {
+    const a = await ask("치과 언제야?", { intent: "question", keyword: "치과" });
+    expect(a).toContain("치과");
+    expect(a).not.toContain("핼러윈");
+  });
+  it("'말고' 질문은 뒤쪽 기간으로 답한다", async () => {
+    const a = await ask("이번 주 말고 다음 주 뭐 있어?");
+    expect(a).toContain("11/2(월)~11/8(일)");
+    expect(a).toContain("학부모 상담");
+  });
+  it("'하늘 생일 언제야?' -> 날짜 표현이 없으면 1년을 본다(기념일은 다음 돌아오는 날, 연도 표시)", async () => {
+    const w = { ...wiki, anniversaries: [...anniversaries, { monthDay: "08-15", title: "하늘 생일", member: "haneul" }] };
+    const r = await answerQuestion({ text: "하늘 생일 언제야?", now, ...w }, fake({ intent: "question", keyword: "생일" }));
+    expect(r.text).toContain("2027년 8/15(일)");
+    expect(r.text).toContain("하늘 생일 (하늘)");
+    expect(r.text).not.toContain("크리스마스"); // 구성원이 없는 기념일은 하늘 질문에서 제외
+  });
+  it("원문에서 날짜를 계산했으면 LLM targets가 tasks/anniversaries뿐이어도 그날 일정이 나온다", async () => {
+    for (const targets of [["tasks"], ["anniversaries"]]) {
+      const a = await ask("이번 주 토요일 뭐 있어?", { intent: "question", targets });
+      expect(a).toContain("핼러윈 파티");
+    }
+    // 종류 단서가 있으면 단서를 따른다
+    expect(await ask("장보기 뭐 남았어?", { intent: "question", targets: ["events"] })).not.toContain("핼러윈");
+  });
+  it("조사: 받침에 따라 이/가", async () => {
+    expect(await ask("하늘 할 일 뭐야?", { intent: "question" })).toContain("할 일 1개");
+    const r = await answerQuestion({ text: "엄마 할 일 뭐야?", now, ...wiki, tasks: [] }, fake({ intent: "question" }));
+    expect(r.text).toBe("엄마 남은 할 일이 위키에 없어요.");
+  });
+  it("연도가 다른 날짜는 연도를 붙인다", async () => {
+    const a = await ask("2027년 1월 2일 뭐 있어?");
+    expect(a).toContain("2027년 1/2(토)");
+    expect(a).toContain("새해 등산");
   });
 });
 

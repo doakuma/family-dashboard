@@ -1,5 +1,5 @@
 // 슬랙 핸들러(#9)가 붙이기 쉬운 순수 함수. 의도 추출 -> (질문이면) 위키 사실로 답 조립. 쓰기 없음.
-import type { LlmAdapter } from "@hsh/core";
+import { todayIn, type LlmAdapter } from "@hsh/core";
 import { extractIntent, type ExtractInput, type Intent } from "./extract";
 import { NO_ANSWER, composeAnswer, type WikiFacts } from "./question";
 
@@ -13,7 +13,7 @@ export type AnswerInput = ExtractInput & Pick<WikiFacts, "anniversaries">;
 
 export async function answerQuestion(input: AnswerInput, llm: LlmAdapter): Promise<AnswerResult> {
   const intent = await extractIntent(input, llm);
-  if (intent.type === "question") return { intent, text: composeAnswer(intent.query, input) };
+  if (intent.type === "question") return { intent, text: composeAnswer(intent.query, input, todayIn(input.now ?? new Date())) };
   if (intent.type === "unknown") return { intent, text: NO_ANSWER };
   return { intent };
 }

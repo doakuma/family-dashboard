@@ -17,11 +17,12 @@ const WD = "일월화수목금토";
 /** 그 주의 월요일 */
 export const mondayOf = (date: string) => addDays(date, -((weekdayOf(date) + 6) % 7));
 
-const weekOffset = (s: string): number | undefined => {
+/** s는 공백을 뺀 문장, text는 원문. "금주"는 단어 시작에서만("지금 주문"에 안 맞게) */
+const weekOffset = (s: string, text: string): number | undefined => {
   if (/다다음주/.test(s)) return 2;
   if (/다음주|담주/.test(s)) return 1;
   if (/지난주|저번주/.test(s)) return -1;
-  if (/이번주|금주/.test(s)) return 0;
+  if (/이번주/.test(s) || /(^|\s)금주/.test(text)) return 0;
   return undefined;
 };
 
@@ -32,13 +33,26 @@ const weekOffset = (s: string): number | undefined => {
  *       이번 주/다음 주/다다음 주/지난 주, 이번 달/다음 달/지난 달, M월 D일(올해, 한 달 넘게 지났으면 내년).
  */
 export function resolveDateRange(text: string, today: string): DateRange | undefined {
+  // "A 말고 B", "A 아니고 B": B만 해석한다. B에서 못 읽으면 포기(undefined)해서 호출한 쪽이 다른 값을 쓰게 한다.
+  // B에 요일만 있고 주 표현이 없으면 A의 주를 이어받는다("다음 주 수요일 말고 목요일" = 다음 주 목요일).
+  const neg = /말고|아니고|아니라/.exec(text);
+  if (neg) {
+    const before = text.slice(0, neg.index).replace(/\s+/g, "");
+    const after = text.slice(neg.index + neg[0].length);
+    const wk = weekOffset(before, text.slice(0, neg.index));
+    const hasWeek = weekOffset(after.replace(/\s+/g, ""), after) !== undefined || /주말/.test(after.replace(/\s+/g, ""));
+    const prefix = wk !== undefined && !hasWeek && /[일월화수목금토]요일/.test(after) ? ["이번 주", "다음 주", "다다음 주"][wk] ?? "" : "";
+    return resolveDateRange(`${prefix} ${after}`, today);
+  }
   const s = text.replace(/\s+/g, "");
   const one = (d: string): DateRange => ({ from: d, to: d });
 
-  const md = /(\d{1,2})월(\d{1,2})일/.exec(s);
+  const md = /(?:(\d{4})년)?(\d{1,2})월(\d{1,2})일/.exec(s);
   if (md) {
+    const at = (y: number) => `${y}-${String(md[2]).padStart(2, "0")}-${String(md[3]).padStart(2, "0")}`;
+    // 연도를 말했으면 그 해. 없으면 올해(한 달 넘게 지났으면 내년). 없는 날짜(평년 2/29 등)는 해석 실패
+    if (md[1]) return isDate(at(Number(md[1]))) ? one(at(Number(md[1]))) : undefined;
     const year = Number(today.slice(0, 4));
-    const at = (y: number) => `${y}-${String(md[1]).padStart(2, "0")}-${String(md[2]).padStart(2, "0")}`;
     let d = at(year);
     if (!isDate(d)) return undefined;
     if (diffDays(d, today) > 31 && isDate(at(year + 1))) d = at(year + 1);
@@ -51,7 +65,7 @@ export function resolveDateRange(text: string, today: string): DateRange | undef
   if (/오늘/.test(s)) return one(today);
   if (/어제/.test(s)) return one(addDays(today, -1));
 
-  const wk = weekOffset(s);
+  const wk = weekOffset(s, text);
   const wdMatch = new RegExp(`([${WD}])요일`).exec(s);
   const weekend = /주말/.test(s);
 
@@ -69,7 +83,7 @@ export function resolveDateRange(text: string, today: string): DateRange | undef
     return { from: mon, to: addDays(mon, 6) };
   }
 
-  const mo = /다다음달|다음달|이번달|금월|지난달|저번달/.exec(s)?.[0];
+  const mo = /다다음달|다음달|이번달|지난달|저번달/.exec(s)?.[0] ?? (/(^|\s)금월/.test(text) ? "금월" : undefined);
   if (mo) {
     const off = mo === "다다음달" ? 2 : mo === "다음달" ? 1 : mo === "이번달" || mo === "금월" ? 0 : -1;
     const month = addMonths(today.slice(0, 7), off);

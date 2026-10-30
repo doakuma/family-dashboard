@@ -9,6 +9,7 @@ import {
   timeIn,
   todayIn,
   weekdayKo,
+  type Anniversary,
   type Change,
   type LlmAdapter,
   type Event,
@@ -34,6 +35,8 @@ export interface ExtractInput {
   members: Member[];
   events: Event[];
   tasks: Task[];
+  /** 질문의 키워드 검증용(없어도 됨) */
+  anniversaries?: Anniversary[];
 }
 
 /** 일정으로 받아들이는 날짜 범위: 오늘-1일 ~ 오늘+400일 */
@@ -77,7 +80,11 @@ function toIntent(o: LlmOutput, ctx: Ctx): Intent {
 
   switch (o.intent) {
     case "question":
-      return { type: "question", query: buildQuestion(o, ctx.text, ctx.today, ctx.members, ctx.sender?.id) };
+      return { type: "question", query: buildQuestion(o, ctx.text, ctx.today, ctx.members, ctx.sender?.id, [
+          ...ctx.events.map((e) => e.title),
+          ...ctx.tasks.map((t) => t.title),
+          ...(ctx.anniversaries ?? []).map((a) => a.title),
+        ]) };
 
     case "event.add": {
       if (!okDate(o.date)) return { type: "unknown", reason: "날짜를 알 수 없어요" };

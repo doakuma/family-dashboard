@@ -43,15 +43,37 @@ export const NO_ANSWER = "잘 모르겠어요. 일정·할 일·기념일에 대
 /** LLM 값을 쓸 수 있는 날짜 범위: 오늘-366일 ~ 오늘+400일, 길이 366일 이하 */
 const LLM_WINDOW = { past: -366, future: 400, span: 366 };
 const DEFAULT_DAYS = 7;
-const STOP_WORDS = new Set(["일정", "약속", "할일", "할 일", "장보기", "생일", "기념일", "뭐", "언제"]);
+/** "언제야?"처럼 날짜 없이 다음 날을 묻거나 기념일만 물을 때 보는 기간(기념일은 다음 돌아오는 날 기준) */
+const WHEN_DAYS = 365;
 const MAX_LINES = 20;
+/** keyword에서 뺄 토큰: 날짜·요일·기간·서술어·종류 이름. 항목 이름(치과, 미술학원)만 필터로 쓴다 */
+const NON_KEYWORD =
+  /[일월화수목금토]요일|오늘|내일|모레|글피|어제|이번|다음|지난|저번|주말|^주$|^달$|\d+(월|일|년|주)|^있[어나니는]|^있었|^뭐|^언제|^알려|^보여|^말해|일정|약속|스케줄|^할일$|^할$|^일$|장보기|생일|기념일|^있$|^없/;
 
-export function buildQuestion(o: LlmOutput, text: string, today: string, members: Member[], senderId?: string): Question {
+function cleanKeyword(raw: string | undefined, text: string, members: Member[], titles: string[]): string | undefined {
+  const kept = (raw ?? "")
+    .split(/\s+/)
+    .filter((t) => t && !NON_KEYWORD.test(t));
+  const kw = kept.join(" ").trim();
+  if (kw.length < 2 || !text.includes(kw) || members.some((m) => m.name === kw)) return undefined;
+  // 위키 어디에도 없는 단어면 필터로 쓰지 않는다(없는 일정이 '없어요'로 둔갑하지 않게)
+  return titles.some((t) => t.includes(kw)) ? kw : undefined;
+}
+
+export function buildQuestion(
+  o: LlmOutput,
+  text: string,
+  today: string,
+  members: Member[],
+  senderId?: string,
+  titles: string[] = [],
+): Question {
   const s = text.replace(/\s+/g, "");
   const wantsTasks = /장보기|살것|사야|할일|해야할|투두|todo/i.test(s);
   const wantsShopping = /장보기|살것|사야/.test(s);
   const wantsAnniv = /생일|기념일/.test(s);
   const wantsEvents = /일정|약속|스케줄/.test(s);
+  const codeRange = resolveDateRange(text, today);
 
   // 대상 종류: 사용자 원문 단서 > LLM targets > 기본(일정+기념일)
   let targets: QuestionTarget[];
@@ -61,22 +83,27 @@ export function buildQuestion(o: LlmOutput, text: string, today: string, members
   else if (!wantsTasks && !wantsAnniv) {
     const fromLlm = (o.targets ?? []).filter((t): t is QuestionTarget => t === "events" || t === "tasks" || t === "anniversaries");
     targets = fromLlm.length ? [...new Set(fromLlm)] : ["events", "anniversaries"];
+    // 원문에서 날짜를 계산했고 종류 단서가 없으면 LLM targets와 상관없이 그날 일정은 항상 보여 준다
+    if (codeRange && !wantsEvents && !targets.includes("events")) targets = ["events", ...targets];
   } else targets = [...(wantsEvents ? (["events"] as const) : []), ...(wantsTasks ? (["tasks"] as const) : []), ...(wantsAnniv ? (["anniversaries"] as const) : [])];
 
   const taskList: Question["taskList"] =
     targets.includes("tasks") && targets.length === 1 ? (wantsShopping ? "shopping" : /할일|해야할|투두|todo/i.test(s) ? "todo" : undefined) : undefined;
 
-  // 기간: 코드가 원문에서 계산한 값이 LLM 값보다 우선. 둘 다 없으면 앞으로 7일(키워드가 있으면 앞으로 400일).
   const memberIds = members.filter((m) => m.id !== "family" && (text.includes(m.name) || (m.id !== m.name && containsWord(text, m.id)))).map((m) => m.id);
   if (/(^|\s)(나|내|제)(\s|가|의|$)/.test(text) && senderId && !memberIds.includes(senderId)) memberIds.push(senderId);
 
-  const kw = (o.keyword ?? "").trim();
-  const keyword = kw.length >= 2 && !STOP_WORDS.has(kw) && text.includes(kw) && !members.some((m) => m.name === kw) ? kw : undefined;
+  const keyword = cleanKeyword(o.keyword, text, members, titles);
 
+  // 기간: 코드가 원문에서 계산한 값이 LLM 값보다 우선.
+  // 둘 다 없으면 "언제"를 묻거나 기념일만 물을 땐 365일, 키워드가 있으면 400일, 아니면 앞으로 7일.
   let range: DateRange | undefined;
   if (targets.some((t) => t !== "tasks")) {
-    range = resolveDateRange(text, today) ?? llmRange(o, today);
-    range ??= keyword ? { from: today, to: addDays(today, 400) } : { from: today, to: addDays(today, DEFAULT_DAYS - 1) };
+    range = codeRange ?? llmRange(o, today);
+    if (!range) {
+      const whenAsked = /언제/.test(s) || (targets.length === 1 && targets[0] === "anniversaries");
+      range = { from: today, to: addDays(today, whenAsked ? WHEN_DAYS : keyword ? 400 : DEFAULT_DAYS - 1) };
+    }
   }
   return { range, targets, taskList, memberIds, keyword };
 }
@@ -97,10 +124,15 @@ function llmRange(o: LlmOutput, today: string): DateRange | undefined {
 
 // ---------- 답 조립 ----------
 
-const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8))}(${weekdayKo(d)})`;
-const rangeLabel = (r: DateRange) => (r.from === r.to ? md(r.from) : `${md(r.from)}~${md(r.to)}`);
+/** 이 해가 아니면 연도를 붙인다: "2027년 8/15(일)" */
+const mdOf = (today: string) => (d: string) =>
+  `${d.slice(0, 4) === today.slice(0, 4) ? "" : `${d.slice(0, 4)}년 `}${Number(d.slice(5, 7))}/${Number(d.slice(8))}(${weekdayKo(d)})`;
+/** 받침이 있으면 이, 없으면 가 */
+const iga = (w: string) => ((w.charCodeAt(w.length - 1) - 0xac00) % 28 !== 0 ? "이" : "가");
 
-export function composeAnswer(q: Question, wiki: WikiFacts): string {
+export function composeAnswer(q: Question, wiki: WikiFacts, today: string): string {
+  const md = mdOf(today);
+  const rangeLabel = (r: DateRange) => (r.from === r.to ? md(r.from) : `${md(r.from)}~${md(r.to)}`);
   const nameOf = (id: string) => wiki.members.find((m) => m.id === id)?.name ?? "";
   const who = (ids: string[]) => ids.map(nameOf).filter(Boolean).join("·");
   const matchKw = (title: string) => !q.keyword || title.includes(q.keyword);
@@ -155,7 +187,7 @@ export function composeAnswer(q: Question, wiki: WikiFacts): string {
       (t) => !t.done && (!q.taskList || t.list === q.taskList) && matchKw(t.title) && matchMember(t.member ? [t.member] : []),
     );
     const name = q.taskList === "shopping" ? "장보기" : q.taskList === "todo" ? "할 일" : "장보기·할 일";
-    if (!open.length) sections.push(`남은 ${name}${subject ? ` (${subject})` : ""}이 위키에 없어요.`);
+    if (!open.length) sections.push(`${subject ? `${subject} ` : ""}남은 ${name}${iga(name)} 위키에 없어요.`);
     else {
       const shown = open.slice(0, MAX_LINES);
       const lines = shown.map((t) => `- ${q.taskList ? "" : `[${t.list === "shopping" ? "장보기" : "할 일"}] `}${t.title}${t.member ? ` (${who([t.member])})` : ""}`);
