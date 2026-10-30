@@ -1,7 +1,8 @@
 import "server-only";
-import { DEFAULT_SKIN, SetupError, existingSetupContent, needsSetup, parseConfigFile, toPublicState, todayIn, type ApiState, type DashboardState, type SkinId, type WikiRepository } from "@hsh/core";
+import { DEFAULT_SKIN, SetupError, eventsForMonthView, existingSetupContent, needsSetup, parseConfigFile, toPublicState, todayIn, type ApiState, type DashboardState, type SkinId, type WikiRepository } from "@hsh/core";
 import { FsWikiRepository } from "@hsh/core/node";
 import { resolve } from "node:path";
+import { cache } from "react";
 import { config } from "./config";
 import { SampleWeatherSource, createWeatherSource } from "./weather";
 
@@ -49,17 +50,18 @@ export async function getSetupContext() {
 }
 
 /**
- * 레이아웃이 첫 HTML에 data-skin을 넣으려고 config의 skin만 읽는다(위키 전체를 읽지 않는다).
+ * 레이아웃(generateViewport와 RootLayout)이 첫 HTML에 data-skin을 넣으려고 config의 skin만 읽는다(위키 전체를 읽지 않는다).
  * 실패(위키 경로 없음·읽기 오류)하면 default - /setup·오류 화면이 위키 읽기에 묶이지 않게.
+ * 요청 단위로 캐시(react cache)해서 한 요청에서 두 번 읽지 않는다. 요청이 끝나면 버려져 폴링 뒤 변경은 다음 요청에 반영된다.
  */
-export function getSkinForLayout(): SkinId {
+export const getSkinForLayout = cache((): SkinId => {
   try {
     const text = getWiki().files.read("config.md");
     return (text ? parseConfigFile(text, () => {})?.skin : undefined) ?? DEFAULT_SKIN;
   } catch {
     return DEFAULT_SKIN;
   }
-}
+});
 
 let lastWarnings = "";
 /** 위키 읽기 경고를 서버 로그에 남긴다. 폴링마다 반복되지 않게 내용이 바뀔 때만. */
@@ -80,8 +82,12 @@ export async function getDashboardState(at?: Date): Promise<DashboardState> {
   return { familyId, config: familyConfig, skin, character, members, events, tasks, anniversaries, weather: days, updatedAt: new Date().toISOString() };
 }
 
-/** /api/state 응답과 첫 화면이 같이 쓰는 공개용 상태(태블릿에 필요한 필드만) + 세팅 필요 여부 */
-export async function getApiState(at?: Date): Promise<ApiState> {
+/**
+ * /api/state 응답과 첫 화면이 같이 쓰는 공개용 상태(태블릿에 필요한 필드만) + 세팅 필요 여부.
+ * month(YYYY-MM, 검증은 호출하는 쪽): 달력 둘러보기용 달. 없으면 이번 달. 일정은 그 달 달력 칸 + 오늘·내일만 싣는다.
+ */
+export async function getApiState(at?: Date, month?: string): Promise<ApiState> {
   const state = await getDashboardState(at);
-  return toPublicState(state, todayIn(at ?? new Date()));
+  const today = todayIn(at ?? new Date());
+  return toPublicState({ ...state, events: eventsForMonthView(state.events, month ?? today.slice(0, 7), today) }, today);
 }
