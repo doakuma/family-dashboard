@@ -7,5 +7,7 @@ kmaNy: 127
 kmaMidLandRegId: 11B00000
 kmaMidTaRegId: 11B10101
 familyColor: gray
+skin: default
+character: none
 setupCompletedAt: 2026-10-20T20:00:00+09:00
 ---

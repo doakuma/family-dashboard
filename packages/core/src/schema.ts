@@ -2,7 +2,7 @@
 // 읽기(파서)와 쓰기(applyChange·format*File)가 같은 스키마를 쓴다.
 import { z } from "zod";
 import { KMA_NX_RANGE, KMA_NY_RANGE, KMA_REG_ID_RE } from "./regions";
-import { FAMILY_ID, isFamilyId, type Anniversary, type Change, type DashboardState, type Event, type FamilyId, type FamilyConfig, type Member, type SetupInput, type Task, type WeatherDay } from "./types";
+import { CHARACTER_IDS, FAMILY_ID, SKIN_IDS, isFamilyId, type Anniversary, type Change, type DashboardState, type Event, type FamilyId, type FamilyConfig, type Member, type SetupInput, type Task, type WeatherDay } from "./types";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const date = z.string().regex(DATE_RE, "YYYY-MM-DD").refine(isRealDate, "없는 날짜");
@@ -103,6 +103,8 @@ export const familyConfigSchema = z.object({
   kmaMidTaRegId: token.optional(),
   familyColor: z.string().regex(/^(#[0-9a-fA-F]{3,8}|[a-z][a-z0-9_-]*)$/),
   calendarId: z.string().regex(/^\S+$/).refine((s) => !CONTROL_CHARS.test(s)).optional(),
+  skin: z.enum(SKIN_IDS).optional(),
+  character: z.enum(CHARACTER_IDS).optional(),
   setupCompletedAt: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/)
@@ -223,6 +225,10 @@ export const apiStateSchema = z.object({
   updatedAt: z.string().refine((s) => !Number.isNaN(Date.parse(s)), "ISO 8601"),
   /** 서버가 판단한 세팅 필요 여부 */
   needsSetup: z.boolean(),
+  /** 태블릿이 data-skin으로 쓰는 스킨. 폴링 때 바뀌면 새로고침 없이 전환한다. */
+  skin: z.enum(SKIN_IDS),
+  /** 캐릭터 층(#29 전까지 none 고정) */
+  character: z.enum(CHARACTER_IDS),
 });
 export type ApiState = z.infer<typeof apiStateSchema>;
 export type PublicMember = ApiState["members"][number];
@@ -234,6 +240,8 @@ export const familyIdSchema = z.custom<FamilyId>(isFamilyId, "가족 id 형식�
 export const dashboardStateSchema = z.object({
   familyId: familyIdSchema,
   config: familyConfigSchema.optional(),
+  skin: z.enum(SKIN_IDS),
+  character: z.enum(CHARACTER_IDS),
   members: z.array(memberSchema.extend({ id: memberIdSchema })),
   events: z.array(eventSchema),
   tasks: z.array(taskSchema),

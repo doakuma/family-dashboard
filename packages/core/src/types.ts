@@ -35,6 +35,18 @@ export interface Member {
 }
 
 /** config.md — 가족 세팅 결과 */
+/** 화면 스킨 id. 값은 apps/dashboard/skins/<id>/ 폴더와 1:1(대시보드 테스트가 맞는지 검사). 스킨을 추가하면 여기에도 넣는다. */
+export const SKIN_IDS = ["default", "paper"] as const;
+export type SkinId = (typeof SKIN_IDS)[number];
+export const DEFAULT_SKIN: SkinId = "default";
+export const isSkinId = (v: unknown): v is SkinId => typeof v === "string" && (SKIN_IDS as readonly string[]).includes(v);
+
+/** 캐릭터 층 id. #29 전까지는 none뿐. */
+export const CHARACTER_IDS = ["none"] as const;
+export type CharacterId = (typeof CHARACTER_IDS)[number];
+export const DEFAULT_CHARACTER: CharacterId = "none";
+export const isCharacterId = (v: unknown): v is CharacterId => typeof v === "string" && (CHARACTER_IDS as readonly string[]).includes(v);
+
 export interface FamilyConfig {
   familyName: string;
   timezone: string;
@@ -45,6 +57,10 @@ export interface FamilyConfig {
   kmaMidTaRegId?: string;
   familyColor: string;
   calendarId?: string;
+  /** 화면 스킨. 없으면 default (모르는 값도 default로 읽고 경고) */
+  skin?: SkinId;
+  /** 캐릭터 층. 없으면 none */
+  character?: CharacterId;
   /** ISO 8601. 있으면 세팅 완료 */
   setupCompletedAt?: string;
 }
@@ -103,6 +119,10 @@ export interface DashboardState {
   /** 어느 가족의 상태인가(내부용. toPublicState는 내보내지 않는다) */
   familyId: FamilyId;
   config?: FamilyConfig;
+  /** config의 skin을 해석한 값(없거나 모르는 값이면 default) */
+  skin: SkinId;
+  /** config의 character를 해석한 값(없거나 모르는 값이면 none) */
+  character: CharacterId;
   members: Member[];
   events: Event[];
   tasks: Task[];

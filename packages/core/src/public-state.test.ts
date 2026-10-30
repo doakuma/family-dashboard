@@ -25,7 +25,14 @@ describe("toPublicState", () => {
   it("familyId는 공개 응답에 없다(내부 상태에는 있다)", () => {
     expect(state.familyId).toBe(DEFAULT_FAMILY_ID);
     expect(json).not.toContain("familyId");
-    expect(json).not.toContain(`"${DEFAULT_FAMILY_ID}"`);
+    // 가족 id 값 자체도 없어야 한다(스킨 id "default"와 값이 같을 수 있어 skin 필드는 빼고 본다)
+    expect(JSON.stringify({ ...pub, skin: undefined })).not.toContain(`"${DEFAULT_FAMILY_ID}"`);
+  });
+
+  it("skin은 공개하고(태블릿 전환용) character는 none 고정, config 원문은 없다", () => {
+    expect(pub.skin).toBe("default");
+    expect(pub.character).toBe("none");
+    expect(toPublicState({ ...state, skin: "paper", character: "none" }, "2026-11-03").skin).toBe("paper");
   });
 
   it("주소·slackId·calendarId·역할·생일 원문이 JSON 어디에도 없다", () => {

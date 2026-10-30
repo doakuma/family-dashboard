@@ -31,5 +31,8 @@ export function toPublicState(state: DashboardState, today: string): ApiState {
     weather: state.weather.map((w) => ({ date: w.date, icon: w.icon, max: w.max, min: w.min, pop: w.pop })),
     updatedAt: state.updatedAt,
     needsSetup: needsSetup(state),
+    skin: state.skin,
+    character: "none", // #29(캐릭터 층) 전까지 고정
+
   };
 }

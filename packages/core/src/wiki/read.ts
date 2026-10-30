@@ -1,4 +1,4 @@
-import type { FamilyId, WikiState } from "../types";
+import { DEFAULT_CHARACTER, DEFAULT_SKIN, type FamilyId, type WikiState } from "../types";
 import type { WikiFiles } from "./apply";
 import {
   eventSortKey,
@@ -34,6 +34,8 @@ export function readWiki(files: WikiFiles, familyId: FamilyId): WikiState {
   return {
     familyId,
     config,
+    skin: config?.skin ?? DEFAULT_SKIN,
+    character: config?.character ?? DEFAULT_CHARACTER,
     // 실제 구성원이 있을 때만 '가족 전체'를 붙인다 → 구성원 0명이면 세팅 화면.
     members: people.length ? [...people, familyMember(config)] : [],
     events,

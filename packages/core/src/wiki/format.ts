@@ -2,6 +2,7 @@
 // 순수 함수만 둔다(파일 시스템 없음) — 대시보드·봇·테스트가 같이 쓴다.
 import type { z } from "zod";
 import type { Anniversary, Event, FamilyConfig, Member, MemberId, Task, TaskList } from "../types";
+import { DEFAULT_CHARACTER, DEFAULT_SKIN } from "../types";
 import { familyConfigSchema, memberSchema, shareGroupIdSchema } from "../schema";
 import { parseFrontmatter, stringifyFrontmatter } from "./frontmatter";
 
@@ -253,6 +254,10 @@ export function parseConfigFile(text: string, warn?: ReadWarn): FamilyConfig | n
     kmaMidTaRegId: lenient(sh.kmaMidTaRegId.unwrap(), d.kmaMidTaRegId, undefined, "kmaMidTaRegId", warn),
     familyColor: lenient(sh.familyColor, d.familyColor, "gray", "familyColor", warn) ?? "gray",
     calendarId: lenient(sh.calendarId.unwrap(), d.calendarId, undefined, "calendarId", warn),
+    // 선택 항목. 모르는 값(철자 틀림·아직 없는 스킨)은 default/none으로 읽고 경고만 한다.
+    // 없으면 없는 그대로(다시 쓸 때 줄이 생기지 않게), 값이 있는데 틀렸을 때만 default/none으로 읽는다.
+    skin: d.skin ? lenient(sh.skin.unwrap(), d.skin, DEFAULT_SKIN, "skin", warn) : undefined,
+    character: d.character ? lenient(sh.character.unwrap(), d.character, DEFAULT_CHARACTER, "character", warn) : undefined,
     setupCompletedAt: lenient(sh.setupCompletedAt.unwrap(), d.setupCompletedAt, undefined, "setupCompletedAt", warn),
   };
 }
