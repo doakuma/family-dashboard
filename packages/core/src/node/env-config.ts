@@ -1,6 +1,6 @@
 // ConfigProvider의 MVP 구현: 환경 변수(.env는 실행 전에 이미 process.env에 들어와 있다).
 // 호출할 때마다 읽는다(캐시 없음) - 시작 직후에 환경이 바뀌는 순서(server.ts의 loadEnvConfig 선로딩)에 영향받지 않게.
-import { DEFAULT_OLLAMA_KEEP_ALIVE, DEFAULT_OLLAMA_NUM_CTX, DEFAULT_OLLAMA_TIMEOUT_MS, type AppConfig, type ConfigProvider, type LlmConfig } from "../config";
+import { DEFAULT_OLLAMA_KEEP_ALIVE, DEFAULT_OLLAMA_NUM_CTX, DEFAULT_OLLAMA_TIMEOUT_MS, type AppConfig, type ConfigProvider, type LlmConfig, type OllamaKeepAlive } from "../config";
 import { DEFAULT_FAMILY_ID, asFamilyId } from "../types";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -14,10 +14,18 @@ function posInt(v: string | undefined, fallback: number): number {
   const n = Number(s);
   return Number.isSafeInteger(n) && n > 0 ? n : fallback;
 }
-/** Ollama keep_alive: 30m, 1h, 300s, 0, -1 꼴만 받는다. 아니면 기본값. */
-function keepAlive(v: string | undefined): string {
+/**
+ * Ollama keep_alive. 단위 없는 정수(음수 포함)는 숫자(초)로, 단위 있는 값("30m", "1h", "45s", "1h30m")은 문자열 그대로.
+ * 그 밖의 값은 기본값 "30m". (Ollama는 문자열을 Go time.ParseDuration으로 읽어서 "300"·"-1" 문자열은 400 오류가 난다)
+ */
+export function parseKeepAlive(v: string | undefined): OllamaKeepAlive {
   const s = blank(v);
-  return s && /^(-?\d+(\.\d+)?(ms|s|m|h)?)$/.test(s) ? s : DEFAULT_OLLAMA_KEEP_ALIVE;
+  if (!s) return DEFAULT_OLLAMA_KEEP_ALIVE;
+  if (/^-?\d+$/.test(s)) {
+    const n = Number(s);
+    return Number.isSafeInteger(n) ? n : DEFAULT_OLLAMA_KEEP_ALIVE;
+  }
+  return /^-?(\d+(\.\d+)?(ms|s|m|h))+$/.test(s) ? s : DEFAULT_OLLAMA_KEEP_ALIVE;
 }
 
 function llmFromEnv(env: Env): LlmConfig {
@@ -33,7 +41,7 @@ function llmFromEnv(env: Env): LlmConfig {
       model: env.OLLAMA_MODEL || undefined,
       timeoutMs: posInt(env.OLLAMA_TIMEOUT_MS, DEFAULT_OLLAMA_TIMEOUT_MS),
       numCtx: posInt(env.OLLAMA_NUM_CTX, DEFAULT_OLLAMA_NUM_CTX),
-      keepAlive: keepAlive(env.OLLAMA_KEEP_ALIVE),
+      keepAlive: parseKeepAlive(env.OLLAMA_KEEP_ALIVE),
     };
   }
   throw new Error(`알 수 없는 LLM_PROVIDER: ${provider}`);

@@ -7,9 +7,11 @@ import type { FamilyId } from "./types";
 export const DEFAULT_OLLAMA_TIMEOUT_MS = 180_000;
 export const DEFAULT_OLLAMA_NUM_CTX = 8192;
 export const DEFAULT_OLLAMA_KEEP_ALIVE = "30m";
+/** Ollama keep_alive: 단위 있는 문자열("30m") 또는 초 단위 숫자(-1 = 계속 올려 둠). 단위 없는 문자열은 Go 파서가 거부하므로 숫자로 보낸다 */
+export type OllamaKeepAlive = string | number;
 
 export type LlmConfig =
-  | { provider: "ollama"; baseUrl?: string; model?: string; timeoutMs?: number; numCtx?: number; keepAlive?: string }
+  | { provider: "ollama"; baseUrl?: string; model?: string; timeoutMs?: number; numCtx?: number; keepAlive?: OllamaKeepAlive }
   | { provider: "anthropic"; apiKey: string; model?: string };
 
 export interface SlackConfig {

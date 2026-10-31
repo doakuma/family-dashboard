@@ -151,6 +151,11 @@ describe("extractIntent", () => {
     expect(r2.type === "question" && r2.query).toMatchObject({ tense: "nonpast", from: "2026-11-03", to: "2026-11-03" });
   });
 
+  it("질문: qTense가 빈 문자열이어도 응답 전체가 bad_format이 되지 않는다", async () => {
+    const r = await run({ intent: "question", qTense: "", qDatePhrase: "", qFrom: "2026-11-03", qTo: "2026-11-03" }, "다음 주 화요일 뭐 있어?");
+    expect(r.type === "question" && r.query).toMatchObject({ from: "2026-11-03", to: "2026-11-03" });
+  });
+
   it("질문: 시제·제외 조건은 형식만 검증해 담는다", async () => {
     const r = await run(
       { intent: "question", qTense: "past", qFrom: "2026-10-24", qTo: "2026-10-24", qExcludeKeyword: " 치과 ", qExcludeDates: ["2026-10-31", "토요일", "2026-10-31", "2026-02-30"], qMembers: ["haneul", "ghost"] },

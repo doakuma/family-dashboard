@@ -16,7 +16,7 @@ import {
   type Task,
 } from "@hsh/core";
 import { formatWhen } from "../format";
-import { buildSystemPrompt, llmOutputJsonSchema, llmOutputSchema, type LlmOutput } from "./prompt";
+import { buildSystemPrompt, llmOutputJsonSchema, parseLlmOutput, type LlmOutput } from "./prompt";
 
 export type Intent =
   /** 확인 버튼을 띄울 변경들 (장보기 여러 개는 changes 여러 개) */
@@ -73,7 +73,7 @@ export async function extractIntent(input: ExtractInput, llm: LlmAdapter): Promi
   } catch (e) {
     return { type: "unknown", reason: `LLM 호출 실패: ${e instanceof Error ? e.message : String(e)}`, cause: "llm_error" };
   }
-  const parsed = llmOutputSchema.safeParse(raw);
+  const parsed = parseLlmOutput(raw);
   if (!parsed.success) return { type: "unknown", reason: "LLM 응답 형식 오류", cause: "bad_format" };
   return toIntent(parsed.data, { ...input, today, sender });
 }

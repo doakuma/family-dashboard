@@ -2,7 +2,7 @@
 // 구현을 core가 아니라 봇에 둔 이유: SDK(@anthropic-ai/sdk)·로컬 모델 호출은 봇만 쓰고, core는 브라우저에서도 불러서 무거운 의존을 피한다.
 // 서비스에서 BYOK·서비스 키 과금을 하려면 LlmConfig만 가족별로 다르게 만들어 createLlmAdapter에 넘기면 된다.
 import Anthropic from "@anthropic-ai/sdk";
-import { DEFAULT_OLLAMA_KEEP_ALIVE, DEFAULT_OLLAMA_NUM_CTX, DEFAULT_OLLAMA_TIMEOUT_MS, type LlmAdapter, type LlmConfig, type LlmRequest } from "@hsh/core";
+import { DEFAULT_OLLAMA_KEEP_ALIVE, DEFAULT_OLLAMA_NUM_CTX, DEFAULT_OLLAMA_TIMEOUT_MS, type LlmAdapter, type LlmConfig, type LlmRequest, type OllamaKeepAlive } from "@hsh/core";
 import { z } from "zod";
 
 /** 응답에서 첫 JSON 객체를 꺼낸다 (모델이 앞뒤에 말을 붙여도 견딘다) */
@@ -13,19 +13,30 @@ export function extractJson(text: string): unknown {
   return JSON.parse(text.slice(s, e + 1));
 }
 
-const ollamaResponse = z.object({ message: z.object({ content: z.string() }) });
+const ollamaResponse = z.object({ message: z.object({ content: z.string() }), prompt_eval_count: z.number().optional() });
 
 export interface OllamaOptions {
   timeoutMs?: number;
   numCtx?: number;
-  keepAlive?: string;
+  keepAlive?: OllamaKeepAlive;
 }
 
-export class OllamaClient implements LlmAdapter {
+/** 선택적으로 읽는 마지막 호출 정보(토큰 수). 모르는 어댑터는 없다 */
+export interface LlmUsage {
+  /** Ollama prompt_eval_count: 프롬프트 토큰 수(받았을 때만) */
+  promptTokens?: number;
+  numCtx?: number;
+}
+export interface ReportsUsage {
+  lastUsage?: LlmUsage;
+}
+
+export class OllamaClient implements LlmAdapter, ReportsUsage {
+  lastUsage?: LlmUsage;
   readonly name: string;
   private readonly timeoutMs: number;
   private readonly numCtx: number;
-  private readonly keepAlive: string;
+  private readonly keepAlive: OllamaKeepAlive;
   constructor(
     private readonly baseUrl = "http://localhost:11434",
     private readonly model = "qwen3:8b",
@@ -38,6 +49,7 @@ export class OllamaClient implements LlmAdapter {
   }
 
   async json({ system, user, schema }: LlmRequest): Promise<unknown> {
+    this.lastUsage = undefined;
     const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/api/chat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -58,6 +70,7 @@ export class OllamaClient implements LlmAdapter {
     if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);
     const data = ollamaResponse.safeParse(await res.json());
     if (!data.success) throw new Error("Ollama 응답 형식이 올바르지 않아요");
+    this.lastUsage = { promptTokens: data.data.prompt_eval_count, numCtx: this.numCtx };
     return extractJson(data.data.message.content);
   }
 }

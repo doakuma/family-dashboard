@@ -173,6 +173,32 @@ describe("runDateEval (가짜 LLM, 실제 호출 없음)", () => {
     expect(text).toContain("d001*:");
   });
 
+  it("어댑터가 lastUsage를 알려 주면 문항별 토큰 수와 최대·평균을 보고하고, num_ctx 90% 초과는 경고한다", async () => {
+    const sub = cases.slice(0, 3);
+    const tokens = [1000, 3000, 3800];
+    let i = 0;
+    const llm = fakeLlm(correct) as LlmAdapter & { lastUsage?: { promptTokens?: number; numCtx?: number } };
+    const inner = llm.json.bind(llm);
+    llm.json = async (req) => {
+      const out = await inner(req);
+      llm.lastUsage = { promptTokens: tokens[i++], numCtx: 4096 };
+      return out;
+    };
+    const rep = await runDateEval(sub, llm, wiki);
+    expect(rep.results.map((r) => r.promptTokens)).toEqual(tokens);
+    expect(rep.tokens).toEqual({ count: 3, max: 3800, avg: 2600, numCtx: 4096, overCtx90: [must(sub[2]).id] });
+    const text = formatReport(rep);
+    expect(text).toContain("프롬프트 토큰(prompt_eval_count): 3문항 최대 3800 · 평균 2600 · num_ctx 4096");
+    expect(text).toContain("경고: num_ctx 4096의 90%(3686)를 넘은 문항 1건");
+    expect(text).toContain(":7ms/1000tok".replace("7", String(rep.results[0]?.ms)));
+  });
+
+  it("lastUsage를 모르는 어댑터는 토큰 줄을 생략한다", async () => {
+    const rep = await runDateEval(cases.slice(0, 2), fakeLlm(correct), wiki);
+    expect(rep.tokens).toBeUndefined();
+    expect(formatReport(rep)).not.toContain("프롬프트 토큰");
+  });
+
   it("qTense none과 qDatePhrase는 채점에서 없는 것으로 본다", async () => {
     const c = byId("d056"); // 뭐 있어? -> 되묻기(시제 기대 없음)
     expect(c.expect.clarify).toBe(true);

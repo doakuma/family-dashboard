@@ -64,6 +64,16 @@ export const llmOutputSchema = z.object({
   qKeyword: z.string().optional(),
 });
 export type LlmOutput = z.infer<typeof llmOutputSchema>;
+
+/** 관대한 파서: qTense가 ""로 와도 없는 것으로 받는다(enum 불일치로 응답 전체가 bad_format이 되지 않게). */
+export function parseLlmOutput(raw: unknown) {
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && (raw as { qTense?: unknown }).qTense === "") {
+    const rest: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
+    delete rest.qTense;
+    return llmOutputSchema.safeParse(rest);
+  }
+  return llmOutputSchema.safeParse(raw);
+}
 /** 모델에 보내는 JSON 스키마: 날짜 판단 칸을 반드시 채우게 required로 바꾼다. 파서(llmOutputSchema)는 관대해서 없거나 ""이면 없는 것으로 본다. */
 export const LLM_REQUIRED_FIELDS = ["intent", "qDatePhrase", "qTense"] as const;
 export const llmOutputJsonSchema: Record<string, unknown> = { ...z.toJSONSchema(llmOutputSchema), required: [...LLM_REQUIRED_FIELDS] };

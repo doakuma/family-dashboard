@@ -7,13 +7,16 @@ const monthEnd = (m: string) => addDays(`${addMonths(m, 1)}-01`, -1);
 const pad = (n: number) => String(n).padStart(2, "0");
 const PENDING = "(확인 대기)";
 
+const REL_WORDS: Record<number, string | undefined> = { 0: "오늘", 1: "내일", 2: "모레", [-1]: "어제", [-2]: "그저께" };
+const WEEK_WORDS: Record<number, string | undefined> = { [-1]: "지난 주", 0: "이번 주", 1: "다음 주", 2: "다다음 주" };
+
 /** 날짜 하나에 붙는 라벨들(없으면 표에 싣지 않는다) */
 function labelsFor(today: string, d: string): string[] {
   const dow = weekdayOf(today);
   const sunday = addDays(today, -dow);
   const coming = addDays(today, (7 - dow) % 7);
   const out: string[] = [];
-  const rel = ({ 0: "오늘", 1: "내일", 2: "모레", [-1]: "어제", [-2]: "그저께" } as Record<number, string>)[diffDays(today, d)];
+  const rel = REL_WORDS[diffDays(today, d)];
   if (rel) out.push(rel);
   const dd = weekdayOf(d);
   if (dd === 0) {
@@ -25,7 +28,7 @@ function labelsFor(today: string, d: string): string[] {
     else if (d === sunday) out.push("이번 주 첫날 일요일(이미 지남)");
   } else {
     const w = Math.floor(diffDays(sunday, d) / 7);
-    const lab = ({ [-1]: "지난 주", 0: "이번 주", 1: "다음 주", 2: "다다음 주" } as Record<number, string>)[w];
+    const lab = WEEK_WORDS[w];
     if (lab) out.push(`${lab} ${WEEKDAYS_KO[dd]}요일`);
   }
   return out;

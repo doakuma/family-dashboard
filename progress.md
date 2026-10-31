@@ -222,4 +222,6 @@
 - 프롬프트 길이: sample 6142자, stress 6997자(상한 8000, 일정 목록 25건·할 일 20건, 넘으면 일정→자산 지도→할 일 순으로 줄이되 풀이표는 유지).
 - Ollama: OLLAMA_TIMEOUT_MS(기본 180000)·OLLAMA_NUM_CTX(기본 8192, options.num_ctx)·OLLAMA_KEEP_ALIVE(기본 30m, keep_alive), 잘못된 값은 기본값. .env.example은 권한상 못 열어 수정하지 못함(위 세 변수 추가 필요).
 - 채점 보고: 시간 초과 따로 집계, "시간 초과 제외" 정답률 줄, 기준일 첫 문항 표시([기준일 첫 문항], ms 목록의 *). 기대값·채점 규칙은 그대로(qTense none=없음).
+- 오너 확인 대기(표시만 함): 다다음 주 일요일, 지난 주 일요일, 일요일 당일 주말·지난 주말, 일요일 당일 지난 주말(오늘 포함).
+- 후속4 리뷰 수정: keep_alive 단위 없는 정수는 숫자(초)로·단위 있으면 문자열(Go 파서 400 방지), qTense "" 허용, 채점 보고에 Ollama prompt_eval_count(문항별·최대·평균, num_ctx 90% 초과 경고, OllamaClient.lastUsage).
 - 남은 문제: 실제 모델 정답률 재측정 필요(`pnpm --filter @hsh/bot eval:dates`). 풀이표가 길어져 토큰 수가 늘었으니 문맥/속도는 노트북에서 확인.

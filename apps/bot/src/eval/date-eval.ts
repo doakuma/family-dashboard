@@ -4,7 +4,8 @@
 import { addDays, diffDays, isDate, type Anniversary, type Event, type LlmAdapter, type Member, type Task } from "@hsh/core";
 import { answerFromQuery } from "../answer/answer";
 import { extractIntent } from "../intent/extract";
-import { llmOutputSchema, type LlmOutput } from "../intent/prompt";
+import { parseLlmOutput, type LlmOutput } from "../intent/prompt";
+import type { ReportsUsage } from "../llm/client";
 import type { DateCase } from "./date-cases";
 
 export interface EvalWiki {
@@ -31,6 +32,9 @@ export interface CaseResult {
   timedOut: boolean;
   /** 기준일이 바뀐 직후 첫 문항(프롬프트 앞부분이 바뀌어 Ollama 앞부분 캐시를 못 쓴다: 느린 값 해석용) */
   firstOfDay: boolean;
+  numCtx?: number;
+  /** 프롬프트 토큰 수(Ollama prompt_eval_count를 받았을 때만) */
+  promptTokens?: number;
   ms: number;
 }
 
@@ -51,6 +55,8 @@ export interface EvalReport {
   /** 시간 초과 문항을 뺀 전체 정답률(owner-check 제외) */
   scoredExTimeout: Tally;
   totalMs: number;
+  /** 토큰 수를 받은 문항의 요약(어댑터가 알려 줄 때만) */
+  tokens?: { count: number; max: number; avg: number; numCtx?: number; overCtx90: string[] };
   results: CaseResult[];
 }
 
@@ -72,7 +78,7 @@ export const noonSeoul = (today: string) => new Date(`${today}T03:00:00Z`);
 
 /** (a) LLM 원값 채점 */
 function scoreRaw(c: DateCase, raw: unknown): string[] {
-  const parsed = llmOutputSchema.safeParse(raw);
+  const parsed = parseLlmOutput(raw);
   if (!parsed.success) return ["응답 형식: 기대 스키마 / 형식 오류"];
   const o: LlmOutput = parsed.data;
   const e = c.expect;
@@ -126,12 +132,18 @@ export async function runDateEval(
     const t0 = clock();
     let raw: unknown;
     let error: string | undefined;
+    let promptTokens: number | undefined;
+    let numCtx: number | undefined;
     // 원값을 가로채 기록한다. 호출 실패는 그 문항만 실패로 세고 계속 간다.
     const spy: LlmAdapter = {
       name: llm.name,
       async json(req) {
         try {
           raw = await llm.json(req);
+          // 어댑터가 마지막 호출 정보를 알려 주면 읽는다(모르는 어댑터는 생략)
+          const u = (llm as ReportsUsage).lastUsage;
+          promptTokens = u?.promptTokens;
+          numCtx = u?.numCtx;
           return raw;
         } catch (e) {
           error = e instanceof Error ? e.message : String(e);
@@ -188,6 +200,8 @@ export async function runDateEval(
       finalDiffs,
       error,
       timedOut: isTimeout(error),
+      promptTokens,
+      numCtx,
       firstOfDay,
       ms: clock() - t0,
     };
@@ -218,8 +232,21 @@ export function summarize(llm: string, results: CaseResult[]): EvalReport {
     if (!r.timedOut) add(scoredExTimeout, r);
     for (const tag of r.tags) add((byTag[tag] ??= empty()), r);
   }
+  const withTokens = results.filter((r) => r.promptTokens !== undefined);
+  const tokenList = withTokens.map((r) => r.promptTokens ?? 0);
+  const ctx = withTokens.find((r) => r.numCtx !== undefined)?.numCtx;
+  const tokens = withTokens.length
+    ? {
+        count: withTokens.length,
+        max: Math.max(...tokenList),
+        avg: Math.round(tokenList.reduce((s, n) => s + n, 0) / tokenList.length),
+        numCtx: ctx,
+        overCtx90: ctx ? withTokens.filter((r) => (r.promptTokens ?? 0) > ctx * 0.9).map((r) => r.id) : [],
+      }
+    : undefined;
   return {
     llm,
+    tokens,
     scored,
     ownerCheck,
     byTag,
@@ -242,6 +269,11 @@ export function formatReport(report: EvalReport): string {
   if (report.ownerCheck.total) out.push(`owner-check(오너 확인 대기, 따로 집계): ${tallyLine(report.ownerCheck)}`);
   const firstTimeouts = report.results.filter((r) => r.timedOut && r.firstOfDay).length;
   out.push(`LLM 호출 실패 ${report.errors}건 (시간 초과 ${report.timeouts}건, 그중 기준일 첫 문항 ${firstTimeouts}건) · 총 ${report.totalMs}ms · 문항당 평균 ${report.results.length ? Math.round(report.totalMs / report.results.length) : 0}ms`);
+  if (report.tokens) {
+    const t = report.tokens;
+    out.push(`프롬프트 토큰(prompt_eval_count): ${t.count}문항 최대 ${t.max} · 평균 ${t.avg}${t.numCtx ? ` · num_ctx ${t.numCtx}` : ""}`);
+    if (t.numCtx && t.overCtx90.length) out.push(`경고: num_ctx ${t.numCtx}의 90%(${Math.floor(t.numCtx * 0.9)})를 넘은 문항 ${t.overCtx90.length}건 (${t.overCtx90.join(", ")}). 앞부분이 잘렸을 수 있어요 -> OLLAMA_NUM_CTX를 늘리세요`);
+  }
   out.push("", "## 태그별");
   for (const [tag, t] of Object.entries(report.byTag).sort(([a], [b]) => a.localeCompare(b))) out.push(`- ${tag}: ${tallyLine(t)}`);
   const wrong = report.results.filter((r) => !r.rawOk || !r.finalOk);
@@ -253,6 +285,6 @@ export function formatReport(report: EvalReport): string {
   }
   out.push("", "## 문항당 ms");
   out.push("(* = 기준일이 바뀐 직후 첫 문항: 앞부분 캐시를 못 써서 느리다)");
-  out.push(report.results.map((r) => `${r.id}${r.firstOfDay ? "*" : ""}:${r.ms}`).join(" "));
+  out.push(report.results.map((r) => `${r.id}${r.firstOfDay ? "*" : ""}:${r.ms}${r.promptTokens !== undefined ? `ms/${r.promptTokens}tok` : ""}`).join(" "));
   return out.join("\n");
 }

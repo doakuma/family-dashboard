@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_FAMILY_ID } from "../types";
-import { EnvConfigProvider } from "./env-config";
+import { EnvConfigProvider, parseKeepAlive } from "./env-config";
 
 describe("EnvConfigProvider", () => {
   it("값이 없으면 기본값", () => {
@@ -16,7 +16,11 @@ describe("EnvConfigProvider", () => {
   it("Ollama 호출 설정: OLLAMA_TIMEOUT_MS·OLLAMA_NUM_CTX·OLLAMA_KEEP_ALIVE, 잘못된 값은 기본값", () => {
     const llm = (env: Record<string, string>) => new EnvConfigProvider(env).get("llm");
     expect(llm({ OLLAMA_TIMEOUT_MS: "240000", OLLAMA_NUM_CTX: "4096", OLLAMA_KEEP_ALIVE: "1h" })).toMatchObject({ timeoutMs: 240000, numCtx: 4096, keepAlive: "1h" });
-    expect(llm({ OLLAMA_KEEP_ALIVE: "-1" })).toMatchObject({ keepAlive: "-1" });
+    // 단위 없는 정수는 숫자(초)로, 단위 있는 값은 문자열로
+    for (const [raw, want] of [["-1", -1], ["300", 300], ["0", 0], ["30m", "30m"], ["1h", "1h"], ["45s", "45s"], ["1h30m", "1h30m"], ["abc", "30m"], ["1.5", "30m"], ["30 m", "30m"], ["m30", "30m"], ["", "30m"]] as const) {
+      expect(parseKeepAlive(raw), raw).toBe(want);
+      expect((llm({ OLLAMA_KEEP_ALIVE: raw }) as { keepAlive?: unknown }).keepAlive, raw).toBe(want);
+    }
     for (const bad of ["abc", "0", "-5", "1.5", "", "12px"]) {
       expect(llm({ OLLAMA_TIMEOUT_MS: bad, OLLAMA_NUM_CTX: bad }), bad).toMatchObject({ timeoutMs: 180000, numCtx: 8192 });
     }

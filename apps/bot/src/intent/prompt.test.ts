@@ -2,7 +2,7 @@ import { DEFAULT_FAMILY_ID, type Anniversary, type Event, type Member, type Task
 import { FsWikiRepository } from "@hsh/core/node";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { PROMPT_MAX_CHARS, buildSystemPrompt, llmOutputJsonSchema, llmOutputSchema } from "./prompt";
+import { PROMPT_MAX_CHARS, buildSystemPrompt, llmOutputJsonSchema, llmOutputSchema, parseLlmOutput } from "./prompt";
 
 const members: Member[] = [
   { id: "haneul", name: "하늘", role: "child", color: "blue" },
@@ -108,6 +108,13 @@ describe("llmOutputSchema", () => {
     expect(llmOutputSchema.safeParse({ intent: "question", qTense: "past" }).success).toBe(true);
     expect(llmOutputSchema.safeParse({ intent: "question", qTense: "none" }).success).toBe(true);
     expect(llmOutputSchema.safeParse({ intent: "question", qTense: "future" }).success).toBe(false);
+  });
+  it("parseLlmOutput: qTense가 \"\"이면 없는 것으로 받는다. 다른 잘못된 값은 여전히 거부", () => {
+    const ok = parseLlmOutput({ intent: "question", qTense: "", qDatePhrase: "" });
+    expect(ok.success).toBe(true);
+    expect(ok.success && ok.data.qTense).toBeUndefined();
+    expect(parseLlmOutput({ intent: "question", qTense: "future" }).success).toBe(false);
+    expect(parseLlmOutput("x").success).toBe(false);
   });
   it("파서는 관대하다: qDatePhrase·qTense가 없어도, 빈 문자열이어도 받는다", () => {
     expect(llmOutputSchema.safeParse({ intent: "question" }).success).toBe(true);
