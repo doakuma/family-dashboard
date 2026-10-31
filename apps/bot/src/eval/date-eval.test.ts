@@ -116,6 +116,19 @@ describe("runDateEval (가짜 LLM, 실제 호출 없음)", () => {
     expect(rep.results.every((r) => r.rawOk && r.finalOk)).toBe(true);
   });
 
+  it("기간 말고 기간(d044, d051): 제외 날짜를 비워도, A의 날짜를 넣어도 통과, 엉뚱한 날짜는 실패", async () => {
+    for (const id of ["d044", "d051"]) {
+      const c = byId(id);
+      const any = c.expect.excludeDatesAny ?? [];
+      expect(any.length).toBeGreaterThan(0);
+      const run = async (extra: Record<string, unknown>) => (await runDateEval([c], fakeLlm(() => ({ ...truth(c), ...extra })), wiki)).results[0]?.rawOk;
+      expect(await run({}), `${id} 비움`).toBe(true);
+      expect(await run({ qExcludeDates: any }), `${id} A 전체`).toBe(true);
+      expect(await run({ qExcludeDates: [any[0]] }), `${id} 일부`).toBe(true);
+      expect(await run({ qExcludeDates: ["2026-12-25"] }), `${id} 엉뚱`).toBe(false);
+    }
+  });
+
   it("keyword 느슨한 비교: 너무 짧은 한 글자는 통과하지 못한다", async () => {
     const c = byId("d069"); // 학원 언제 가?
     const pass = async (kw: string) => (await runDateEval([c], fakeLlm(() => ({ ...truth(c), qKeyword: kw })), wiki)).results[0]?.rawOk;

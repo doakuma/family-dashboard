@@ -103,6 +103,7 @@ function renderPrompt(ctx: PromptContext, mapChars: number, evN: number, tkN: nu
   // 쓰기 대상 id가 필요해 자산 지도와 겹쳐도 남긴다. 건수·제목 길이를 제한한다.
   const events = ctx.events
     .filter((e) => e.date >= ctx.today)
+    .sort((a, b) => a.date.localeCompare(b.date) || (a.allDay ? "" : (a.start ?? "")).localeCompare(b.allDay ? "" : (b.start ?? "")))
     .slice(0, evN)
     .map((e) => `- ${e.id}: ${e.date} ${e.allDay ? "종일" : (e.start ?? "")} ${clip(e.title)} (${e.members.join(",")})`)
     .join("\n");

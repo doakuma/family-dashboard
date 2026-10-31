@@ -91,7 +91,10 @@ function scoreRaw(c: DateCase, raw: unknown): string[] {
   if (e.excludeKeyword) {
     if (!(exk && loose(exk, e.excludeKeyword))) diffs.push(`제외 keyword: ${e.excludeKeyword} / ${show(o.qExcludeKeyword)}`);
   } else if (exk) diffs.push(`제외 keyword: 없음 / ${exk}`);
-  if (!sameSet(o.qExcludeDates ?? [], e.excludeDates ?? [])) diffs.push(`제외 날짜: ${show(e.excludeDates ?? "없음")} / ${show(o.qExcludeDates ?? "없음")}`);
+  if (e.excludeDatesAny) {
+    const extra = (o.qExcludeDates ?? []).filter((x) => !e.excludeDatesAny?.includes(x));
+    if (extra.length) diffs.push(`제외 날짜: ${e.excludeDatesAny.join(",")}의 부분집합 또는 없음 / ${extra.join(",")}`);
+  } else if (!sameSet(o.qExcludeDates ?? [], e.excludeDates ?? [])) diffs.push(`제외 날짜: ${show(e.excludeDates ?? "없음")} / ${show(o.qExcludeDates ?? "없음")}`);
   if (!sameSet(o.qMembers ?? [], e.members ?? [])) diffs.push(`구성원: ${show(e.members ?? "없음")} / ${show(o.qMembers ?? "없음")}`);
   return diffs;
 }

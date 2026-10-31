@@ -17,6 +17,8 @@ export const expectSchema = z
     keyword: z.string().optional(),
     excludeKeyword: z.string().optional(),
     excludeDates: z.array(date).optional(),
+    /** 제외 날짜가 "A 말고 B"의 A가 기간일 때: 이 집합의 부분집합이면(비어 있어도) 통과 */
+    excludeDatesAny: z.array(date).optional(),
     /** 최종 답의 상태(answered = 항목 있음, empty = 범위는 읽었으나 위키에 없음) */
     status: z.enum(["answered", "empty"]).optional(),
     /** 최종 답에 있어야 하는 일정 id (fixtures/sample-wiki) */

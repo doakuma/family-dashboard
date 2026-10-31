@@ -599,6 +599,24 @@ describe('"말고" 제외 조건과 뒤쪽 날짜 (후속2)', () => {
     const c = await ask("뭐 있어?", { intent: "question", qKeyword: "병원" }, s);
     expect(c.r.status).toBe("clarify");
   });
+  it("반대 방향 포함은 제목이 2자 이상이고 단어 길이의 절반 이상일 때만: 위키에 없는 '요가학원'에 '요가' 일정이 나오면 안 된다", async () => {
+    const s3 = state({ anniversaries: [], events: [...events, ev("evt-y", "2026-11-04", "요가", { members: ["mom"] })] });
+    const a = await ask("요가학원 언제야?", { intent: "question", qKeyword: "요가학원" }, s3);
+    expect(a.r.status).toBe("empty");
+    expect(a.r.text).not.toContain("• ");
+    const b = await ask("요가 언제야?", { intent: "question", qKeyword: "요가" }, s3);
+    expect(b.r.status === "answered" && b.r.eventIds).toEqual(["evt-y"]);
+    const c = await ask("토요일에 핼러윈 말고 뭐 있어?", { intent: "question", qExcludeKeyword: "핼러윈 파티 행사" }, s);
+    expect(c.r.status === "answered" && c.r.eventIds).toEqual(["evt-2"]);
+  });
+  it("한 글자 keyword/excludeKeyword는 버린다 ('회')", async () => {
+    const s4 = state({ anniversaries: [], events: [ev("evt-h", "2026-10-31", "회식"), ev("evt-j", "2026-10-31", "학예회")] });
+    const a = await ask("토요일 뭐 있어?", { intent: "question", qExcludeKeyword: "회", ...day("2026-10-31") }, s4);
+    expect(a.r.status === "answered" && a.r.eventIds).toEqual(["evt-h", "evt-j"]);
+    const b = await ask("토요일 뭐 있어?", { intent: "question", qKeyword: "회", ...day("2026-10-31") }, s4);
+    expect(b.r.status === "answered" && b.r.eventIds).toEqual(["evt-h", "evt-j"]);
+    expect(b.r.text).not.toContain("'회'");
+  });
   it("제외 날짜가 고른 범위 전체를 덮으면 그 제외는 버린다", async () => {
     const { r } = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qExcludeDates: ["2026-10-31"] }, s);
     expect(r.status === "answered" && r.eventIds).toEqual(["evt-1", "evt-2"]);

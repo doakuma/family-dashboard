@@ -75,11 +75,13 @@ export async function answerQuestion(
 }
 
 const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
-/** 제목과 단어가 포함 관계인가(어느 쪽이 포함하든): "학원"↔"미술학원", "핼러윈 파티"↔"핼러윈" */
+/** 제목과 단어가 포함 관계인가: "학원"↔"미술학원", "핼러윈 파티"↔"핼러윈" */
 const related = (title: string, kw: string) => {
   const t = norm(title);
   const k = norm(kw);
-  return k !== "" && (t.includes(k) || k.includes(t));
+  if (k.length < 2) return false; // 한 글자 단어("회")는 제목 어디에나 걸려서 쓰지 않는다
+  // 반대 방향(단어가 제목을 포함)은 제목이 2자 이상이고 단어 길이의 절반을 넘을 때만: "요가학원"이 "요가"에 걸리지 않는다
+  return t.includes(k) || (k.includes(t) && t.length >= 2 && t.length * 2 > k.length);
 };
 
 /** 한글 단어 안에서 걸리지 않게: 앞에 한글이 붙어 있으면("회사야") 단서로 보지 않는다. */
@@ -233,8 +235,8 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
 /** 범위 안의 일정·기념일(매년 반복은 범위 안 발생일로 펼친다) */
 function collect(ctx: AnswerContext, range: DateRange, kinds: Set<QuestionKind>, wanted: Set<string>, keyword?: string, exclude?: string, excludeDates: string[] = []): Item[] {
   const nameOf = (id?: string) => ctx.members.find((m) => m.id === id)?.name ?? "";
-    const yearOf = (d: string) => (d.slice(0, 4) === ctx.today.slice(0, 4) ? "" : `${d.slice(0, 4)}년 `);
-    const hit = (title: string) => (!keyword || related(title, keyword)) && !(exclude && related(title, exclude));
+  const yearOf = (d: string) => (d.slice(0, 4) === ctx.today.slice(0, 4) ? "" : `${d.slice(0, 4)}년 `);
+  const hit = (title: string) => (!keyword || related(title, keyword)) && !(exclude && related(title, exclude));
   const items: Item[] = [];
 
   if (kinds.has("events")) {
