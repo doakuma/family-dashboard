@@ -1,4 +1,5 @@
-// 질문 응답. LLM은 범위(날짜·종류·구성원·키워드)만 뽑고, 답 문장은 여기서 위키 항목으로 결정적으로 만든다.
+// 질문 응답. 날짜·시제·"말고" 판단은 LLM이 하고(MVP 스펙 rev 63), 코드는 검증만 한다(날짜 형식, 범위 길이, 실제 구성원 id).
+// 답 문장은 여기서 위키 항목으로 결정적으로 만든다. 정규식 해석기(range.ts)는 LLM 범위가 없거나 형식이 틀릴 때만 보조로 쓴다.
 // 위키는 읽기만 한다(WikiRepository 중 read만 받는다). 슬랙·환경 변수에 의존하지 않는다.
 import {
   addDays,
@@ -16,7 +17,7 @@ import {
 } from "@hsh/core";
 import { formatDay, formatWhen } from "../format";
 import { extractIntent, type Intent, type QuestionKind, type QuestionQuery } from "../intent/extract";
-import { MAX_SPAN_DAYS, resolveRange, splitContrast, type DateRange } from "./range";
+import { MAX_SPAN_DAYS, resolveRange, type DateRange } from "./range";
 
 export interface AnswerContext {
   today: string;
@@ -94,19 +95,23 @@ function nameIn(text: string, name: string): boolean {
   return false;
 }
 
-function chooseRange(q: QuestionQuery, today: string): DateRange | "too_long" | "ambiguous" | undefined {
-  const r = resolveRange(q.text, today);
-  if (r && "error" in r) return r.error;
-  if (r) return r;
-  // "토요일 말고 …"처럼 말고 앞 날짜는 빼는 조건이다. LLM이 그 날짜를 범위로 채워도 쓰지 않는다.
-  if (splitContrast(q.text)) return undefined;
-  // 코드가 못 읽었을 때만 LLM 값을 쓴다(보조 경로). 검증을 통과해야 한다.
+/** LLM이 준 범위를 검증한다. 형식이 맞으면 그대로 쓴다(범위 길이가 62일을 넘으면 too_long). 없거나 틀리면 undefined. */
+function llmRange(q: QuestionQuery, today: string): DateRange | "too_long" | undefined {
   const from = q.from ?? q.to;
   const to = q.to ?? q.from;
   if (!from || !to || !isDate(from) || !isDate(to) || from > to) return undefined;
   if (Math.abs(diffDays(today, from)) > LLM_RANGE_REACH || Math.abs(diffDays(today, to)) > LLM_RANGE_REACH) return undefined;
   if (diffDays(from, to) + 1 > MAX_SPAN_DAYS) return "too_long";
   return { from, to };
+}
+
+function chooseRange(q: QuestionQuery, today: string): DateRange | "too_long" | "ambiguous" | undefined {
+  const l = llmRange(q, today);
+  if (l) return l;
+  // 보조: LLM 범위가 없거나 형식이 틀릴 때만 정규식 해석기를 쓴다. 이 경우에도 못 읽으면 되묻는다.
+  const r = resolveRange(q.text, today);
+  if (r && "error" in r) return r.error;
+  return r;
 }
 
 interface Item {
@@ -145,10 +150,12 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
   // 위키의 일정·기념일 제목 어디에도 없는 말("계획"·"행사"·"하늘이"·"하는 날이야")과 구성원 이름은 일정 이름이 아니라
   // 서술어이므로 거르지 않는다. 날짜가 분명한 질문이 "없어요"로 끝나지 않게 한다. 날짜 없이 이름만 물으면 아래에서 없다고 답한다.
   const inText = q.keyword && norm(q.text).includes(norm(q.keyword)) ? q.keyword : undefined;
-  // "말고" 앞쪽에만 있는 keyword는 제외 조건("핼러윈 말고 뭐 있어?"), 뒤쪽이 실제 질문이다.
-  const parts = splitContrast(q.text);
-  const exclude = inText && parts && norm(parts.before).includes(norm(inText)) && !norm(parts.after).includes(norm(inText)) ? inText : undefined;
-  const rawKeyword = exclude ? undefined : inText;
+  // "말고" 제외는 LLM이 정한다. 제외 단어는 질문에 글자 그대로 있고 위키 제목에 맞을 때만, 날짜는 형식이 맞을 때만 쓴다.
+  const titlesNow = [...ctx.events.map((e) => e.title), ...ctx.anniversaries.map((a) => a.title)];
+  const exInText = q.excludeKeyword && norm(q.text).includes(norm(q.excludeKeyword)) && titlesNow.some((t) => norm(t).includes(norm(q.excludeKeyword ?? ""))) ? q.excludeKeyword : undefined;
+  const exclude = exInText;
+  const excludeDates = [...new Set((q.excludeDates ?? []).filter((d) => isDate(d)))];
+  const rawKeyword = inText && !(exclude && norm(exclude).includes(norm(inText))) ? inText : undefined;
   const picked = chooseRange(q, today);
   const inTitles = (kw: string) => [...ctx.events.map((e) => e.title), ...ctx.anniversaries.map((a) => a.title)].some((t) => norm(t).includes(norm(kw)));
   const isMemberName = (kw: string) => ctx.members.some((m) => m.id !== "family" && nameIn(kw, m.name));
@@ -168,10 +175,11 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
   if (picked || upcoming) {
     const range: DateRange = picked ?? { from: today, to: addDays(today, UPCOMING_DAYS) };
     const noun = calendarKinds.has("events") ? "일정" : "기념일";
-    const items = collect(ctx, range, calendarKinds, wanted, keyword, exclude);
+    const items = collect(ctx, range, calendarKinds, wanted, keyword, exclude, excludeDates);
     // 뺀 게 있을 때만 밝힌다("치과 말고는 … 없어요")
-    const removed = exclude ? collect(ctx, range, calendarKinds, wanted, keyword).length - items.length : 0;
-    const except = removed > 0 ? `'${exclude}' 말고` : "";
+    const removed = exclude || excludeDates.length ? collect(ctx, range, calendarKinds, wanted, keyword).length - items.length : 0;
+    const exceptWhat = [...(exclude ? [`'${exclude}'`] : []), ...excludeDates.map(formatDay)].join(", ");
+    const except = removed > 0 ? `${exceptWhat} 말고` : "";
     const shown = items.slice(0, picked ? MAX_LINES : UPCOMING_LIMIT);
     const label = picked ? (range.from === range.to ? formatDay(range.from) : `${formatDay(range.from)}~${formatDay(range.to)}`) : "";
     out.range = range;
@@ -214,7 +222,7 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
 }
 
 /** 범위 안의 일정·기념일(매년 반복은 범위 안 발생일로 펼친다) */
-function collect(ctx: AnswerContext, range: DateRange, kinds: Set<QuestionKind>, wanted: Set<string>, keyword?: string, exclude?: string): Item[] {
+function collect(ctx: AnswerContext, range: DateRange, kinds: Set<QuestionKind>, wanted: Set<string>, keyword?: string, exclude?: string, excludeDates: string[] = []): Item[] {
   const nameOf = (id?: string) => ctx.members.find((m) => m.id === id)?.name ?? "";
   const kw = keyword ? norm(keyword) : undefined;
   const yearOf = (d: string) => (d.slice(0, 4) === ctx.today.slice(0, 4) ? "" : `${d.slice(0, 4)}년 `);
@@ -224,7 +232,7 @@ function collect(ctx: AnswerContext, range: DateRange, kinds: Set<QuestionKind>,
 
   if (kinds.has("events")) {
     for (const e of ctx.events) {
-      if (e.date < range.from || e.date > range.to || !hit(e.title)) continue;
+      if (e.date < range.from || e.date > range.to || excludeDates.includes(e.date) || !hit(e.title)) continue;
       // 구성원을 지정하면 그 사람 일정과 가족 전체 일정
       if (wanted.size && !e.members.some((m) => wanted.has(m) || m === "family")) continue;
       const who = e.members.map(nameOf).filter(Boolean).join("·");
@@ -242,6 +250,7 @@ function collect(ctx: AnswerContext, range: DateRange, kinds: Set<QuestionKind>,
       if (!hit(a.title)) continue;
       if (wanted.size && !(a.member && wanted.has(a.member))) continue;
       for (let d = nextOccurrence(a.monthDay, range.from); d <= range.to; d = nextOccurrence(a.monthDay, addDays(d, 1))) {
+        if (excludeDates.includes(d)) continue;
         items.push({ date: d, sortTime: "00:00", anniversary: a.title, line: `• ${yearOf(d)}${formatWhen(d, undefined, true)} 🎉 ${a.title} (매년)` });
       }
     }

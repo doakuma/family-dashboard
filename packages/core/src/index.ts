@@ -3,6 +3,7 @@ export * from "./types";
 export * from "./ports";
 export * from "./config";
 export * from "./date";
+export * from "./asset-map";
 export * from "./schema";
 export * from "./regions";
 export * from "./public-state";

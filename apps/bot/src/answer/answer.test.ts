@@ -87,8 +87,48 @@ function fakeLlm(out: unknown | (() => unknown)): LlmAdapter & { last?: LlmReque
   };
   return c;
 }
-const ask = async (text: string, llmOut: unknown, s = state()) => {
+/** 가짜 LLM의 "정답": rev 63에서는 날짜·시제·말고 판단을 LLM이 하므로, 질문마다 올바른 구조를 돌려준다. 기준일 2026-10-30(금). */
+const day = (from: string, to = from, extra: Record<string, unknown> = {}) => ({ qTense: "nonpast", qFrom: from, qTo: to, ...extra });
+const TRUTH: Record<string, Record<string, unknown>> = {
+  "이번 주 토요일 뭐 있어?": day("2026-10-31"),
+  "다음 주 화요일 일정": day("2026-11-03"),
+  "이번 주 뭐 있어?": day("2026-10-25", "2026-10-31"),
+  "11월 1일 뭐 있어?": day("2026-11-01"),
+  "오늘이랑 1월 5일 일정": day("2026-10-30", "2027-01-05"),
+  "이번 주 토요일 하늘 일정": day("2026-10-31"),
+  "이번 주 엄마 일정": day("2026-10-25", "2026-10-31"),
+  "11월 일정": day("2026-11-01", "2026-11-30"),
+  "11월 10일": day("2026-11-10"),
+  "내일 뭐 있어?": day("2026-10-31"),
+  "내일 회사야?": day("2026-10-31"),
+  "내일 할 일정 있어?": day("2026-10-31"),
+  "내일 할 일 뭐 있어?": day("2026-10-31"),
+  "이번 주 토요일 하늘색 옷 입을 일정 있어?": day("2026-10-31"),
+  "이번 주 토요일 하늘이랑 일정": day("2026-10-31"),
+  "이번 주 토요일 계획?": day("2026-10-31"),
+  "이번 주 토요일 가족 행사?": day("2026-10-31"),
+  "이번 주 토요일 하늘이 뭐 해?": day("2026-10-31"),
+  "이번 주 토요일 하는 날이야?": day("2026-10-31"),
+  "이번 주 토요일 수영 뭐 있어?": day("2026-10-31"),
+  "내일 핼러윈 있어?": day("2026-10-31"),
+  "11월 1일 치과 있어?": day("2026-11-01"),
+  "이번 주 말고 다음 주 뭐 있어?": day("2026-11-01", "2026-11-07", { qExcludeDates: ["2026-10-25"] }),
+  "토요일에 핼러윈 말고 뭐 있어?": day("2026-10-31", "2026-10-31", { qExcludeKeyword: "핼러윈" }),
+  "토요일에 핼러윈 파티 말고 뭐 있어?": day("2026-10-31", "2026-10-31", { qExcludeKeyword: "핼러윈 파티" }),
+  "치과 말고 뭐 있어?": { qTense: "nonpast", qExcludeKeyword: "치과" },
+  "치과 말고 학원 언제야?": { qTense: "nonpast", qExcludeKeyword: "치과", qKeyword: "학원" },
+  "다음 주 치과 말고 뭐 있어?": day("2026-11-01", "2026-11-07", { qExcludeKeyword: "치과" }),
+  "토요일 말고 미술학원 언제야?": { qTense: "nonpast", qExcludeDates: ["2026-10-31"], qKeyword: "미술학원" },
+  "11월 3일 말고 4일 뭐 있어?": day("2026-11-04", "2026-11-04", { qExcludeDates: ["2026-11-03"] }),
+  "오늘 말고 3일 뭐 있어?": day("2026-11-03", "2026-11-03", { qExcludeDates: ["2026-10-30"] }),
+  "토요일에 병원 갔다 올 거 있어?": day("2026-10-31"),
+  "12월 3일 뭐 할 거야? 엄마가 정했어": day("2026-12-03"),
+  "토요일에 뭐 했어?": { qTense: "past", qFrom: "2026-10-24", qTo: "2026-10-24" },
+};
+const ask = async (text: string, rawOut: unknown, s = state()) => {
   const { repo, calls } = fakeRepo(s);
+  // 질문 응답에 정답 구조를 채운다. 테스트가 직접 준 필드가 우선한다.
+  const llmOut = rawOut && typeof rawOut === "object" && (rawOut as { intent?: string }).intent === "question" ? { ...TRUTH[text], ...rawOut } : rawOut;
   const llm = fakeLlm(llmOut);
   const r = await answerQuestion({ text, now, familyId: FAMILY, senderSlackId: "U00MOM" }, { wiki: repo, llm });
   return { r, calls, llm };
@@ -141,13 +181,32 @@ describe("지어내지 않기", () => {
     expect(r.text).not.toContain("지어낸");
   });
 
-  it("코드가 날짜를 해석하면 LLM의 다른 날짜보다 우선한다", async () => {
+  it("LLM 범위가 range.ts 해석과 다르면 LLM 값이 이긴다 (rev 63)", async () => {
     const { r } = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qFrom: "2026-11-03", qTo: "2026-11-03" });
-    expect(r.status === "answered" && r.range).toEqual({ from: "2026-10-31", to: "2026-10-31" });
-    expect(r.text).not.toContain("치과");
+    expect(r.status === "answered" && r.range).toEqual({ from: "2026-11-03", to: "2026-11-03" });
+    expect(r.text).toContain("치과");
+    expect(r.text).not.toContain("핼러윈");
   });
 
-  it("코드가 날짜를 못 읽으면 LLM 범위를 검증해서 쓴다", async () => {
+  it("LLM 범위가 없거나 형식이 틀리면 range.ts가 보조로 읽는다", async () => {
+    for (const bad of [{}, { qFrom: "내일", qTo: "모레" }, { qFrom: "2026-13-40", qTo: "2026-13-41" }]) {
+      const { r } = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qFrom: undefined, qTo: undefined, ...bad });
+      expect(r.status === "answered" && r.range).toEqual({ from: "2026-10-31", to: "2026-10-31" });
+    }
+  });
+
+  it("LLM 범위가 62일을 넘으면 range.ts가 달라도 되묻는다", async () => {
+    const { r } = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qFrom: "2026-10-30", qTo: "2027-01-05" });
+    expect(r.status).toBe("clarify");
+    expect(r.text).toContain("너무 길어요");
+  });
+
+  it("범위 하나만 주면 하루로 본다", async () => {
+    const { r } = await ask("그날 뭐 있었지", { intent: "question", qFrom: undefined, qTo: "2026-11-03" });
+    expect(r.status === "answered" && r.range).toEqual({ from: "2026-11-03", to: "2026-11-03" });
+  });
+
+  it("코드가 날짜를 못 읽어도 LLM 범위를 검증해서 쓴다", async () => {
     const { r } = await ask("그날 뭐 있었지", { intent: "question", qFrom: "2026-11-03", qTo: "2026-11-03" });
     expect(r.status === "answered" && r.eventIds).toEqual(["evt-4"]);
   });
@@ -207,6 +266,12 @@ describe("구성원·키워드·종류", () => {
     expect(r.status === "answered" && r.eventIds).toEqual(["evt-1", "evt-2"]);
     const m = await ask("이번 주 엄마 일정", { intent: "question" });
     expect(m.r.status === "answered" && m.r.eventIds).toEqual(["evt-3", "evt-1"]);
+  });
+
+  it("없는 구성원 id는 버린다(필터가 되지 않고 전체가 나온다)", async () => {
+    const { r } = await ask("이번 주 뭐 있어?", { intent: "question", qMembers: ["ghost"] });
+    expect(r.status === "answered" && r.eventIds).toEqual(["evt-3", "evt-1", "evt-2"]);
+    expect(r.text).not.toContain("ghost");
   });
 
   it("LLM이 준 구성원 id는 검증해서 쓴다", async () => {
@@ -438,6 +503,7 @@ describe("이름만 묻는 질문 (날짜 없음)", () => {
 });
 
 describe("rev 62 날짜 해석 (answerQuestion 경유, 기준일을 바꿔서)", () => {
+  // 이 블록은 range.ts 보조 해석기(LLM 범위 없음)로 rev 62 규칙이 지켜지는지 본다. 가짜 LLM은 범위를 비워 둔다.
   const askAt = async (text: string, at: string, s = state()) => {
     const { repo } = fakeRepo(s);
     return answerQuestion({ text, now: new Date(`${at}T03:00:00Z`), familyId: FAMILY }, { wiki: repo, llm: fakeLlm({ intent: "question" }) });
@@ -504,14 +570,26 @@ describe('"말고" 제외 조건과 뒤쪽 날짜 (후속2)', () => {
     expect(r.text).toContain("피아노");
     expect(r.text).not.toContain("치과 (");
   });
-  it('"토요일 말고 미술학원 언제야?" -> 토요일로 제한하지 않는다', async () => {
-    const { r } = await q("토요일 말고 미술학원 언제야?", "미술학원");
+  it('"토요일 말고 미술학원 언제야?" -> LLM excludeDates로 토요일 미술학원이 빠진다', async () => {
+    const s2 = state({ anniversaries: [], events: [...events, ev("evt-8", "2026-11-05", "미술학원", { members: ["haneul"] })] });
+    const { r } = await ask("토요일 말고 미술학원 언제야?", { intent: "question" }, s2);
     expect(r.status).toBe("answered");
-    expect(r.text).toContain("미술학원");
-    // LLM이 토요일을 범위로 채워도 쓰지 않는다
-    const { r: r2 } = await ask("토요일 말고 미술학원 언제야?", { intent: "question", qKeyword: "미술학원", qFrom: "2026-10-31", qTo: "2026-10-31" }, s);
-    expect(r2.status).toBe("answered");
-    expect(r2.text).toContain("미술학원");
+    expect(r.status === "answered" && r.eventIds).toEqual(["evt-8"]);
+    expect(r.text).toContain("11/5");
+    expect(r.text).not.toContain("• 10/31");
+    expect(r.text).toContain("10/31(토) 말고");
+  });
+  it("excludeDates 형식이 틀리면 버리고, 위키 제목에 없거나 질문에 없는 excludeKeyword도 버린다", async () => {
+    const a = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qExcludeDates: ["토요일", "2026-99-99"], qExcludeKeyword: "병원" }, s);
+    expect(a.r.status === "answered" && a.r.eventIds).toEqual(["evt-1", "evt-2"]);
+    const b = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qExcludeKeyword: "핼러윈" }, s); // 질문 글에 없음
+    expect(b.r.status === "answered" && b.r.eventIds).toEqual(["evt-1", "evt-2"]);
+  });
+  it("말고 문장이어도 LLM 범위를 버리지 않는다", async () => {
+    const { r } = await q("토요일에 핼러윈 말고 뭐 있어?", "핼러윈");
+    expect(r.status === "answered" && r.range).toEqual({ from: "2026-10-31", to: "2026-10-31" });
+    const { r: r2 } = await ask("토요일 말고 미술학원 언제야?", { intent: "question", qKeyword: "미술학원", qFrom: "2026-11-05", qTo: "2026-11-05" }, state({ anniversaries: [] }));
+    expect(r2.status !== "not_question" && r2.range).toEqual({ from: "2026-11-05", to: "2026-11-05" });
   });
   it('"11월 3일 말고 4일 뭐 있어?" -> 11/4', async () => {
     const { r } = await q("11월 3일 말고 4일 뭐 있어?");

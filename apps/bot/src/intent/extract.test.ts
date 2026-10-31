@@ -143,4 +143,19 @@ describe("extractIntent", () => {
   it("질문", async () => {
     expect(await run({ intent: "question" }, "뭐 있어?")).toEqual({ type: "question", query: { text: "뭐 있어?" } });
   });
+
+  it("질문: 시제·제외 조건은 형식만 검증해 담는다", async () => {
+    const r = await run(
+      { intent: "question", qTense: "past", qFrom: "2026-10-24", qTo: "2026-10-24", qExcludeKeyword: " 치과 ", qExcludeDates: ["2026-10-31", "토요일", "2026-10-31", "2026-02-30"], qMembers: ["haneul", "ghost"] },
+      "토요일 말고 치과 말고 뭐 했어?",
+    );
+    expect(r.type === "question" && r.query).toMatchObject({
+      tense: "past",
+      from: "2026-10-24",
+      to: "2026-10-24",
+      excludeKeyword: "치과",
+      excludeDates: ["2026-10-31"],
+      memberIds: ["haneul"],
+    });
+  });
 });

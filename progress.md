@@ -196,3 +196,9 @@
 ## 2026-10-30 · #10 후속2 리뷰 통과
 - 다른 대화의 #10 후속(c93b135)과 겹쳐 오너 A안: main 기준으로 dup 구현 리뷰에서 나온 문제만 옮겨 고침(6b065a0). 리뷰어 통과 → #10 done·passes=true·review=pass (오너 반영).
 - 남은 중간 2건·낮음·오너 확인(일요일 당일 주말 되묻기)은 #10 note. 원격 브랜치 hsh-10-question-alt·hsh-10-followup-dup은 삭제 대기(오너 확인).
+
+## 2026-10-31 · #10 후속3: LLM 우선·자산 지도·날짜 채점
+- rev 63 반영: answer.ts chooseRange는 LLM qFrom/qTo(형식·62일 검증)를 우선하고 range.ts는 LLM 범위가 없거나 형식이 틀릴 때만 보조. "말고" 제외는 LLM qExcludeKeyword/qExcludeDates를 검증해 사용(splitContrast 판단·말고 문장에서 LLM 범위 버리기 삭제). 스키마에 qTense(qFrom 앞)·qExcludeKeyword·qExcludeDates 추가.
+- core `buildAssetMap`(달력표 일요일 시작·구성원 부르는 이름·제목→구성원→날짜→매주 추정·기념일, 상한 3000자)을 프롬프트에 붙이고 rev 62 규칙을 판단 기준으로 명시.
+- 질문 모음 apps/bot/eval/date-questions.json(106문항, owner-check 5) + src/eval/{date-cases,date-eval,run-date-eval}.ts. 노트북 채점: `pnpm --filter @hsh/bot eval:dates` (옵션 `--only <문자열>` `--json`, LLM_PROVIDER 그대로).
+- 검증: pnpm check(711 테스트, 실제 LLM 호출 없음). 남은 문제: 실제 qwen3:8b 정답률은 아직 미측정(노트북에서 채점 후 프롬프트 조정), 시제 판단 오탐/말고 문장은 모델 의존. #10 review는 오너/리뷰어가 pending으로.

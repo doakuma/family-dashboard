@@ -1,5 +1,6 @@
-// 질문 속 상대 날짜를 서울 기준 절대 날짜 범위로 바꾸는 결정적 해석기. LLM 값보다 우선한다.
-// MVP 스펙 rev 62 '날짜 해석': 주는 일요일~토요일(대시보드 달력과 같다, intent/prompt.ts의 calendarTable도 같다).
+// 보조 해석기(LLM 실패·형식 오류 때만): 질문 속 상대 날짜를 서울 기준 절대 날짜 범위로 바꾼다.
+// MVP 스펙 rev 63: 날짜 판단은 LLM이 하고, 이 해석기는 LLM 범위가 없거나 형식이 틀릴 때만 answer.ts가 부른다. LLM 값을 덮어쓰지 않는다.
+// MVP 스펙 rev 62 '날짜 해석': 주는 일요일~토요일(대시보드 달력과 같다, 자산 지도 달력(core/asset-map.ts)도 같다).
 import { addDays, addMonths, diffDays, isDate, weekdayOf } from "@hsh/core";
 
 export interface DateRange {

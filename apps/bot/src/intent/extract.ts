@@ -10,6 +10,7 @@ import {
   todayIn,
   type Change,
   type LlmAdapter,
+  type Anniversary,
   type Event,
   type Member,
   type Task,
@@ -32,11 +33,16 @@ export type QuestionKind = (typeof QUESTION_KINDS)[number];
 
 /** 질문의 범위. LLM이 준 값은 검증만 해서 담고, 상대 날짜 해석과 최종 선택은 answer/가 한다. */
 export interface QuestionQuery {
-  /** 사용자가 쓴 원문(결정적 날짜 해석기의 입력) */
+  /** 사용자가 쓴 원문(LLM 범위가 없거나 틀렸을 때 보조 해석기 range.ts의 입력) */
   text: string;
-  /** LLM이 준 범위(보조): 코드 해석이 실패했을 때만 쓴다 */
+  /** LLM이 판단한 범위(rev 63: 우선). 형식(YYYY-MM-DD)만 검증해 담는다 */
   from?: string;
   to?: string;
+  /** LLM이 판단한 시제 */
+  tense?: "past" | "nonpast";
+  /** "A 말고 B"의 A: 제외할 일정 이름 / 제외할 날짜 */
+  excludeKeyword?: string;
+  excludeDates?: string[];
   kinds?: QuestionKind[];
   memberIds?: string[];
   keyword?: string;
@@ -49,6 +55,7 @@ export interface ExtractInput {
   members: Member[];
   events: Event[];
   tasks: Task[];
+  anniversaries?: Anniversary[];
 }
 
 /** 일정으로 받아들이는 날짜 범위: 오늘-1일 ~ 오늘+400일 */
@@ -58,7 +65,7 @@ export async function extractIntent(input: ExtractInput, llm: LlmAdapter): Promi
   const now = input.now ?? new Date();
   const today = todayIn(now);
   const sender = input.members.find((m) => m.slackId && m.slackId === input.senderSlackId);
-  const system = buildSystemPrompt({ today, now: timeIn(now), sender, members: input.members, events: input.events, tasks: input.tasks });
+  const system = buildSystemPrompt({ today, now: timeIn(now), sender, members: input.members, events: input.events, tasks: input.tasks, anniversaries: input.anniversaries });
 
   let raw: unknown;
   try {
@@ -174,6 +181,7 @@ function toQuery(o: LlmOutput, ctx: Ctx, memberIds: Set<string>): QuestionQuery 
   const kinds = (o.qKinds ?? []).filter((k, i, a) => a.indexOf(k) === i);
   const memberIdsOut = [...new Set((o.qMembers ?? []).filter((id) => memberIds.has(id)))];
   const keyword = o.qKeyword?.trim().slice(0, 30);
+  const excludeDates = [...new Set((o.qExcludeDates ?? []).filter((d) => isDate(d)))].slice(0, 14);
   return {
     text: ctx.text,
     from: o.qFrom && isDate(o.qFrom) ? o.qFrom : undefined,
@@ -181,6 +189,9 @@ function toQuery(o: LlmOutput, ctx: Ctx, memberIds: Set<string>): QuestionQuery 
     kinds: kinds.length ? kinds : undefined,
     memberIds: memberIdsOut.length ? memberIdsOut : undefined,
     keyword: keyword || undefined,
+    tense: o.qTense,
+    excludeKeyword: o.qExcludeKeyword?.trim().slice(0, 30) || undefined,
+    excludeDates: excludeDates.length ? excludeDates : undefined,
   };
 }
 
