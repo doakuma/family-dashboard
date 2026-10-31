@@ -209,3 +209,8 @@
 - 프롬프트: asset-map 상한에 머리(오늘·달력·구성원) 포함(구성원 줄 축소 "…외 N명"), 전체 8000자 상한(자산 지도 → 일정 → 할 일 순으로 줄임, 할 일 30건·제목 40자), 날짜 판단 기준에 그날 계산값(이번/다음 주 일요일·주말·이번/다음 달) 직접 기재, family에는 "가족이" 안 붙임. 길이: sample 4701자, stress 5556자.
 - 남은 문제(오너 확인, 안 고침): LLM_RANGE_REACH(800일), 종류·구성원 정규식(SHOPPING/TODO/nameIn). 실제 qwen3:8b 정답률은 노트북에서 `pnpm --filter @hsh/bot eval:dates`로 측정 필요.
 - 후속3 재리뷰 중간 3건: related 반대 방향 제한(요가학원↛요가)·한 글자 keyword 버림, 기간 말고 기간 문항(d044·d051)에 excludeDatesAny, 앞으로의 일정 날짜·시각순 정렬 후 자름, collect 들여쓰기.
+
+## 2026-10-31 · #10 후속3 리뷰 통과
+- 리뷰어 3차 확인 통과(321d8eb, pnpm check 740 테스트) → #10 passes=true·review=pass·status=done (오너 반영). 1차 되돌림 [높음]: 채점이 기대값에 없는 필드를 안 봄, excludeKeyword를 질문 글자 그대로만 받아 LLM 판단을 버림.
+- 노트북 채점: `git pull && pnpm install && pnpm --filter @hsh/bot eval:dates` (옵션 --only, --json). 결과로 프롬프트·자산 지도 보강.
+- 남은 문제(낮음): 날짜 없는 질문의 한 글자 keyword는 되묻지 않고 "없어요". 오너 확인: 일요일 당일 주말 되묻기(d084·d085), LLM_RANGE_REACH 800일, 종류·구성원 정규식.
