@@ -202,3 +202,9 @@
 - core `buildAssetMap`(달력표 일요일 시작·구성원 부르는 이름·제목→구성원→날짜→매주 추정·기념일, 상한 3000자)을 프롬프트에 붙이고 rev 62 규칙을 판단 기준으로 명시.
 - 질문 모음 apps/bot/eval/date-questions.json(106문항, owner-check 5) + src/eval/{date-cases,date-eval,run-date-eval}.ts. 노트북 채점: `pnpm --filter @hsh/bot eval:dates` (옵션 `--only <문자열>` `--json`, LLM_PROVIDER 그대로).
 - 검증: pnpm check(711 테스트, 실제 LLM 호출 없음). 남은 문제: 실제 qwen3:8b 정답률은 아직 미측정(노트북에서 채점 후 프롬프트 조정), 시제 판단 오탐/말고 문장은 모델 의존. #10 review는 오너/리뷰어가 pending으로.
+
+## 2026-10-31 · #10 후속3 리뷰 되돌림 수정
+- 채점: 기대값에 없는 제외·구성원·(범위 문항의) keyword는 "비어 있어야" 통과, 최종 채점에 status·includeIds·excludeIds 추가(데이터 107문항, d068은 owner-check로 이동, "핼러윈 파티 말고" 변형 추가), loose 비교에 길이 하한, 테스트 캐스팅은 must 가드로.
+- answer.ts: excludeKeyword/keyword는 위키 제목과 포함 관계(어느 쪽이든)면 받고 질문 글자 조건은 뺌. 제외 날짜는 범위 안만 쓰고 범위 전체를 덮으면 버림(안내 문구도 범위 안 날짜만).
+- 프롬프트: asset-map 상한에 머리(오늘·달력·구성원) 포함(구성원 줄 축소 "…외 N명"), 전체 8000자 상한(자산 지도 → 일정 → 할 일 순으로 줄임, 할 일 30건·제목 40자), 날짜 판단 기준에 그날 계산값(이번/다음 주 일요일·주말·이번/다음 달) 직접 기재, family에는 "가족이" 안 붙임. 길이: sample 4701자, stress 5556자.
+- 남은 문제(오너 확인, 안 고침): LLM_RANGE_REACH(800일), 종류·구성원 정규식(SHOPPING/TODO/nameIn). 실제 qwen3:8b 정답률은 노트북에서 `pnpm --filter @hsh/bot eval:dates`로 측정 필요.

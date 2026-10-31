@@ -75,6 +75,12 @@ export async function answerQuestion(
 }
 
 const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+/** 제목과 단어가 포함 관계인가(어느 쪽이 포함하든): "학원"↔"미술학원", "핼러윈 파티"↔"핼러윈" */
+const related = (title: string, kw: string) => {
+  const t = norm(title);
+  const k = norm(kw);
+  return k !== "" && (t.includes(k) || k.includes(t));
+};
 
 /** 한글 단어 안에서 걸리지 않게: 앞에 한글이 붙어 있으면("회사야") 단서로 보지 않는다. */
 const SHOPPING = /(?<![가-힣])(장보기|사야|살\s*(?:것|거|게)|쇼핑)/;
@@ -149,15 +155,15 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
   // 키워드는 질문에 글자 그대로 있을 때만 쓴다(없는 말로 걸러서 "없어요"라고 잘못 답하지 않게)
   // 위키의 일정·기념일 제목 어디에도 없는 말("계획"·"행사"·"하늘이"·"하는 날이야")과 구성원 이름은 일정 이름이 아니라
   // 서술어이므로 거르지 않는다. 날짜가 분명한 질문이 "없어요"로 끝나지 않게 한다. 날짜 없이 이름만 물으면 아래에서 없다고 답한다.
-  const inText = q.keyword && norm(q.text).includes(norm(q.keyword)) ? q.keyword : undefined;
-  // "말고" 제외는 LLM이 정한다. 제외 단어는 질문에 글자 그대로 있고 위키 제목에 맞을 때만, 날짜는 형식이 맞을 때만 쓴다.
+  // LLM keyword는 질문에 글자 그대로 있거나, 위키 제목과 포함 관계(어느 쪽이 포함하든)일 때 받는다. 둘 다 아니면 환각으로 보고 거른다.
   const titlesNow = [...ctx.events.map((e) => e.title), ...ctx.anniversaries.map((a) => a.title)];
-  const exInText = q.excludeKeyword && norm(q.text).includes(norm(q.excludeKeyword)) && titlesNow.some((t) => norm(t).includes(norm(q.excludeKeyword ?? ""))) ? q.excludeKeyword : undefined;
-  const exclude = exInText;
+  const inTitles = (kw: string) => titlesNow.some((t) => related(t, kw));
+  const inText = q.keyword && (norm(q.text).includes(norm(q.keyword)) || inTitles(q.keyword)) ? q.keyword : undefined;
+  // "말고" 제외는 LLM이 정한다. 제외 단어는 위키 제목과 포함 관계일 때만, 날짜는 형식이 맞을 때만 쓴다(질문 글자와 달라도 된다: "핼러윈" -> "핼러윈 파티").
+  const exclude = q.excludeKeyword && inTitles(q.excludeKeyword) ? q.excludeKeyword : undefined;
   const excludeDates = [...new Set((q.excludeDates ?? []).filter((d) => isDate(d)))];
-  const rawKeyword = inText && !(exclude && norm(exclude).includes(norm(inText))) ? inText : undefined;
+  const rawKeyword = inText && !(exclude && related(exclude, inText) && related(inText, exclude)) ? inText : undefined;
   const picked = chooseRange(q, today);
-  const inTitles = (kw: string) => [...ctx.events.map((e) => e.title), ...ctx.anniversaries.map((a) => a.title)].some((t) => norm(t).includes(norm(kw)));
   const isMemberName = (kw: string) => ctx.members.some((m) => m.id !== "family" && nameIn(kw, m.name));
   const keyword = rawKeyword && !(picked && typeof picked === "object" && (!inTitles(rawKeyword) || isMemberName(rawKeyword))) ? rawKeyword : undefined;
   const prefix = `${memberPrefix ? `${memberPrefix} ` : ""}${keyword ? `'${keyword}' ` : ""}`;
@@ -175,10 +181,13 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
   if (picked || upcoming) {
     const range: DateRange = picked ?? { from: today, to: addDays(today, UPCOMING_DAYS) };
     const noun = calendarKinds.has("events") ? "일정" : "기념일";
-    const items = collect(ctx, range, calendarKinds, wanted, keyword, exclude, excludeDates);
+    // 제외 날짜는 고른 범위 안의 것만 쓴다. 범위 전체를 덮으면 제외를 버린다(전부 빼면 답할 게 없다).
+    const inRange = excludeDates.filter((d) => d >= range.from && d <= range.to);
+    const exDates = inRange.length >= diffDays(range.from, range.to) + 1 ? [] : inRange;
+    const items = collect(ctx, range, calendarKinds, wanted, keyword, exclude, exDates);
     // 뺀 게 있을 때만 밝힌다("치과 말고는 … 없어요")
-    const removed = exclude || excludeDates.length ? collect(ctx, range, calendarKinds, wanted, keyword).length - items.length : 0;
-    const exceptWhat = [...(exclude ? [`'${exclude}'`] : []), ...excludeDates.map(formatDay)].join(", ");
+    const removed = exclude || exDates.length ? collect(ctx, range, calendarKinds, wanted, keyword).length - items.length : 0;
+    const exceptWhat = [...(exclude ? [`'${exclude}'`] : []), ...exDates.map(formatDay)].join(", ");
     const except = removed > 0 ? `${exceptWhat} 말고` : "";
     const shown = items.slice(0, picked ? MAX_LINES : UPCOMING_LIMIT);
     const label = picked ? (range.from === range.to ? formatDay(range.from) : `${formatDay(range.from)}~${formatDay(range.to)}`) : "";
@@ -224,10 +233,8 @@ export function answerFromQuery(q: QuestionQuery, ctx: AnswerContext): Answered 
 /** 범위 안의 일정·기념일(매년 반복은 범위 안 발생일로 펼친다) */
 function collect(ctx: AnswerContext, range: DateRange, kinds: Set<QuestionKind>, wanted: Set<string>, keyword?: string, exclude?: string, excludeDates: string[] = []): Item[] {
   const nameOf = (id?: string) => ctx.members.find((m) => m.id === id)?.name ?? "";
-  const kw = keyword ? norm(keyword) : undefined;
-  const yearOf = (d: string) => (d.slice(0, 4) === ctx.today.slice(0, 4) ? "" : `${d.slice(0, 4)}년 `);
-  const ex = exclude ? norm(exclude) : undefined;
-  const hit = (title: string) => (!kw || norm(title).includes(kw)) && !(ex && norm(title).includes(ex));
+    const yearOf = (d: string) => (d.slice(0, 4) === ctx.today.slice(0, 4) ? "" : `${d.slice(0, 4)}년 `);
+    const hit = (title: string) => (!keyword || related(title, keyword)) && !(exclude && related(title, exclude));
   const items: Item[] = [];
 
   if (kinds.has("events")) {

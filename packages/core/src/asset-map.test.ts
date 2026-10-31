@@ -54,6 +54,21 @@ describe("길이 상한", () => {
   it("기본 상한은 3000자", () => {
     expect(buildAssetMap({ today, members, events: many, anniversaries: anniv }).length).toBeLessThanOrEqual(3000);
   });
+  it("머리(오늘·달력·구성원)도 상한에 든다: 구성원이 아주 많으면 구성원 줄을 줄이고 달력은 남긴다", () => {
+    const crowd: Member[] = Array.from({ length: 200 }, (_, i) => ({ id: `m${i}`, name: `구성원${i}번`, role: "child", color: "blue" }));
+    for (const maxChars of [900, 1500, 3000]) {
+      const t = buildAssetMap({ today, members: crowd, events: many, anniversaries: anniv }, { maxChars });
+      expect(t.length, `${maxChars}`).toBeLessThanOrEqual(maxChars);
+      expect(t).toContain("## 달력");
+      expect(t).toContain("(오늘)");
+      expect(t).toMatch(/- …외 \d+명/);
+    }
+  });
+  it("가족(family)에는 '가족이'를 붙이지 않는다", () => {
+    const t = buildAssetMap({ today, members, events: [], anniversaries: [] });
+    expect(t).toContain("- family: 가족 / 가족");
+    expect(t).not.toContain("가족이");
+  });
   it("같은 입력은 같은 출력", () => {
     expect(buildAssetMap({ today, members, events: many, anniversaries: anniv })).toBe(buildAssetMap({ today, members, events: many, anniversaries: anniv }));
   });

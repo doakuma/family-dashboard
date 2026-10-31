@@ -112,7 +112,7 @@ const TRUTH: Record<string, Record<string, unknown>> = {
   "이번 주 토요일 수영 뭐 있어?": day("2026-10-31"),
   "내일 핼러윈 있어?": day("2026-10-31"),
   "11월 1일 치과 있어?": day("2026-11-01"),
-  "이번 주 말고 다음 주 뭐 있어?": day("2026-11-01", "2026-11-07", { qExcludeDates: ["2026-10-25"] }),
+  "이번 주 말고 다음 주 뭐 있어?": day("2026-11-01", "2026-11-07"),
   "토요일에 핼러윈 말고 뭐 있어?": day("2026-10-31", "2026-10-31", { qExcludeKeyword: "핼러윈" }),
   "토요일에 핼러윈 파티 말고 뭐 있어?": day("2026-10-31", "2026-10-31", { qExcludeKeyword: "핼러윈 파티" }),
   "치과 말고 뭐 있어?": { qTense: "nonpast", qExcludeKeyword: "치과" },
@@ -579,11 +579,41 @@ describe('"말고" 제외 조건과 뒤쪽 날짜 (후속2)', () => {
     expect(r.text).not.toContain("• 10/31");
     expect(r.text).toContain("10/31(토) 말고");
   });
-  it("excludeDates 형식이 틀리면 버리고, 위키 제목에 없거나 질문에 없는 excludeKeyword도 버린다", async () => {
+  it("excludeDates 형식이 틀리면 버리고, 위키 제목과 관계없는 excludeKeyword도 버린다", async () => {
     const a = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qExcludeDates: ["토요일", "2026-99-99"], qExcludeKeyword: "병원" }, s);
     expect(a.r.status === "answered" && a.r.eventIds).toEqual(["evt-1", "evt-2"]);
-    const b = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qExcludeKeyword: "핼러윈" }, s); // 질문 글에 없음
+  });
+  it("excludeKeyword는 질문 글자와 달라도 위키 제목과 포함 관계면 쓴다 (핼러윈 -> 핼러윈 파티)", async () => {
+    for (const ex of ["핼러윈 파티", "핼러윈", "핼러윈 파티 행사"]) {
+      const { r } = await ask("토요일에 핼러윈 말고 뭐 있어?", { intent: "question", qExcludeKeyword: ex }, s);
+      expect(r.status === "answered" && r.eventIds, ex).toEqual(["evt-2"]);
+      expect(r.text).not.toContain("핼러윈 파티 (");
+    }
+  });
+  it("keyword도 위키 제목과 포함 관계면 질문 글자에 없어도 받는다 ('학원 언제 가?' + 미술학원), 위키에 없는 말은 거른다", async () => {
+    const a = await ask("학원 언제 가?", { intent: "question", qKeyword: "미술학원" }, s);
+    expect(a.r.status === "answered" && a.r.eventIds).toEqual(["evt-2"]);
+    expect(a.r.text).toContain("'미술학원'");
+    const b = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qKeyword: "병원" }, s);
     expect(b.r.status === "answered" && b.r.eventIds).toEqual(["evt-1", "evt-2"]);
+    const c = await ask("뭐 있어?", { intent: "question", qKeyword: "병원" }, s);
+    expect(c.r.status).toBe("clarify");
+  });
+  it("제외 날짜가 고른 범위 전체를 덮으면 그 제외는 버린다", async () => {
+    const { r } = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qExcludeDates: ["2026-10-31"] }, s);
+    expect(r.status === "answered" && r.eventIds).toEqual(["evt-1", "evt-2"]);
+    expect(r.text).not.toContain("말고");
+    // 일부만 덮으면 그날만 뺀다
+    const w = await ask("이번 주 뭐 있어?", { intent: "question", qExcludeDates: ["2026-10-31"] }, s);
+    expect(w.r.status === "answered" && w.r.eventIds).toEqual(["evt-3"]);
+    expect(w.r.text).toContain("10/31(토) 말고");
+  });
+  it("범위 밖 제외 날짜는 안내 문구에 나오지 않는다", async () => {
+    const { r } = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qExcludeDates: ["2026-11-03", "2026-10-31"] }, s);
+    expect(r.text).not.toContain("11/3");
+    const o = await ask("이번 주 토요일 뭐 있어?", { intent: "question", qExcludeDates: ["2026-11-03"] }, s);
+    expect(o.r.text).not.toContain("말고");
+    expect(o.r.status === "answered" && o.r.eventIds).toEqual(["evt-1", "evt-2"]);
   });
   it("말고 문장이어도 LLM 범위를 버리지 않는다", async () => {
     const { r } = await q("토요일에 핼러윈 말고 뭐 있어?", "핼러윈");

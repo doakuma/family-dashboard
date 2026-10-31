@@ -17,6 +17,12 @@ export const expectSchema = z
     keyword: z.string().optional(),
     excludeKeyword: z.string().optional(),
     excludeDates: z.array(date).optional(),
+    /** 최종 답의 상태(answered = 항목 있음, empty = 범위는 읽었으나 위키에 없음) */
+    status: z.enum(["answered", "empty"]).optional(),
+    /** 최종 답에 있어야 하는 일정 id (fixtures/sample-wiki) */
+    includeIds: z.array(z.string()).optional(),
+    /** 최종 답에 없어야 하는 일정 id (제외 대상) */
+    excludeIds: z.array(z.string()).optional(),
     /** 실제 구성원 id (fixtures/sample-wiki: mom, dad, haneul, bada) */
     members: z.array(z.string()).optional(),
   })

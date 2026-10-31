@@ -42,8 +42,14 @@ function fakeLlm(answer: (today: string, text: string) => unknown): LlmAdapter &
   };
   return f;
 }
+/** undefined이면 테스트를 실패시키는 가드 */
+function must<T>(x: T | undefined): T {
+  if (x === undefined) throw new Error("기대한 값이 없어요");
+  return x;
+}
+const byId = (id: string) => must(cases.find((c) => c.id === id));
 const byKey = new Map(cases.map((c) => [`${c.today}|${c.text}`, c]));
-const correct = (today: string, text: string) => truth(byKey.get(`${today}|${text}`) as DateCase);
+const correct = (today: string, text: string) => truth(must(byKey.get(`${today}|${text}`)));
 
 describe("runDateEval (가짜 LLM, 실제 호출 없음)", () => {
   it("정답을 돌려주는 가짜 LLM은 모든 문항에서 원값·최종 모두 통과", async () => {
@@ -58,13 +64,13 @@ describe("runDateEval (가짜 LLM, 실제 호출 없음)", () => {
   });
 
   it("틀린 값은 항목별로 센다: 시제만 틀리면 원값 실패·최종 통과, 범위가 틀리면 둘 다 실패", async () => {
-    const past = cases.find((c) => c.expect.tense === "past" && c.expect.from) as DateCase;
-    const day = cases.find((c) => c.expect.tense === "nonpast" && c.expect.from && !c.tags.includes("owner-check")) as DateCase;
+    const past = must(cases.find((c) => c.expect.tense === "past" && c.expect.from));
+    const day = must(cases.find((c) => c.expect.tense === "nonpast" && c.expect.from && !c.tags.includes("owner-check")));
     const sub = [past, day];
     const rep = await runDateEval(
       sub,
       fakeLlm((today, text) => {
-        const c = byKey.get(`${today}|${text}`) as DateCase;
+        const c = must(byKey.get(`${today}|${text}`));
         return c === past ? { ...truth(c), qTense: "nonpast" } : { ...truth(c), qFrom: "2026-01-01", qTo: "2026-01-01" };
       }),
       wiki,
@@ -78,8 +84,48 @@ describe("runDateEval (가짜 LLM, 실제 호출 없음)", () => {
     expect(rep.scored).toEqual({ total: 2, rawPass: 0, finalPass: 1 });
   });
 
+  it("기대값에 없는 필드가 섞이면 실패한다: d011에 qExcludeDates가 섞이면 원값·최종 모두 실패", async () => {
+    const c = byId("d011");
+    expect(c.text).toBe("이번 주 토요일 뭐 있어?");
+    const rep = await runDateEval([c], fakeLlm(() => ({ ...truth(c), qExcludeDates: ["2026-10-31"] })), wiki);
+    expect(rep.results[0]?.rawOk).toBe(false);
+    expect(rep.results[0]?.rawDiffs.join()).toContain("제외 날짜");
+  });
+
+  it("엉뚱한 qMembers·qExcludeKeyword·qKeyword가 와도 실패한다", async () => {
+    const c = byId("d011");
+    for (const extra of [{ qMembers: ["haneul"] }, { qExcludeKeyword: "치과" }, { qKeyword: "미술학원" }]) {
+      const rep = await runDateEval([c], fakeLlm(() => ({ ...truth(c), ...extra })), wiki);
+      expect(rep.results[0]?.rawOk, JSON.stringify(extra)).toBe(false);
+    }
+  });
+
+  it("최종 채점은 상태와 포함·제외 일정도 본다: 범위가 맞아도 제외 대상이 답에 있으면 실패", async () => {
+    const c = byId("d045"); // 토요일에 핼러윈 말고 뭐 있어? -> 핼러윈 파티가 빠져 empty
+    expect(c.expect).toMatchObject({ status: "empty", excludeIds: ["evt-1a06"] });
+    const rep = await runDateEval([c], fakeLlm(() => ({ ...truth(c), qExcludeKeyword: undefined })), wiki);
+    expect(rep.results[0]).toMatchObject({ finalOk: false });
+    expect(rep.results[0]?.finalDiffs.join()).toContain("빠져야 할 일정: evt-1a06");
+    expect(rep.results[0]?.finalDiffs.join()).toContain("상태: empty / answered");
+  });
+
+  it("말고 앞 이름이 위키 제목 일부여도 전체여도 제외된다 (핼러윈 / 핼러윈 파티)", async () => {
+    const both = cases.filter((x) => x.text.startsWith("토요일에 핼러윈") && x.text.includes("말고"));
+    expect(both).toHaveLength(2);
+    const rep = await runDateEval(both, fakeLlm(correct), wiki);
+    expect(rep.results.every((r) => r.rawOk && r.finalOk)).toBe(true);
+  });
+
+  it("keyword 느슨한 비교: 너무 짧은 한 글자는 통과하지 못한다", async () => {
+    const c = byId("d069"); // 학원 언제 가?
+    const pass = async (kw: string) => (await runDateEval([c], fakeLlm(() => ({ ...truth(c), qKeyword: kw })), wiki)).results[0]?.rawOk;
+    expect(await pass("미술학원")).toBe(true);
+    expect(await pass("학")).toBe(false);
+    expect(await pass("원")).toBe(false);
+  });
+
   it("LLM이 범위를 안 주면 보조 해석기가 최종을 살려도 원값은 실패로 센다", async () => {
-    const c = cases.find((x) => x.text === "이번 주 토요일 뭐 있어?" && x.today === "2026-10-30") as DateCase;
+    const c = byId("d011");
     const rep = await runDateEval([c], fakeLlm(() => ({ intent: "question", qTense: "nonpast" })), wiki);
     expect(rep.results[0]).toMatchObject({ rawOk: false, finalOk: true });
   });
@@ -110,8 +156,8 @@ describe("runDateEval (가짜 LLM, 실제 호출 없음)", () => {
   it("now는 기준일 서울 정오", async () => {
     expect(noonSeoul("2026-11-01").toISOString()).toBe("2026-11-01T03:00:00.000Z");
     const seen: string[] = [];
-    await runDateEval([cases[0] as DateCase], fakeLlm((t) => (seen.push(t), { intent: "question" })), wiki);
-    expect(seen).toEqual([(cases[0] as DateCase).today]);
+    await runDateEval([must(cases[0])], fakeLlm((t) => (seen.push(t), { intent: "question" })), wiki);
+    expect(seen).toEqual([must(cases[0]).today]);
   });
 
   it("문항당 ms는 주입한 시계로 잰다", async () => {

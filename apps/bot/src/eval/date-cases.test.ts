@@ -35,6 +35,26 @@ describe("date-questions.json 형식", () => {
   });
 });
 
+describe("손으로 계산한 고정 표본 (range.ts와 무관, 달력 대조)", () => {
+  // 2026-10-30은 금요일, 10-31 토, 11-01 일, 11-04 수. 2027-01-05는 화.
+  const cases = parseCases(data);
+  const want = (today: string, text: string, from: string, to = from) => {
+    const c = cases.find((x) => x.today === today && x.text === text);
+    expect(c, `${today} ${text}`).toBeDefined();
+    expect([c?.expect.from, c?.expect.to ?? c?.expect.from]).toEqual([from, to]);
+  };
+  it.each([
+    ["2026-10-30", "다음 주 일요일 일정", "2026-11-08", "2026-11-08"],
+    ["2026-10-30", "이번 주말 뭐 해?", "2026-10-31", "2026-11-01"],
+    ["2026-10-30", "지난 주 뭐 했어?", "2026-10-18", "2026-10-24"],
+    ["2026-11-04", "이번 주말 뭐 해?", "2026-11-07", "2026-11-08"],
+    ["2026-11-04", "이번 주 일요일 뭐 있어?", "2026-11-08", "2026-11-08"],
+    ["2026-11-01", "이번 주 일정", "2026-11-01", "2026-11-07"],
+    ["2026-12-31", "이번 주 일정", "2026-12-27", "2027-01-02"],
+    ["2027-01-05", "12월 28일 뭐 했어?", "2026-12-28", "2026-12-28"],
+  ])("%s %s -> %s~%s", (today, text, from, to) => want(today, text, from, to));
+});
+
 describe("형식 검사가 잘못된 자료를 거른다", () => {
   const ok = { id: "x", today: "2026-10-30", text: "t", tags: [], expect: { from: "2026-10-31" } };
   const file = (c: unknown, n = MIN_CASES) => ({ cases: Array.from({ length: n }, (_, i) => ({ ...(c as object), id: `x${i}` })) });

@@ -1,6 +1,6 @@
 // 의도 추출 프롬프트. 날짜·시제·"말고" 판단은 LLM이 한다(MVP 스펙 rev 63). 코드는 결과를 검증만 한다.
 // 모자란 지식은 자산 지도(달력표·구성원 부르는 이름·일정/기념일 제목 관계)로 보충하고, rev 62 규칙을 판단 기준으로 명시한다.
-import { WEEKDAYS_KO, buildAssetMap, weekdayOf, type Anniversary, type Event, type Member, type Task } from "@hsh/core";
+import { WEEKDAYS_KO, addDays, addMonths, buildAssetMap, weekdayOf, type Anniversary, type Event, type Member, type Task } from "@hsh/core";
 import { z } from "zod";
 
 export interface PromptContext {
@@ -11,8 +11,34 @@ export interface PromptContext {
   events: Event[];
   tasks: Task[];
   anniversaries?: Anniversary[];
-  /** 자산 지도 글자 수 상한(기본 3000) */
+  /** 자산 지도 글자 수 상한(기본 3000). 프롬프트 전체 상한을 넘으면 더 줄어든다 */
   assetMapChars?: number;
+  /** 프롬프트 전체 글자 수 상한(기본 PROMPT_MAX_CHARS) */
+  maxChars?: number;
+}
+
+/** 프롬프트 전체 상한(글자). 작은 로컬 모델의 문맥을 아끼려고 자산 지도·일정·할 일을 이 안에서 줄인다. */
+export const PROMPT_MAX_CHARS = 8000;
+const MAP_MIN_CHARS = 1200;
+const EVENTS_LIMIT = 40;
+const TASKS_LIMIT = 30;
+const MEMBERS_LIMIT = 30;
+const clip = (s: string, n = 40) => (s.length > n ? `${s.slice(0, n)}…` : s);
+
+/** 그날 기준으로 계산한 날짜 표현. 표의 '다음 주' 줄과 일요일 예외가 부딪히지 않게 값을 직접 적는다. */
+function datePoints(today: string): string {
+  const dow = weekdayOf(today);
+  const sunday = addDays(today, -dow);
+  const comingSunday = addDays(today, (7 - dow) % 7);
+  const monthEnd = (m: string) => addDays(`${addMonths(m, 1)}-01`, -1);
+  const m0 = today.slice(0, 7);
+  const m1 = addMonths(m0, 1);
+  const split = "되묻기: 오늘이 일요일이라 토요일과 일요일이 떨어져 있다. qFrom·qTo를 비운다";
+  return [
+    `- 이번 주 일요일 = ${comingSunday}, 다음 주 일요일 = ${addDays(comingSunday, 7)}`,
+    `- 이번 주말 = ${dow === 0 ? split : `${addDays(sunday, 6)} ~ ${comingSunday}`}, 다음 주말 = ${dow === 0 ? split : `${addDays(sunday, 13)} ~ ${addDays(comingSunday, 7)}`}`,
+    `- 이번 달 = ${m0}-01 ~ ${monthEnd(m0)}, 다음 달 = ${m1}-01 ~ ${monthEnd(m1)}`,
+  ].join("\n");
 }
 
 /** LLM 응답 형식 — 작은 로컬 모델도 맞추기 쉽게 평평하게 둔다. */
@@ -55,21 +81,40 @@ export const llmOutputSchema = z.object({
 export type LlmOutput = z.infer<typeof llmOutputSchema>;
 export const llmOutputJsonSchema: Record<string, unknown> = z.toJSONSchema(llmOutputSchema);
 
+/** 프롬프트 전체가 상한 안에 들도록 자산 지도 -> 일정 -> 할 일 순으로 줄인다. */
 export function buildSystemPrompt(ctx: PromptContext): string {
-  const members = ctx.members.map((m) => `- ${m.id}: ${m.name}${m.id === "family" ? " (가족 전체)" : ""}`).join("\n");
+  const max = ctx.maxChars ?? PROMPT_MAX_CHARS;
+  let mapChars = ctx.assetMapChars ?? 3000;
+  let evN = EVENTS_LIMIT;
+  let tkN = TASKS_LIMIT;
+  let out = renderPrompt(ctx, mapChars, evN, tkN);
+  while (out.length > max && (mapChars > MAP_MIN_CHARS || evN > 5 || tkN > 5)) {
+    if (mapChars > MAP_MIN_CHARS) mapChars = Math.max(MAP_MIN_CHARS, mapChars - Math.max(300, out.length - max));
+    else if (evN > 5) evN = Math.max(5, evN - 5);
+    else tkN = Math.max(5, tkN - 5);
+    out = renderPrompt(ctx, mapChars, evN, tkN);
+  }
+  return out;
+}
+
+function renderPrompt(ctx: PromptContext, mapChars: number, evN: number, tkN: number): string {
+  const memberAll = ctx.members.map((m) => `- ${m.id}: ${m.name}${m.id === "family" ? " (가족 전체)" : ""}`)
+  const members = (memberAll.length > MEMBERS_LIMIT ? [...memberAll.slice(0, MEMBERS_LIMIT), `- …외 ${memberAll.length - MEMBERS_LIMIT}명`] : memberAll).join("\n");
+  // 쓰기 대상 id가 필요해 자산 지도와 겹쳐도 남긴다. 건수·제목 길이를 제한한다.
   const events = ctx.events
     .filter((e) => e.date >= ctx.today)
-    .slice(0, 40)
-    .map((e) => `- ${e.id}: ${e.date} ${e.allDay ? "종일" : (e.start ?? "")} ${e.title} (${e.members.join(",")})`)
+    .slice(0, evN)
+    .map((e) => `- ${e.id}: ${e.date} ${e.allDay ? "종일" : (e.start ?? "")} ${clip(e.title)} (${e.members.join(",")})`)
     .join("\n");
-  const tasks = ctx.tasks
-    .filter((t) => !t.done)
-    .map((t) => `- ${t.id}: [${t.list === "shopping" ? "장보기" : "할 일"}] ${t.title}`)
-    .join("\n");
+  const open = ctx.tasks.filter((t) => !t.done);
+  const tasks = [
+    ...open.slice(0, tkN).map((t) => `- ${t.id}: [${t.list === "shopping" ? "장보기" : "할 일"}] ${clip(t.title)}`),
+    ...(open.length > tkN ? [`- …외 ${open.length - tkN}건`] : []),
+  ].join("\n");
 
   const assetMap = buildAssetMap(
     { today: ctx.today, members: ctx.members, events: ctx.events, anniversaries: ctx.anniversaries ?? [] },
-    { maxChars: ctx.assetMapChars },
+    { maxChars: mapChars },
   );
 
   return `너는 가족 일정 비서다. 가족이 보낸 한국어 메시지 하나를 읽고 의도와 필드를 JSON으로만 답한다.
@@ -98,6 +143,8 @@ ${tasks || "- (없음)"}
 - 연도를 말하면("2027년 5월 1일") 그대로 쓴다.
 - 질문이면 qTense를 먼저 정한다: 과거형이면 "past", 아니면 "nonpast". 그다음 qFrom·qTo를 정한다.
 - "A 말고 B": A는 제외 조건, B가 실제 질문이다. A가 날짜·요일뿐이면 그 날짜를 qExcludeDates(YYYY-MM-DD)에 넣고, A가 일정 이름이면 qExcludeKeyword에 넣는다. qFrom·qTo·qKeyword는 B로 채운다. B에 날짜가 없으면 qFrom·qTo는 비운다. 단 "토요일에 핼러윈 말고 뭐 있어?"처럼 날짜가 말고 앞의 이름과 함께 있으면 그 날짜가 질문 범위이고 이름("핼러윈")만 qExcludeKeyword다.
+- 오늘(${ctx.today}) 기준으로 계산한 값:
+${datePoints(ctx.today)}
 - 범위는 최대 62일. 떨어진 두 날("오늘이랑 모레")은 하나로 묶지 말고 비워 둔다.
 - 예(오늘 ${ctx.today}): 위 달력 표를 보고 "다음 주 화요일" -> 다음 주 줄의 화요일, "토요일 말고 미술학원 언제야?" -> qExcludeDates=[다가오는 토요일], qKeyword="미술학원", qFrom·qTo 없음.
 

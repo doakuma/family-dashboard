@@ -70,7 +70,10 @@ export function buildAssetMap(input: AssetMapInput, opts: AssetMapOptions = {}):
   const maxChars = opts.maxChars ?? DEFAULT_ASSET_MAP_CHARS;
   const nameOf = (id: string) => input.members.find((m) => m.id === id)?.name ?? id;
 
-  const head = [
+  const SECTIONS = "\n\n## 일정 (제목 → 구성원 → 날짜 → 반복)\n\n## 기념일 (제목 → 구성원 → 날짜)";
+  const RESERVE = 60;
+  const memberLine = (m: Member) => `- ${m.id}: ${m.name} / ${(m.id === "family" ? [m.name] : callNames(m.name)).join(", ")}`;
+  const buildHead = (memberLines: string[]) => [
     "## 오늘",
     `${today} (${WEEKDAYS_KO[weekdayOf(today)]}요일)`,
     "",
@@ -78,8 +81,18 @@ export function buildAssetMap(input: AssetMapInput, opts: AssetMapOptions = {}):
     calendar(today),
     "",
     "## 구성원 (id: 이름 / 부르는 이름)",
-    ...(input.members.length ? input.members.map((m) => `- ${m.id}: ${m.name} / ${callNames(m.name).join(", ")}`) : ["- (없음)"]),
+    ...(memberLines.length ? memberLines : ["- (없음)"]),
   ].join("\n");
+
+  // 머리(오늘·달력·구성원)도 상한에 든다. 넘치면 구성원 줄을 뒤에서부터 줄인다(달력은 항상 남긴다).
+  let memberLines = input.members.map(memberLine);
+  let head = buildHead(memberLines);
+  while (head.length + SECTIONS.length + RESERVE > maxChars && memberLines.length > 1) {
+    const kept = memberLines.filter((l) => !l.startsWith("- …"));
+    kept.pop();
+    memberLines = [...kept, `- …외 ${input.members.length - kept.length}명`];
+    head = buildHead(memberLines);
+  }
 
   // 일정: 제목+구성원이 같으면 한 줄로 묶는다
   const groups = new Map<string, { title: string; members: string[]; dates: string[] }>();
@@ -117,8 +130,7 @@ export function buildAssetMap(input: AssetMapInput, opts: AssetMapOptions = {}):
   pieces.sort((a, b) => a.distance - b.distance);
 
   // 상한 안에서 가까운 것부터 담는다(맨 끝 "…외 N건" 줄 자리를 남겨 둔다)
-  const RESERVE = 40;
-  let used = head.length + "\n\n## 일정 (제목 → 구성원 → 날짜 → 반복)\n\n## 기념일 (제목 → 구성원 → 날짜)".length;
+  let used = head.length + SECTIONS.length;
   const kept: Piece[] = [];
   let dropped = 0;
   for (const p of pieces) {

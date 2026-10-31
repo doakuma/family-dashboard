@@ -47,7 +47,12 @@ export interface EvalReport {
 }
 
 const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
-const loose = (a: string, b: string) => norm(a).includes(norm(b)) || norm(b).includes(norm(a));
+/** 느슨한 단어 비교: 받은 말이 기대 단어를 포함하거나, 기대가 받은 말을 포함하되 2자 이상이고 기대 길이의 절반 이상일 때("학원"↔"미술학원"은 통과, "학"은 실패) */
+const loose = (got: string, want: string) => {
+  const g = norm(got);
+  const w = norm(want);
+  return g.includes(w) || (w.includes(g) && g.length >= 2 && g.length * 2 >= w.length);
+};
 const sameSet = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
 const show = (v: unknown) => (v === undefined ? "없음" : typeof v === "string" ? v : JSON.stringify(v));
 export const OWNER_CHECK = "owner-check";
@@ -77,10 +82,17 @@ function scoreRaw(c: DateCase, raw: unknown): string[] {
     if (!tooLong) diffs.push(`범위: 없음 또는 62일 초과 / ${gotRange}`);
   }
   if (e.tense && o.qTense !== e.tense) diffs.push(`시제: ${e.tense} / ${show(o.qTense)}`);
-  if (e.keyword && !(o.qKeyword && loose(o.qKeyword, e.keyword))) diffs.push(`keyword: ${e.keyword} / ${show(o.qKeyword)}`);
-  if (e.excludeKeyword && !(o.qExcludeKeyword && loose(o.qExcludeKeyword, e.excludeKeyword))) diffs.push(`제외 keyword: ${e.excludeKeyword} / ${show(o.qExcludeKeyword)}`);
-  if (e.excludeDates && !sameSet(o.qExcludeDates ?? [], e.excludeDates)) diffs.push(`제외 날짜: ${e.excludeDates.join(",")} / ${show(o.qExcludeDates)}`);
-  if (e.members && !sameSet(o.qMembers ?? [], e.members)) diffs.push(`구성원: ${e.members.join(",")} / ${show(o.qMembers)}`);
+  // 기대값에 없는 필드는 "비어 있어야" 통과한다(엉뚱한 제외·구성원·키워드가 섞이면 실패). keyword는 날짜 범위가 있는 문항에서만 비어 있어야 한다.
+  const kw = o.qKeyword?.trim();
+  if (e.keyword) {
+    if (!(kw && loose(kw, e.keyword))) diffs.push(`keyword: ${e.keyword} / ${show(o.qKeyword)}`);
+  } else if (e.from && kw) diffs.push(`keyword: 없음 / ${kw}`);
+  const exk = o.qExcludeKeyword?.trim();
+  if (e.excludeKeyword) {
+    if (!(exk && loose(exk, e.excludeKeyword))) diffs.push(`제외 keyword: ${e.excludeKeyword} / ${show(o.qExcludeKeyword)}`);
+  } else if (exk) diffs.push(`제외 keyword: 없음 / ${exk}`);
+  if (!sameSet(o.qExcludeDates ?? [], e.excludeDates ?? [])) diffs.push(`제외 날짜: ${show(e.excludeDates ?? "없음")} / ${show(o.qExcludeDates ?? "없음")}`);
+  if (!sameSet(o.qMembers ?? [], e.members ?? [])) diffs.push(`구성원: ${show(e.members ?? "없음")} / ${show(o.qMembers ?? "없음")}`);
   return diffs;
 }
 
@@ -132,6 +144,13 @@ export async function runDateEval(
           const want = `${c.today}~${addDays(c.today, 400)}`;
           const got = a.range ? `${a.range.from}~${a.range.to}` : undefined;
           if (got !== want) finalDiffs.push(`다가오는 목록: ${want} / ${show(got)}`);
+        }
+        if (!e.clarify && a.status !== "clarify") {
+          if (e.status && a.status !== e.status) finalDiffs.push(`상태: ${e.status} / ${a.status}`);
+          const missing = (e.includeIds ?? []).filter((id) => !a.eventIds.includes(id));
+          if (missing.length) finalDiffs.push(`있어야 할 일정: ${missing.join(",")} / 없음`);
+          const present = (e.excludeIds ?? []).filter((id) => a.eventIds.includes(id));
+          if (present.length) finalDiffs.push(`빠져야 할 일정: ${present.join(",")} / 답에 있음`);
         }
       }
     } catch (e) {

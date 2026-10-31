@@ -1,6 +1,8 @@
-import type { Anniversary, Event, Member } from "@hsh/core";
+import { DEFAULT_FAMILY_ID, type Anniversary, type Event, type Member, type Task } from "@hsh/core";
+import { FsWikiRepository } from "@hsh/core/node";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildSystemPrompt, llmOutputJsonSchema, llmOutputSchema } from "./prompt";
+import { PROMPT_MAX_CHARS, buildSystemPrompt, llmOutputJsonSchema, llmOutputSchema } from "./prompt";
 
 const members: Member[] = [
   { id: "haneul", name: "하늘", role: "child", color: "blue" },
@@ -36,6 +38,52 @@ describe("긴 위키에서도 길이 제한", () => {
     const map = small.slice(small.indexOf("## 자산 지도"), small.indexOf("## 구성원 (보낸 사람"));
     expect(map.length).toBeLessThan(1400);
     expect(map).toMatch(/…외 \d+건/);
+  });
+});
+
+describe("프롬프트에 그날 기준 실제 날짜를 적는다", () => {
+  const at = (today: string) => buildSystemPrompt({ ...base, today, events: [] });
+  it("금요일(2026-10-30)", () => {
+    const p = at("2026-10-30");
+    expect(p).toContain("이번 주 일요일 = 2026-11-01, 다음 주 일요일 = 2026-11-08");
+    expect(p).toContain("이번 주말 = 2026-10-31 ~ 2026-11-01, 다음 주말 = 2026-11-07 ~ 2026-11-08");
+    expect(p).toContain("이번 달 = 2026-10-01 ~ 2026-10-31, 다음 달 = 2026-11-01 ~ 2026-11-30");
+  });
+  it("수요일(2026-11-04)", () => {
+    const p = at("2026-11-04");
+    expect(p).toContain("이번 주 일요일 = 2026-11-08, 다음 주 일요일 = 2026-11-15");
+    expect(p).toContain("이번 주말 = 2026-11-07 ~ 2026-11-08, 다음 주말 = 2026-11-14 ~ 2026-11-15");
+  });
+  it("일요일 당일(2026-11-01): 이번 주 일요일은 오늘, 주말은 떨어져 되묻기", () => {
+    const p = at("2026-11-01");
+    expect(p).toContain("이번 주 일요일 = 2026-11-01, 다음 주 일요일 = 2026-11-08");
+    expect(p).toContain("이번 주말 = 되묻기");
+  });
+  it("연말: 다음 달은 해를 넘는다", () => {
+    expect(at("2026-12-31")).toContain("다음 달 = 2027-01-01 ~ 2027-01-31");
+  });
+});
+
+describe("프롬프트 전체 상한", () => {
+  const sampleRoot = fileURLToPath(new URL("../../../../fixtures/sample-wiki", import.meta.url));
+  const stressRoot = fileURLToPath(new URL("../../../../fixtures/stress-wiki", import.meta.url));
+  for (const [name, root, today] of [["sample-wiki", sampleRoot, "2026-10-30"], ["stress-wiki", stressRoot, "2026-11-03"]] as const) {
+    it(`${name}: ${PROMPT_MAX_CHARS}자 이내`, async () => {
+      const w = await new FsWikiRepository({ root, readOnly: true, familyId: DEFAULT_FAMILY_ID }).read(DEFAULT_FAMILY_ID);
+      const p = buildSystemPrompt({ today, now: "12:00", members: w.members, events: w.events, tasks: w.tasks, anniversaries: w.anniversaries });
+      expect(p.length).toBeLessThanOrEqual(PROMPT_MAX_CHARS);
+      expect(p).toContain("## 날짜 판단 기준");
+    });
+  }
+  it("아주 큰 위키(일정 500·할 일 300·구성원 100)도 상한 이내, 할 일은 건수 제한, 일정 id 목록은 남는다", () => {
+    const events = Array.from({ length: 500 }, (_, i) => ev(`evt-${i}`, "2026-11-10", `${"긴제목".repeat(20)}${i}`));
+    const tasks: Task[] = Array.from({ length: 300 }, (_, i) => ({ id: `task-${i}`, list: "todo", title: `해야 할 일 ${"길게".repeat(30)} ${i}`, done: false }));
+    const crowd: Member[] = Array.from({ length: 100 }, (_, i) => ({ id: `m${i}`, name: `구성원${i}`, role: "child", color: "blue" }));
+    const p = buildSystemPrompt({ ...base, members: crowd, events, tasks });
+    expect(p.length).toBeLessThanOrEqual(PROMPT_MAX_CHARS);
+    expect(p).toContain("- evt-0:");
+    expect(p).not.toContain("task-100:");
+    expect(p).toMatch(/- …외 \d+건/);
   });
 });
 
