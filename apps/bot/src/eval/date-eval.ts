@@ -27,6 +27,10 @@ export interface CaseResult {
   finalDiffs: string[];
   /** LLM 호출 실패 등 */
   error?: string;
+  /** 시간 초과(timeout/aborted)로 실패 */
+  timedOut: boolean;
+  /** 기준일이 바뀐 직후 첫 문항(프롬프트 앞부분이 바뀌어 Ollama 앞부분 캐시를 못 쓴다: 느린 값 해석용) */
+  firstOfDay: boolean;
   ms: number;
 }
 
@@ -42,6 +46,10 @@ export interface EvalReport {
   ownerCheck: Tally;
   byTag: Record<string, Tally>;
   errors: number;
+  /** 시간 초과로 실패한 문항 수 */
+  timeouts: number;
+  /** 시간 초과 문항을 뺀 전체 정답률(owner-check 제외) */
+  scoredExTimeout: Tally;
   totalMs: number;
   results: CaseResult[];
 }
@@ -56,6 +64,8 @@ const loose = (got: string, want: string) => {
 const sameSet = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
 const show = (v: unknown) => (v === undefined ? "없음" : typeof v === "string" ? v : JSON.stringify(v));
 export const OWNER_CHECK = "owner-check";
+const TIMEOUT_RE = /timeout|timed out|time out|aborted|abort|시간 초과/i;
+export const isTimeout = (message?: string) => !!message && TIMEOUT_RE.test(message);
 
 /** 서울 정오 */
 export const noonSeoul = (today: string) => new Date(`${today}T03:00:00Z`);
@@ -81,7 +91,9 @@ function scoreRaw(c: DateCase, raw: unknown): string[] {
     const tooLong = isDate(gotFrom) && isDate(gotTo) && diffDays(gotFrom, gotTo) + 1 > 62;
     if (!tooLong) diffs.push(`범위: 없음 또는 62일 초과 / ${gotRange}`);
   }
-  if (e.tense && o.qTense !== e.tense) diffs.push(`시제: ${e.tense} / ${show(o.qTense)}`);
+  // qTense "none"은 없음으로 본다. qDatePhrase는 채점하지 않는다.
+  const tense = o.qTense === "none" ? undefined : o.qTense;
+  if (e.tense && tense !== e.tense) diffs.push(`시제: ${e.tense} / ${show(tense)}`);
   // 기대값에 없는 필드는 "비어 있어야" 통과한다(엉뚱한 제외·구성원·키워드가 섞이면 실패). keyword는 날짜 범위가 있는 문항에서만 비어 있어야 한다.
   const kw = o.qKeyword?.trim();
   if (e.keyword) {
@@ -107,7 +119,10 @@ export async function runDateEval(
 ): Promise<EvalReport> {
   const clock = opts.clock ?? Date.now;
   const results: CaseResult[] = [];
+  let prevToday: string | undefined;
   for (const c of cases) {
+    const firstOfDay = c.today !== prevToday;
+    prevToday = c.today;
     const t0 = clock();
     let raw: unknown;
     let error: string | undefined;
@@ -172,6 +187,8 @@ export async function runDateEval(
       rawDiffs,
       finalDiffs,
       error,
+      timedOut: isTimeout(error),
+      firstOfDay,
       ms: clock() - t0,
     };
     results.push(r);
@@ -189,6 +206,7 @@ function add(t: Tally, r: CaseResult) {
 
 export function summarize(llm: string, results: CaseResult[]): EvalReport {
   const scored = empty();
+  const scoredExTimeout = empty();
   const ownerCheck = empty();
   const byTag: Record<string, Tally> = {};
   for (const r of results) {
@@ -197,6 +215,7 @@ export function summarize(llm: string, results: CaseResult[]): EvalReport {
       continue;
     }
     add(scored, r);
+    if (!r.timedOut) add(scoredExTimeout, r);
     for (const tag of r.tags) add((byTag[tag] ??= empty()), r);
   }
   return {
@@ -205,6 +224,8 @@ export function summarize(llm: string, results: CaseResult[]): EvalReport {
     ownerCheck,
     byTag,
     errors: results.filter((r) => r.error).length,
+    timeouts: results.filter((r) => r.timedOut).length,
+    scoredExTimeout,
     totalMs: results.reduce((s, r) => s + r.ms, 0),
     results,
   };
@@ -217,18 +238,21 @@ export function formatReport(report: EvalReport): string {
   const out: string[] = [];
   out.push(`# 날짜 채점 [${report.llm}]`);
   out.push(`전체(owner-check 제외): ${tallyLine(report.scored)}`);
+  out.push(`시간 초과 제외: ${tallyLine(report.scoredExTimeout)}`);
   if (report.ownerCheck.total) out.push(`owner-check(오너 확인 대기, 따로 집계): ${tallyLine(report.ownerCheck)}`);
-  out.push(`LLM 호출 실패 ${report.errors}건 · 총 ${report.totalMs}ms · 문항당 평균 ${report.results.length ? Math.round(report.totalMs / report.results.length) : 0}ms`);
+  const firstTimeouts = report.results.filter((r) => r.timedOut && r.firstOfDay).length;
+  out.push(`LLM 호출 실패 ${report.errors}건 (시간 초과 ${report.timeouts}건, 그중 기준일 첫 문항 ${firstTimeouts}건) · 총 ${report.totalMs}ms · 문항당 평균 ${report.results.length ? Math.round(report.totalMs / report.results.length) : 0}ms`);
   out.push("", "## 태그별");
   for (const [tag, t] of Object.entries(report.byTag).sort(([a], [b]) => a.localeCompare(b))) out.push(`- ${tag}: ${tallyLine(t)}`);
   const wrong = report.results.filter((r) => !r.rawOk || !r.finalOk);
   out.push("", `## 틀린 문장 ${wrong.length}건`);
   for (const r of wrong) {
-    out.push(`- [${r.id}] (${r.today}) "${r.text}"${r.ownerCheck ? " [owner-check]" : ""} ${r.ms}ms`);
+    out.push(`- [${r.id}] (${r.today}) "${r.text}"${r.ownerCheck ? " [owner-check]" : ""}${r.firstOfDay ? " [기준일 첫 문항]" : ""}${r.timedOut ? " [시간 초과]" : ""} ${r.ms}ms`);
     for (const d of r.rawDiffs) out.push(`    원값 ${d}`);
     for (const d of r.finalDiffs) out.push(`    최종 ${d}`);
   }
   out.push("", "## 문항당 ms");
-  out.push(report.results.map((r) => `${r.id}:${r.ms}`).join(" "));
+  out.push("(* = 기준일이 바뀐 직후 첫 문항: 앞부분 캐시를 못 써서 느리다)");
+  out.push(report.results.map((r) => `${r.id}${r.firstOfDay ? "*" : ""}:${r.ms}`).join(" "));
   return out.join("\n");
 }

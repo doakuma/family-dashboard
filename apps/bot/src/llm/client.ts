@@ -2,7 +2,7 @@
 // 구현을 core가 아니라 봇에 둔 이유: SDK(@anthropic-ai/sdk)·로컬 모델 호출은 봇만 쓰고, core는 브라우저에서도 불러서 무거운 의존을 피한다.
 // 서비스에서 BYOK·서비스 키 과금을 하려면 LlmConfig만 가족별로 다르게 만들어 createLlmAdapter에 넘기면 된다.
 import Anthropic from "@anthropic-ai/sdk";
-import type { LlmAdapter, LlmConfig, LlmRequest } from "@hsh/core";
+import { DEFAULT_OLLAMA_KEEP_ALIVE, DEFAULT_OLLAMA_NUM_CTX, DEFAULT_OLLAMA_TIMEOUT_MS, type LlmAdapter, type LlmConfig, type LlmRequest } from "@hsh/core";
 import { z } from "zod";
 
 /** 응답에서 첫 JSON 객체를 꺼낸다 (모델이 앞뒤에 말을 붙여도 견딘다) */
@@ -15,14 +15,26 @@ export function extractJson(text: string): unknown {
 
 const ollamaResponse = z.object({ message: z.object({ content: z.string() }) });
 
+export interface OllamaOptions {
+  timeoutMs?: number;
+  numCtx?: number;
+  keepAlive?: string;
+}
+
 export class OllamaClient implements LlmAdapter {
   readonly name: string;
+  private readonly timeoutMs: number;
+  private readonly numCtx: number;
+  private readonly keepAlive: string;
   constructor(
     private readonly baseUrl = "http://localhost:11434",
     private readonly model = "qwen3:8b",
-    private readonly timeoutMs = 60_000,
+    opts: OllamaOptions = {},
   ) {
     this.name = `ollama:${model}`;
+    this.timeoutMs = opts.timeoutMs ?? DEFAULT_OLLAMA_TIMEOUT_MS;
+    this.numCtx = opts.numCtx ?? DEFAULT_OLLAMA_NUM_CTX;
+    this.keepAlive = opts.keepAlive ?? DEFAULT_OLLAMA_KEEP_ALIVE;
   }
 
   async json({ system, user, schema }: LlmRequest): Promise<unknown> {
@@ -34,8 +46,9 @@ export class OllamaClient implements LlmAdapter {
         model: this.model,
         stream: false,
         think: false,
+        keep_alive: this.keepAlive,
         format: schema,
-        options: { temperature: 0 },
+        options: { temperature: 0, num_ctx: this.numCtx },
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
@@ -75,5 +88,5 @@ export class AnthropicClient implements LlmAdapter {
 
 export function createLlmAdapter(cfg: LlmConfig): LlmAdapter {
   if (cfg.provider === "anthropic") return new AnthropicClient(cfg.apiKey, cfg.model || undefined);
-  return new OllamaClient(cfg.baseUrl || undefined, cfg.model || undefined);
+  return new OllamaClient(cfg.baseUrl || undefined, cfg.model || undefined, { timeoutMs: cfg.timeoutMs, numCtx: cfg.numCtx, keepAlive: cfg.keepAlive });
 }

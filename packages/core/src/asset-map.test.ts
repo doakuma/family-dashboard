@@ -16,12 +16,11 @@ describe("buildAssetMap", () => {
   const text = buildAssetMap({ today, members, events, anniversaries: anniv });
 
   it("오늘과 요일", () => expect(text).toContain("2026-10-30 (금요일)"));
-  it("달력은 일요일 시작, 오늘 표시", () => {
-    expect(text).toContain("- 이번 주: 일 2026-10-25, 월 2026-10-26");
-    expect(text).toContain("금 2026-10-30(오늘)");
-    expect(text).toContain("- 지난 주: 일 2026-10-18");
-    expect(text).toContain("- 다다음 주: 일 2026-11-08");
-    expect(text.match(/\(오늘\)/g)).toHaveLength(1);
+  it("날짜 풀이표(일요일 시작 주)가 들어 있고 오늘이 표시된다", () => {
+    expect(text).toContain("## 날짜 풀이표");
+    expect(text).toContain("2026-10-30 금 = 오늘, 이번 주 금요일");
+    expect(text).toContain("2026-11-03 화 = 다음 주 화요일");
+    expect(text).toContain("이번 주 = 2026-10-25 ~ 2026-10-31");
   });
   it("구성원 id·이름·부르는 이름", () => {
     expect(text).toContain("- haneul: 하늘 / 하늘, 하늘이");
@@ -42,27 +41,33 @@ describe("buildAssetMap", () => {
 
 describe("길이 상한", () => {
   const many = Array.from({ length: 200 }, (_, i) => ev(`e${i}`, `2026-${String(11 + Math.floor(i / 28)).padStart(2, "0")}-${String((i % 28) + 1).padStart(2, "0")}`, `일정${i}`));
-  const text = buildAssetMap({ today, members, events: many, anniversaries: anniv }, { maxChars: 1500 });
-  it("상한을 넘지 않고, 달력·구성원은 남고, 먼 것부터 줄인다", () => {
-    expect(text.length).toBeLessThanOrEqual(1500);
-    expect(text).toContain("## 달력");
+  const text = buildAssetMap({ today, members, events: many, anniversaries: anniv }, { maxChars: 3300 });
+  it("상한을 넘지 않고, 날짜 풀이표·구성원은 남고, 먼 것부터 줄인다", () => {
+    expect(text.length).toBeLessThanOrEqual(3300);
+    expect(text).toContain("## 날짜 풀이표");
     expect(text).toContain("- haneul: 하늘");
     expect(text).toMatch(/…외 \d+건/);
     expect(text).toContain("일정0 ");
     expect(text).not.toContain("일정199 ");
   });
-  it("기본 상한은 3000자", () => {
-    expect(buildAssetMap({ today, members, events: many, anniversaries: anniv }).length).toBeLessThanOrEqual(3000);
+  it("기본 상한은 5000자", () => {
+    expect(buildAssetMap({ today, members, events: many, anniversaries: anniv }).length).toBeLessThanOrEqual(5000);
   });
   it("머리(오늘·달력·구성원)도 상한에 든다: 구성원이 아주 많으면 구성원 줄을 줄이고 달력은 남긴다", () => {
     const crowd: Member[] = Array.from({ length: 200 }, (_, i) => ({ id: `m${i}`, name: `구성원${i}번`, role: "child", color: "blue" }));
-    for (const maxChars of [900, 1500, 3000]) {
+    for (const maxChars of [3000, 3500, 5000]) {
       const t = buildAssetMap({ today, members: crowd, events: many, anniversaries: anniv }, { maxChars });
       expect(t.length, `${maxChars}`).toBeLessThanOrEqual(maxChars);
-      expect(t).toContain("## 달력");
+      expect(t).toContain("## 날짜 풀이표");
       expect(t).toContain("(오늘)");
       expect(t).toMatch(/- …외 \d+명/);
     }
+  });
+  it("상한이 날짜 풀이표보다 작아도 풀이표는 남는다(일정은 전부 생략)", () => {
+    const t = buildAssetMap({ today, members, events: many, anniversaries: anniv }, { maxChars: 500 });
+    expect(t).toContain("2026-11-03 화 = 다음 주 화요일");
+    expect(t).not.toContain("일정0 ");
+    expect(t).toMatch(/…외 \d+건/);
   });
   it("가족(family)에는 '가족이'를 붙이지 않는다", () => {
     const t = buildAssetMap({ today, members, events: [], anniversaries: [] });

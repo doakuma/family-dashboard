@@ -3,8 +3,13 @@
 // 비밀값이 들어 있으므로 이 값을 브라우저 번들·공개 응답으로 보내지 않는다(대시보드에서는 서버 전용 모듈에서만 쓴다).
 import type { FamilyId } from "./types";
 
+/** Ollama 호출 기본값: 앞부분 캐시가 깨지는 첫 호출이 느리므로 시간 제한을 넉넉히, 문맥은 프롬프트(약 8000자)가 들어가게, 모델은 오래 올려 둔다 */
+export const DEFAULT_OLLAMA_TIMEOUT_MS = 180_000;
+export const DEFAULT_OLLAMA_NUM_CTX = 8192;
+export const DEFAULT_OLLAMA_KEEP_ALIVE = "30m";
+
 export type LlmConfig =
-  | { provider: "ollama"; baseUrl?: string; model?: string }
+  | { provider: "ollama"; baseUrl?: string; model?: string; timeoutMs?: number; numCtx?: number; keepAlive?: string }
   | { provider: "anthropic"; apiKey: string; model?: string };
 
 export interface SlackConfig {

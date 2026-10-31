@@ -189,7 +189,7 @@ function toQuery(o: LlmOutput, ctx: Ctx, memberIds: Set<string>): QuestionQuery 
     kinds: kinds.length ? kinds : undefined,
     memberIds: memberIdsOut.length ? memberIdsOut : undefined,
     keyword: keyword || undefined,
-    tense: o.qTense,
+    tense: o.qTense === "none" ? undefined : o.qTense,
     excludeKeyword: o.qExcludeKeyword?.trim().slice(0, 30) || undefined,
     excludeDates: excludeDates.length ? excludeDates : undefined,
   };

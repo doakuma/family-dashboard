@@ -214,3 +214,12 @@
 - 리뷰어 3차 확인 통과(321d8eb, pnpm check 740 테스트) → #10 passes=true·review=pass·status=done (오너 반영). 1차 되돌림 [높음]: 채점이 기대값에 없는 필드를 안 봄, excludeKeyword를 질문 글자 그대로만 받아 LLM 판단을 버림.
 - 노트북 채점: `git pull && pnpm install && pnpm --filter @hsh/bot eval:dates` (옵션 --only, --json). 결과로 프롬프트·자산 지도 보강.
 - 남은 문제(낮음): 날짜 없는 질문의 한 글자 keyword는 되묻지 않고 "없어요". 오너 확인: 일요일 당일 주말 되묻기(d084·d085), LLM_RANGE_REACH 800일, 종류·구성원 정규식.
+
+## 2026-10-31 · #10 후속4: qwen3:8b 채점 반영
+- 기준선(오너 노트북 1차, qwen3:8b): 최종 54/101(53.5%), 원값 0/101, LLM 호출 실패 7건(모두 60초 시간 초과, 기준일이 바뀐 첫 문항), 문항당 평균 20.6초. 오류 패턴: 요일 하루씩 밀림, 연도 규칙 무시(항상 올해), 달력 밖 날짜 못 다룸, "언제야?"에 범위 채움, 주/주말 혼동, 말고·떨어진 날짜 오독, qTense 미기입.
+- 응답 형식: 모델용 JSON 스키마에서 intent·qDatePhrase·qTense(past|nonpast|none)를 required로, 순서는 intent→qDatePhrase→qTense→제외→qFrom/qTo. zod 파서는 관대(없거나 ""/none이면 없음). 코드는 qDatePhrase를 쓰지 않는다.
+- core `buildDateGuide`(기준일만으로 계산): 날짜→말 표(오늘-14~+27일, 일요일 예외 반영), 요일만(다가오는/과거형), 주·주말 범위, 1~12월 표(다가오는/과거형), 연도 없는 날짜의 해 경계 문장. 오너 확인 대기 항목(다다음/지난 주 일요일, 일요일 당일 주말·지난 주말)은 range.ts 동작을 따르고 "(확인 대기)" 표시. 자산 지도의 4주 달력 줄은 이 표로 대체(풀이표 약 2.6천자). 프롬프트 규칙 보강(직접 세지 않기, qMembers/qKeyword 조건, 언제야→범위 비움, A랑 B→비움, 말고, 주/주말).
+- 프롬프트 길이: sample 6142자, stress 6997자(상한 8000, 일정 목록 25건·할 일 20건, 넘으면 일정→자산 지도→할 일 순으로 줄이되 풀이표는 유지).
+- Ollama: OLLAMA_TIMEOUT_MS(기본 180000)·OLLAMA_NUM_CTX(기본 8192, options.num_ctx)·OLLAMA_KEEP_ALIVE(기본 30m, keep_alive), 잘못된 값은 기본값. .env.example은 권한상 못 열어 수정하지 못함(위 세 변수 추가 필요).
+- 채점 보고: 시간 초과 따로 집계, "시간 초과 제외" 정답률 줄, 기준일 첫 문항 표시([기준일 첫 문항], ms 목록의 *). 기대값·채점 규칙은 그대로(qTense none=없음).
+- 남은 문제: 실제 모델 정답률 재측정 필요(`pnpm --filter @hsh/bot eval:dates`). 풀이표가 길어져 토큰 수가 늘었으니 문맥/속도는 노트북에서 확인.

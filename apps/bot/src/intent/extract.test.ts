@@ -34,10 +34,10 @@ const run = (out: unknown, text = "메시지", sender = "U00MOM") =>
   extractIntent({ text, now, senderSlackId: sender, members, events, tasks }, fake(out));
 
 describe("프롬프트", () => {
-  it("오늘·달력·구성원·대상 id를 넣는다", () => {
+  it("오늘·날짜 풀이표·구성원·대상 id를 넣는다", () => {
     const p = buildSystemPrompt({ today: "2026-10-29", now: "22:00", members, events, tasks });
     expect(p).toContain("오늘: 2026-10-29 (목요일)");
-    expect(p).toContain("- 다음 주: 일 2026-11-01, 월 2026-11-02");
+    expect(p).toContain("2026-11-03 화 = 다음 주 화요일");
     expect(p).toContain("- evt-a1b2: 2026-11-03 15:00 치과 (haneul)");
     expect(p).toContain("- task-e5f6: [장보기] 우유");
   });
@@ -142,6 +142,13 @@ describe("extractIntent", () => {
 
   it("질문", async () => {
     expect(await run({ intent: "question" }, "뭐 있어?")).toEqual({ type: "question", query: { text: "뭐 있어?" } });
+  });
+
+  it("질문: qTense none·빈 qDatePhrase·빈 keyword는 없는 것으로 본다", async () => {
+    const r = await run({ intent: "question", qDatePhrase: "", qTense: "none", qKeyword: "", qExcludeKeyword: "" }, "뭐 있어?");
+    expect(r).toEqual({ type: "question", query: { text: "뭐 있어?" } });
+    const r2 = await run({ intent: "question", qDatePhrase: "다음 주 화요일", qTense: "nonpast", qFrom: "2026-11-03", qTo: "2026-11-03" }, "다음 주 화요일 뭐 있어?");
+    expect(r2.type === "question" && r2.query).toMatchObject({ tense: "nonpast", from: "2026-11-03", to: "2026-11-03" });
   });
 
   it("질문: 시제·제외 조건은 형식만 검증해 담는다", async () => {

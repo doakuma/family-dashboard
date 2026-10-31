@@ -9,8 +9,18 @@ describe("EnvConfigProvider", () => {
     expect(c.get("nodeEnv")).toBe("development");
     expect(c.get("port")).toBe(3000);
     expect(c.get("wikiRepoPath")).toBeUndefined();
-    expect(c.get("llm")).toEqual({ provider: "ollama", baseUrl: undefined, model: undefined });
+    expect(c.get("llm")).toEqual({ provider: "ollama", baseUrl: undefined, model: undefined, timeoutMs: 180000, numCtx: 8192, keepAlive: "30m" });
     expect(c.get("slack")).toEqual({ botToken: undefined, appToken: undefined, familyChannel: undefined });
+  });
+
+  it("Ollama 호출 설정: OLLAMA_TIMEOUT_MS·OLLAMA_NUM_CTX·OLLAMA_KEEP_ALIVE, 잘못된 값은 기본값", () => {
+    const llm = (env: Record<string, string>) => new EnvConfigProvider(env).get("llm");
+    expect(llm({ OLLAMA_TIMEOUT_MS: "240000", OLLAMA_NUM_CTX: "4096", OLLAMA_KEEP_ALIVE: "1h" })).toMatchObject({ timeoutMs: 240000, numCtx: 4096, keepAlive: "1h" });
+    expect(llm({ OLLAMA_KEEP_ALIVE: "-1" })).toMatchObject({ keepAlive: "-1" });
+    for (const bad of ["abc", "0", "-5", "1.5", "", "12px"]) {
+      expect(llm({ OLLAMA_TIMEOUT_MS: bad, OLLAMA_NUM_CTX: bad }), bad).toMatchObject({ timeoutMs: 180000, numCtx: 8192 });
+    }
+    expect(llm({ OLLAMA_KEEP_ALIVE: "오래" })).toMatchObject({ keepAlive: "30m" });
   });
 
   it("환경 변수를 키로 매핑한다", () => {

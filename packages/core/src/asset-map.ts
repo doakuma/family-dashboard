@@ -1,6 +1,7 @@
-// 자산 지도: 위키에서 만든 가벼운 관계표(오늘·달력·구성원·일정/기념일 제목 → 구성원 → 날짜 → 반복).
+// 자산 지도: 위키에서 만든 가벼운 관계표(오늘·날짜 풀이표·구성원·일정/기념일 제목 → 구성원 → 날짜 → 반복).
 // LLM 프롬프트에 넣어 "학원 → 미술학원 → 하늘 → 매주 목" 같은 연결을 보충한다. 순수 함수, 브라우저 안전.
-import { WEEKDAYS_KO, addDays, diffDays, nextOccurrence, weekdayOf } from "./date";
+import { WEEKDAYS_KO, diffDays, nextOccurrence, weekdayOf } from "./date";
+import { buildDateGuide } from "./date-guide";
 import type { Anniversary, Event, Member } from "./types";
 
 export interface AssetMapInput {
@@ -10,10 +11,10 @@ export interface AssetMapInput {
   anniversaries: Anniversary[];
 }
 export interface AssetMapOptions {
-  /** 전체 글자 수 상한(기본 3000). 달력·구성원은 항상 남기고 먼 일정부터 줄인다. */
+  /** 전체 글자 수 상한(기본 5000). 날짜 풀이표·구성원은 항상 남기고 먼 일정부터 줄인다. */
   maxChars?: number;
 }
-export const DEFAULT_ASSET_MAP_CHARS = 3000;
+export const DEFAULT_ASSET_MAP_CHARS = 5000;
 
 /** 지난 일정은 이만큼 전까지만 보여 준다(반복 추정에는 전부 쓴다) */
 const PAST_DAYS = 14;
@@ -29,20 +30,6 @@ const hasBatchim = (s: string) => {
 /** 부르는 이름: 이름, 받침이 있으면 "하늘이" 같은 꼴을 더한다. */
 export function callNames(name: string): string[] {
   return hasBatchim(name) ? [name, `${name}이`] : [name];
-}
-
-function calendar(today: string): string {
-  const sunday = addDays(today, -weekdayOf(today));
-  const labels = ["지난 주", "이번 주", "다음 주", "다다음 주"];
-  return labels
-    .map((label, w) => {
-      const days = Array.from({ length: 7 }, (_, i) => {
-        const d = addDays(sunday, (w - 1) * 7 + i);
-        return `${WEEKDAYS_KO[weekdayOf(d)]} ${d}${d === today ? "(오늘)" : ""}`;
-      });
-      return `- ${label}: ${days.join(", ")}`;
-    })
-    .join("\n");
 }
 
 /** 같은 요일에 2번 이상이면 "매주 X" 추정 */
@@ -73,12 +60,13 @@ export function buildAssetMap(input: AssetMapInput, opts: AssetMapOptions = {}):
   const SECTIONS = "\n\n## 일정 (제목 → 구성원 → 날짜 → 반복)\n\n## 기념일 (제목 → 구성원 → 날짜)";
   const RESERVE = 60;
   const memberLine = (m: Member) => `- ${m.id}: ${m.name} / ${(m.id === "family" ? [m.name] : callNames(m.name)).join(", ")}`;
+  const dateGuide = buildDateGuide(today);
   const buildHead = (memberLines: string[]) => [
     "## 오늘",
     `${today} (${WEEKDAYS_KO[weekdayOf(today)]}요일)`,
     "",
-    "## 달력 (주는 일요일 시작)",
-    calendar(today),
+    "## 날짜 풀이표 (기준일로 계산한 값. 주는 일요일 시작)",
+    dateGuide,
     "",
     "## 구성원 (id: 이름 / 부르는 이름)",
     ...(memberLines.length ? memberLines : ["- (없음)"]),

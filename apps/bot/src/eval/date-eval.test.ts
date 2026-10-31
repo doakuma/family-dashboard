@@ -151,6 +151,40 @@ describe("runDateEval (가짜 LLM, 실제 호출 없음)", () => {
     expect(rep.results[1]?.rawDiffs[0]).toContain("LLM 호출 실패: 연결 거부");
   });
 
+  it("시간 초과를 따로 세고, 시간 초과 제외 정답률과 기준일 첫 문항 표시를 낸다", async () => {
+    const sub = cases.slice(0, 6); // d001~d006: 모두 같은 기준일
+    const other = must(cases.find((c) => c.today !== sub[0]?.today && !c.tags.includes("owner-check")));
+    const list = [...sub, other];
+    const rep = await runDateEval(
+      list,
+      fakeLlm((t, x) => (x === sub[0]?.text || x === other.text ? new Error("The operation was aborted due to timeout") : correct(t, x))),
+      wiki,
+    );
+    expect(rep.timeouts).toBe(2);
+    expect(rep.errors).toBe(2);
+    expect(rep.results.map((r) => r.firstOfDay)).toEqual([true, false, false, false, false, false, true]);
+    expect(rep.results[0]).toMatchObject({ timedOut: true, firstOfDay: true });
+    expect(rep.scored).toEqual({ total: 7, rawPass: 5, finalPass: 5 });
+    expect(rep.scoredExTimeout).toEqual({ total: 5, rawPass: 5, finalPass: 5 });
+    const text = formatReport(rep);
+    expect(text).toContain("시간 초과 제외: 원값 5/5 (100.0%) · 최종 5/5 (100.0%)");
+    expect(text).toContain("시간 초과 2건, 그중 기준일 첫 문항 2건");
+    expect(text).toContain("[기준일 첫 문항] [시간 초과]");
+    expect(text).toContain("d001*:");
+  });
+
+  it("qTense none과 qDatePhrase는 채점에서 없는 것으로 본다", async () => {
+    const c = byId("d056"); // 뭐 있어? -> 되묻기(시제 기대 없음)
+    expect(c.expect.clarify).toBe(true);
+    const ok = await runDateEval([c], fakeLlm(() => ({ intent: "question", qDatePhrase: "", qTense: "none" })), wiki);
+    expect(ok.results[0]).toMatchObject({ rawOk: true, finalOk: true });
+    const d = byId("d011");
+    const r = await runDateEval([d], fakeLlm(() => ({ ...truth(d), qTense: "none", qDatePhrase: "이번 주 토요일" })), wiki);
+    expect(r.results[0]?.rawOk).toBe(false);
+    expect(r.results[0]?.rawDiffs[0]).toBe("시제: nonpast / 없음");
+    expect(r.results[0]?.finalOk).toBe(true);
+  });
+
   it("형식 오류 응답·질문이 아닌 응답도 실패로만 센다", async () => {
     const sub = cases.slice(0, 2);
     const rep = await runDateEval(sub, fakeLlm((_t, x) => (x === sub[0]?.text ? "not json" : { intent: "unknown" })), wiki);
@@ -192,7 +226,7 @@ describe("formatReport", () => {
     expect(text).toContain("## 틀린 문장 4건");
     expect(text).toContain(`"${sub[0]?.text}"`);
     expect(text).toMatch(/원값 범위: .* \/ 2026-01-01~2026-01-01/);
-    expect(text).toContain(`${sub[0]?.id}:7`);
+    expect(text).toContain(`${sub[0]?.id}*:7`);
   });
   it("모두 맞으면 틀린 문장 0건", async () => {
     const text = formatReport(await runDateEval(cases.slice(0, 3), fakeLlm(correct), wiki));
