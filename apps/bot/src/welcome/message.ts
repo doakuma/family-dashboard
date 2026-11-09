@@ -8,6 +8,9 @@ const MAX_MENTIONS = 12;
 /** 예시 안에 넣을 이름: 코드 표시(`)와 줄바꿈을 걷어 낸다 */
 const plain = (s: string) => escapeMrkdwn(s.replace(/[`\r\n]+/g, " ").trim());
 
+/** 굵게(*…*) 안에 들어갈 가족 이름: 서식 기호(* _ ~ `)는 굵게를 깨뜨리므로 뺀다 */
+const boldSafe = (s: string) => plain(s).replace(/[*_~]/g, "");
+
 export const WELCOME_EXAMPLE_COUNT = 3;
 
 export interface WelcomeInput {
@@ -35,7 +38,7 @@ export function buildWelcomeMessage(input: WelcomeInput): string {
     .slice(0, MAX_MENTIONS);
   const [a, b, c] = welcomeExamples(input.members);
   return [
-    `🏠 *${plain(input.familyName)}* 대시보드가 준비됐어요! 이제 이 채널에서 편하게 말씀해 주세요.`,
+    `🏠 *${boldSafe(input.familyName)}* 대시보드가 준비됐어요! 이제 이 채널에서 편하게 말씀해 주세요.`,
     ...(mentions.length ? [`${mentions.join(" ")} 함께 써요.`] : []),
     "",
     "*이렇게 말해 보세요*",

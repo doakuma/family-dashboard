@@ -9,7 +9,7 @@ export type WelcomePoster = (channel: string, text: string) => Promise<void>;
 export interface WelcomeWorkerDeps {
   store: SetupNoticeStore;
   /** 위키를 읽는다(구성원·가족 이름) */
-  readState: (familyId: FamilyId) => Promise<WikiState>;
+  readState: (familyId: FamilyId) => Promise<Pick<WikiState, "config" | "members">>;
   post: WelcomePoster;
   /** SLACK_FAMILY_CHANNEL. 없으면 게시하지 않고 알림을 남긴다 */
   channel?: string;
@@ -37,6 +37,7 @@ export class WelcomeWorker {
   /** 게시는 했는데 complete를 못 한 알림(다시 게시하지 않고 complete만 재시도) */
   private readonly posted = new Set<string>();
   private warnedNoChannel = false;
+  private lastTickError: string | undefined;
   private running = false;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private stopped = true;
@@ -71,8 +72,12 @@ export class WelcomeWorker {
     this.running = true;
     try {
       await this.run();
+      this.lastTickError = undefined;
     } catch (e) {
-      this.warn(`확인하지 못했어요: ${msg(e)}`);
+      // 같은 오류가 5초마다 반복되면 로그가 넘치므로 메시지가 바뀔 때만 남긴다
+      const m = msg(e);
+      if (m !== this.lastTickError) this.warn(`확인하지 못했어요: ${m}`);
+      this.lastTickError = m;
     } finally {
       this.running = false;
     }
@@ -106,7 +111,8 @@ export class WelcomeWorker {
     }
     const r = this.retry.get(notice.id);
     if (r && this.now() < r.nextAt) return;
-    if (!(await store.claim(notice.id))) return; // 다른 봇이 처리 중이거나 이미 끝남
+    const token = await store.claim(notice.id);
+    if (token === undefined) return; // 다른 봇이 처리 중이거나 이미 끝남
     try {
       const state = await this.deps.readState(notice.familyId);
       if (!state.config) throw new Error("위키에서 가족 설정을 읽지 못했어요");
@@ -116,7 +122,7 @@ export class WelcomeWorker {
       const wait = Math.min((this.deps.retryBaseMs ?? WELCOME_RETRY_BASE_MS) * 2 ** (failures - 1), this.deps.retryMaxMs ?? WELCOME_RETRY_MAX_MS);
       this.retry.set(notice.id, { failures, nextAt: this.now() + wait });
       this.warn(`환영 메시지 게시 실패(${failures}번째, ${Math.round(wait / 1000)}초 뒤 다시): ${msg(e)}`);
-      await store.release(notice.id);
+      await store.release(notice.id, token);
       return;
     }
     this.posted.add(notice.id);

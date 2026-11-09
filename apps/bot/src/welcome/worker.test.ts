@@ -4,18 +4,17 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { slackWelcomePoster } from "./slack";
+import { slackWelcomePoster, WELCOME_CLIENT_OPTIONS } from "./slack";
 import { WelcomeWorker, type WelcomeWorkerDeps } from "./worker";
 
 let dir: string;
 let t: number;
 const now = () => t;
 const store = () => new FsSetupNoticeStore({ dir, now: () => new Date(t), warn: () => {} });
-const state = {
-  familyId: DEFAULT_FAMILY_ID,
-  config: { familyName: "햇살네" },
-  members: [{ id: "mom", name: "엄마", role: "guardian", slackId: "U111AB" }],
-} as unknown as WikiState;
+const state: Pick<WikiState, "config" | "members"> = {
+  config: { familyName: "햇살네", timezone: "Asia/Seoul", familyColor: "gray" },
+  members: [{ id: "mom", name: "엄마", role: "guardian", color: "coral", slackId: "U111AB" }],
+};
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "hsh-welcome-"));
@@ -28,7 +27,7 @@ const put = (s = store()) => s.put({ familyId: DEFAULT_FAMILY_ID, completedAt: n
 function make(over: Partial<WelcomeWorkerDeps> = {}) {
   const post = vi.fn<WelcomeWorkerDeps["post"]>(async () => {});
   const warn = vi.fn();
-  const readState = vi.fn(async () => state);
+  const readState = vi.fn<WelcomeWorkerDeps["readState"]>(async () => state);
   const w = new WelcomeWorker({ store: store(), readState, post, channel: "C123", now, log: () => {}, warn, ...over });
   return { w, post, warn, readState };
 }
@@ -118,7 +117,7 @@ describe("WelcomeWorker", () => {
 
   it("위키를 못 읽어도 실패로 보고 재시도한다(게시하지 않음)", async () => {
     await put();
-    const readState = vi.fn().mockRejectedValueOnce(new Error("ENOENT")).mockResolvedValue(state);
+    const readState = vi.fn<WelcomeWorkerDeps["readState"]>().mockRejectedValueOnce(new Error("ENOENT")).mockResolvedValue(state);
     const { w, post } = make({ readState, retryBaseMs: 1000 });
     await w.tick();
     expect(post).not.toHaveBeenCalled();
@@ -156,7 +155,7 @@ describe("WelcomeWorker", () => {
     await put();
     const real = store();
     const complete = vi.fn().mockRejectedValueOnce(new Error("EIO")).mockImplementation((id: string) => real.complete(id));
-    const { w, post, warn } = make({ store: { put: (i) => real.put(i), list: () => real.list(), claim: (i) => real.claim(i), release: (i) => real.release(i), expire: () => real.expire(), complete } });
+    const { w, post, warn } = make({ store: { put: (i) => real.put(i), list: () => real.list(), claim: (i) => real.claim(i), release: (i, k) => real.release(i, k), expire: () => real.expire(), complete } });
     await w.tick();
     await w.tick();
     expect(post).toHaveBeenCalledOnce();
@@ -165,20 +164,46 @@ describe("WelcomeWorker", () => {
     expect(await real.list()).toEqual([]);
   });
 
+  it("release는 자기 토큰으로만 부른다(게시 실패 뒤)", async () => {
+    await put();
+    const real = store();
+    const release = vi.fn(real.release.bind(real));
+    const { w } = make({ post: async () => { throw new Error("x"); }, store: { put: (i) => real.put(i), list: () => real.list(), claim: (i) => real.claim(i), release, complete: (i) => real.complete(i), expire: () => real.expire() } });
+    await w.tick();
+    expect(release).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f]{32}$/), 1);
+  });
+
   it("저장소 오류가 나도 tick은 던지지 않는다", async () => {
-    const bad = { ...store(), expire: async () => { throw new Error("disk"); } } as unknown as WelcomeWorkerDeps["store"];
+    const real = store();
+    const bad: WelcomeWorkerDeps["store"] = { put: (i) => real.put(i), list: () => real.list(), claim: (i) => real.claim(i), release: (i, k) => real.release(i, k), complete: (i) => real.complete(i), expire: async () => { throw new Error("disk"); } };
     const { w, warn } = make({ store: bad });
     await expect(w.tick()).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("disk"));
+    await w.tick();
+    await w.tick();
+    expect(warn).toHaveBeenCalledOnce(); // 같은 오류가 반복되면 다시 남기지 않는다
   });
 });
 
 describe("slackWelcomePoster", () => {
+  const installation = (token?: string) => ({ fetchInstallation: async () => ({ bot: token ? { token } : undefined }) as never });
+  it("토큰은 InstallationStore에서 받는다(게시 때마다)", async () => {
+    const postMessage = vi.fn().mockResolvedValue({ ok: true });
+    const create = vi.fn(() => ({ chat: { postMessage } }));
+    await slackWelcomePoster(installation("xoxb-from-store"), create)("C1", "안녕");
+    expect(create).toHaveBeenCalledWith("xoxb-from-store");
+    await expect(slackWelcomePoster(installation(undefined), create)("C1", "x")).rejects.toThrow("설치 정보");
+  });
+
+  it("클라이언트는 재시도 없이 10초 제한", () => {
+    expect(WELCOME_CLIENT_OPTIONS).toEqual({ timeout: 10_000, retryConfig: { retries: 0 }, rejectRateLimitedCalls: true });
+  });
+
   it("chat.postMessage로 채널에 글 하나를 올리고, ok:false나 오류는 실패로 던진다", async () => {
     const postMessage = vi.fn().mockResolvedValue({ ok: true });
-    await slackWelcomePoster({ chat: { postMessage } })("C123", "안녕");
+    await slackWelcomePoster(installation("t"), () => ({ chat: { postMessage } }))("C123", "안녕");
     expect(postMessage).toHaveBeenCalledWith({ channel: "C123", text: "안녕" });
-    await expect(slackWelcomePoster({ chat: { postMessage: async () => ({ ok: false }) } })("C1", "x")).rejects.toThrow();
-    await expect(slackWelcomePoster({ chat: { postMessage: async () => { throw new Error("not_in_channel"); } } })("C1", "x")).rejects.toThrow("not_in_channel");
+    await expect(slackWelcomePoster(installation("t"), () => ({ chat: { postMessage: async () => ({ ok: false }) } }))("C1", "x")).rejects.toThrow();
+    await expect(slackWelcomePoster(installation("t"), () => ({ chat: { postMessage: async () => { throw new Error("not_in_channel"); } } }))("C1", "x")).rejects.toThrow("not_in_channel");
   });
 });

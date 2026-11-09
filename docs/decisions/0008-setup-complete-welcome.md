@@ -20,7 +20,7 @@
 - 포트 `SetupNoticeStore`(`@hsh/core` `setup-notice.ts`: put·list·claim·release·complete·expire), 파일 구현 `FsSetupNoticeStore`(`@hsh/core/node`). 상태 폴더 해석은 #19 코드(`ConfigProvider.stateDir`)를 그대로 쓴다.
 - 알림 내용: `{id, familyId, completedAt, version}`뿐. 슬랙 ID·이름·생일 없음(구성원은 봇이 게시 때 위키에서 읽는다).
 - 대시보드: `runSetup`이 위키 쓰기 성공 뒤 `notice.put`(주입). **넣기 실패는 세팅 성공을 막지 않고** 서버 로그만(환영 메시지만 빠짐). 상태 폴더 설정이 잘못돼도 같다.
-- 봇: `apps/bot/src/welcome/`. `WelcomeWorker`가 5초마다 확인 -> claim -> 위키 읽기 -> `chat.postMessage`(기존 `SlackChatClient` 타입 재사용, `slackWelcomePoster`) -> complete. 메시지 조립은 순수 함수 `buildWelcomeMessage`(`message.ts`).
+- 봇: `apps/bot/src/welcome/`. `WelcomeWorker`가 5초마다 확인 -> claim -> 위키 읽기 -> `chat.postMessage`(기존 `SlackChatClient` 타입 재사용, `slackWelcomePoster`) -> complete. 토큰은 0003 §5대로 **InstallationStore.fetchInstallation()의 bot.token**으로 게시 때마다 받아 클라이언트를 만든다(env 직접 참조 없음). 메시지 조립은 순수 함수 `buildWelcomeMessage`(`message.ts`).
 - 메시지: 가족 이름 환영 + 슬랙 연결된 구성원 멘션(`<@U…>`, slackId 있는 사람만, 최대 12명) + "이렇게 말해 보세요" 예시 **정확히 3개**(일정 넣기·장보기/할 일 추가·질문, 일정은 아이 이름·질문은 보호자 이름 사용, 이름이 없으면 이름 없는 문구) + "확인 버튼을 누르면 위키에 들어가요" 안내. 이름·가족 이름은 mrkdwn 이스케이프, 코드 표시 안의 백틱·줄바꿈 제거.
 
 ### 중복 방지
@@ -29,6 +29,12 @@
 - 게시 직후 `complete`: `<id>.done`(배타) -> 알림 파일 삭제. done이 있으면 어떤 claim도 실패하고 list에도 안 나온다. 목록을 읽어 둔 다른 봇이 늦게 claim해도 알림 존재·done을 다시 확인해 실패한다.
 - 봇 두 개·재시작·tick 겹침(봇 안에서는 한 번에 하나)에도 한 번만 게시된다(테스트).
 - 게시는 했는데 complete 기록이 실패하면 봇은 다시 게시하지 않고 기록만 재시도한다.
+
+### 슬랙 클라이언트 설정 (리뷰 반영)
+`postMessage`는 멱등이 아니다. `WebClient` 기본값(타임아웃 없음, 최대 30분 자동 재시도, 레이트리밋 대기)이면 타임아웃 뒤 재시도로 같은 글이 두 번 올라가거나 worker가 오래 멈춘다. 그래서 `timeout: 10_000`, `retryConfig: { retries: 0 }`, `rejectRateLimitedCalls: true`로 만들고(`WELCOME_CLIENT_OPTIONS`), 재시도는 worker의 백오프에서만 한다.
+
+### claim 토큰 (리뷰 반영)
+`claim`은 번호(토큰)를 돌려주고 `release(id, token)`은 **자기 번호의 반납 표식만** 만든다. A가 임대(5분)를 넘겨 B가 claim-2를 잡은 뒤 A가 늦게 release해도 B의 claim은 유지된다(테스트). `complete`는 게시했다는 사실이라 토큰과 무관하게 done을 남긴다(이어받은 쪽이 아직 게시 전이면 멈추게 된다). 삭제는 알림 파일 -> claim -> done 순(done이 마지막). 파일 하나를 못 읽어도(EACCES 등) list는 그 파일만 건너뛰고 경고하며, worker의 tick 경고는 같은 메시지가 반복되면 바뀔 때만 남긴다. 가족 이름의 서식 기호(`* _ ~` 백틱)는 굵게를 깨지 않도록 뺀다. 완료 화면 문구는 "태블릿이 곧 대시보드로 바뀝니다"로 바꿨다(문구만).
 
 ### 실패 처리
 - `SLACK_FAMILY_CHANNEL`이 없으면 경고 한 번 + 알림을 그대로 둔다(채널 설정 후 재시작하면 게시).
@@ -50,4 +56,4 @@
 없음(스펙대로 채널에 게시). 스펙에 없어 정한 것: (1) 알림 TTL 24시간 (2) 알림에 위키 version·완료 시각만 (3) 봇 재시작 없이도 채널 설정 후 게시되게 하려면 환경 변수를 다시 읽어야 해서 "설정 후 재시작" (4) 요약 문구 변경으로 log.md·커밋 제목이 `세팅 완료:`가 됨(과거 위키의 `가족 세팅:` 줄은 그대로) (5) 환영 메시지 문구·예시는 초안, 오너 검토 바람.
 
 ## 못 한 것
-실제 슬랙 게시(Socket Mode 토큰·채널) 확인은 #3 토큰 뒤. 태블릿 5초 폴링의 e2e(setup.e2e.mjs, 15초 대기)는 pnpm check 밖이라 이번에 실행하지 않았다.
+실제 슬랙 게시(Socket Mode 토큰·채널) 확인은 #3 토큰 뒤. setup.e2e.mjs는 build 후 SKIP_TABLET_WAIT 없이 실행해 통과(15초 안에 대시보드 전환).

@@ -350,7 +350,7 @@ try {
   // ---- 시작하기 ----
   await phone.getByRole("button", { name: "시작하기" }).click();
   await phone.getByRole("heading", { name: "세팅 완료!" }).waitFor();
-  await phone.getByText("태블릿이 1분 안에 바뀝니다").waitFor();
+  await phone.getByText("태블릿이 곧 대시보드로 바뀝니다").waitFor();
   await phone.getByText(/슬랙에 연결된 1명/).waitFor();
   await phone.getByText(/연결을 끝내지 못한 구성원: 하늘/).waitFor();
   await shot(phone, "7-done");

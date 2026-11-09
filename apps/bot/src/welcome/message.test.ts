@@ -49,6 +49,11 @@ describe("buildWelcomeMessage", () => {
     expect(t.split("\n").filter((l) => l.includes("`")).every((l) => (l.match(/`/g) ?? []).length === 2)).toBe(true);
   });
 
+  it("가족 이름의 서식 기호(* _ ~ `)는 굵게를 깨지 않도록 뺀다", () => {
+    const t = buildWelcomeMessage({ familyName: "*해_ㅅ~살`네*", members: [] });
+    expect(t.split("\n")[0]).toContain("*해ㅅ살 네*");
+  });
+
   it("멘션은 12명까지", () => {
     const many = Array.from({ length: 20 }, (_, i) => ({ id: `m${i}`, name: `n${i}`, role: "guardian" as const, slackId: `U${String(100 + i)}` }));
     expect((buildWelcomeMessage({ familyName: "큰집", members: many }).match(/<@U/g) ?? []).length).toBe(12);

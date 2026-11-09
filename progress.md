@@ -257,3 +257,4 @@
 - 검증: pnpm check 통과(941 테스트). 중복 방지(저장소 여러 개 동시 claim·봇 둘·재시작)·재시도·만료·메시지 조립·runSetup 알림 주입을 테스트. 실제 슬랙·e2e는 실행 안 함.
 - 실연결에 필요한 값: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL(채널 id), HSH_STATE_DIR(선택), 슬랙 앱 chat:write, 봇이 #가족 채널에 초대돼 있어야 함. `.env.example`은 권한상 못 열어 수정 못 함.
 - 남은 문제: 환영 문구·예시 오너 검토, 봇이 claim한 채 죽으면 5분 뒤 중복 게시 가능성(0008), 실제 슬랙 게시·5초 전환 e2e는 토큰 뒤 확인. #21·#22는 건드리지 않음.
+- #20 리뷰 1차 반영: 봇 환영 게시 클라이언트는 설치 저장소(InstallationStore)의 토큰으로 만들고 `timeout 10초·retries 0·rejectRateLimitedCalls`(재시도는 worker 백오프만), claim이 토큰을 돌려주고 release는 자기 번호만(임대 넘긴 A의 늦은 release가 B의 claim을 건드리지 않는 테스트), 삭제 순서(알림->claim->done), list 파일 단위 오류 건너뜀, tick 경고 중복 억제, 가족 이름 서식 기호 제거, 완료 화면 문구 "태블릿이 곧 대시보드로 바뀝니다", worker 테스트 캐스팅 제거. pnpm check 949 테스트 통과, build 후 setup.e2e.mjs(전환 대기 포함) 전체 통과. 참고: #19 fs-connect-code 테스트 하나가 병렬 실행에서 한 번 간헐 실패(재실행 통과).

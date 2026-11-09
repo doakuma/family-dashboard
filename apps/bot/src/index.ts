@@ -9,7 +9,7 @@ import { createLlmAdapter } from "./llm/client";
 import { EnvInstallationStore, authorizeWith } from "./slack/installation";
 import { ACTION_PATTERN, SlackUi, toActionInput, toConversationMessage } from "./slack/messenger";
 import { checkBotToken, type WhoAmI } from "./slack/startup";
-import { slackWelcomePoster } from "./welcome/slack";
+import { slackWelcomePoster, WELCOME_CLIENT_OPTIONS } from "./welcome/slack";
 import { WelcomeWorker } from "./welcome/worker";
 
 const config = new EnvConfigProvider();
@@ -86,7 +86,7 @@ try {
   const welcome = new WelcomeWorker({
     store: new FsSetupNoticeStore({ dir: config.get("stateDir") }),
     readState: (id) => wiki.read(id),
-    post: slackWelcomePoster(new webApi.WebClient(botToken)),
+    post: slackWelcomePoster(installationStore, (token) => new webApi.WebClient(token, WELCOME_CLIENT_OPTIONS)),
     channel: familyChannel,
   });
   welcome.start();

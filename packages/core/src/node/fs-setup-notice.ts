@@ -8,7 +8,7 @@ import { link, mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs
 import { join } from "node:path";
 import { z } from "zod";
 import { asFamilyId } from "../types";
-import { SETUP_NOTICE_LEASE_MS, SETUP_NOTICE_TTL_MS, type SetupNotice, type SetupNoticeInput, type SetupNoticeStore } from "../setup-notice";
+import { SETUP_NOTICE_LEASE_MS, SETUP_NOTICE_TTL_MS, type ClaimToken, type SetupNotice, type SetupNoticeInput, type SetupNoticeStore } from "../setup-notice";
 
 const ID_RE = /^[0-9a-f]{32}$/;
 const noticeSchema = z.object({ id: z.string().regex(ID_RE), familyId: z.string().transform((v, ctx) => { try { return asFamilyId(v); } catch { ctx.addIssue({ code: "custom", message: "가족 id 형식" }); return z.NEVER; } }), completedAt: z.string(), version: z.string().max(100) });
@@ -109,8 +109,13 @@ export class FsSetupNoticeStore implements SetupNoticeStore {
     for (const n of await this.names()) {
       const m = /^([0-9a-f]{32})\.json$/.exec(n);
       if (!m?.[1] || (await this.exists(`${m[1]}.done`))) continue;
-      const notice = await this.readJson(n, noticeSchema);
-      if (notice && notice.id === m[1]) out.push(notice);
+      try {
+        const notice = await this.readJson(n, noticeSchema);
+        if (notice && notice.id === m[1]) out.push(notice);
+      } catch (e) {
+        // 파일 하나를 못 읽어도(EACCES 등) 그 파일만 건너뛴다
+        this.warn(`알림 ${m[1].slice(0, 8)}을 읽지 못해 건너뛰었어요: ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
     return out.sort((a, b) => a.completedAt.localeCompare(b.completedAt));
   }
@@ -121,10 +126,10 @@ export class FsSetupNoticeStore implements SetupNoticeStore {
     return (await this.names()).flatMap((n) => { const m = re.exec(n); return m?.[1] ? [Number(m[1])] : []; }).sort((a, b) => a - b);
   }
 
-  async claim(id: string): Promise<boolean> {
-    if (!ID_RE.test(id)) return false;
+  async claim(id: string): Promise<ClaimToken | undefined> {
+    if (!ID_RE.test(id)) return undefined;
     // 지워졌거나 이미 게시한 알림은 처리하지 않는다(목록을 읽은 뒤 다른 봇이 끝냈을 수 있다)
-    if (!(await this.exists(`${id}.json`)) || (await this.exists(`${id}.done`))) return false;
+    if (!(await this.exists(`${id}.json`)) || (await this.exists(`${id}.done`))) return undefined;
     const nums = await this.claimNumbers(id);
     const last = nums.at(-1) ?? 0;
     if (last > 0) {
@@ -132,25 +137,24 @@ export class FsSetupNoticeStore implements SetupNoticeStore {
       const released = await this.exists(`${id}.claim-${last}.released`);
       const claim = await this.readJson(`${id}.claim-${last}.json`, claimSchema);
       const stale = !claim || Date.parse(claim.claimedAt) + SETUP_NOTICE_LEASE_MS <= this.now().getTime();
-      if (!released && !stale) return false;
+      if (!released && !stale) return undefined;
     }
     // 번호를 하나 올려 배타 생성: 동시에 이어받으려는 다른 프로세스는 EEXIST로 진다
-    if (!(await this.createExclusive(`${id}.claim-${last + 1}.json`, JSON.stringify({ claimedAt: this.now().toISOString() })))) return false;
+    if (!(await this.createExclusive(`${id}.claim-${last + 1}.json`, JSON.stringify({ claimedAt: this.now().toISOString() })))) return undefined;
     // 그 사이 다른 봇이 끝냈으면 이번 claim은 없던 일
-    if (await this.exists(`${id}.done`)) return false;
-    return true;
+    if (await this.exists(`${id}.done`)) return undefined;
+    return last + 1;
   }
 
-  async release(id: string): Promise<void> {
-    if (!ID_RE.test(id)) return;
-    const last = (await this.claimNumbers(id)).at(-1);
-    if (last === undefined) return;
-    await this.createExclusive(`${id}.claim-${last}.released`, "").catch((e: unknown) => this.warn(`claim 반납 실패: ${e instanceof Error ? e.message : String(e)}`));
+  async release(id: string, token: ClaimToken): Promise<void> {
+    if (!ID_RE.test(id) || !Number.isInteger(token) || token < 1) return;
+    // 자기 번호의 반납 표식만 만든다: 임대가 지나 더 높은 번호를 남이 잡았다면 그쪽은 그대로 유지된다
+    await this.createExclusive(`${id}.claim-${token}.released`, "").catch((e: unknown) => this.warn(`claim 반납 실패: ${e instanceof Error ? e.message : String(e)}`));
   }
 
   async complete(id: string): Promise<void> {
     if (!ID_RE.test(id)) return;
-    // done 표식이 먼저(이후 어떤 claim도 실패). 알림 파일은 그 다음에 지우고, 지우다 실패해도 done 때문에 list에 안 나온다
+    // 게시를 마친 사실이라 어느 claim 번호든 done이 맞다(이어받은 쪽이 아직 게시 전이면 그쪽도 멈춘다). done 표식이 먼저(이후 어떤 claim도 실패). 알림 파일은 그 다음에 지우고, 지우다 실패해도 done 때문에 list에 안 나온다
     await this.createExclusive(`${id}.done`, "");
     await unlink(this.path(`${id}.json`)).catch((e: unknown) => { if (!isNotFound(e)) throw e; });
   }
@@ -197,6 +201,9 @@ export class FsSetupNoticeStore implements SetupNoticeStore {
   }
 
   private async removeAll(id: string): Promise<void> {
-    for (const n of (await this.names()).filter((n) => n.startsWith(`${id}.`))) await unlink(this.path(n)).catch((e: unknown) => { if (!isNotFound(e)) throw e; });
+    // 알림 파일 -> claim -> done 순: 중간에 멈춰도 done이 남아 있는 동안은 같은 알림이 다시 list·claim되지 않는다
+    const rank = (n: string) => (n === `${id}.json` ? 0 : n === `${id}.done` ? 2 : 1);
+    const mine = (await this.names()).filter((n) => n.startsWith(`${id}.`)).sort((a, b) => rank(a) - rank(b));
+    for (const n of mine) await unlink(this.path(n)).catch((e: unknown) => { if (!isNotFound(e)) throw e; });
   }
 }

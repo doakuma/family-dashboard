@@ -174,7 +174,7 @@ export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
           <h1 ref={heading} className={s.title} tabIndex={-1}>
             세팅 완료!
           </h1>
-          <p>태블릿이 1분 안에 바뀝니다. 이 화면은 닫아도 돼요.</p>
+          <p>태블릿이 곧 대시보드로 바뀝니다. 이 화면은 닫아도 돼요.</p>
           {phase.syncError && <p className={s.note}>위키는 이 노트북에 저장됐고, GitHub에 올리는 데 실패했어요. 다음 저장 때 다시 시도해요.</p>}
           {phase.linked > 0 && <p className={s.itemSub}>슬랙에 연결된 {phase.linked}명은 지금부터 슬랙으로 말할 수 있어요.</p>}
           {phase.unlinked.length > 0 && <p className={s.note}>연결을 끝내지 못한 구성원: {phase.unlinked.join(", ")}. 나중에 설정에서 다시 연결할 수 있어요.</p>}
