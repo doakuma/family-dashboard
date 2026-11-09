@@ -259,7 +259,8 @@
         18,
         21
       ],
-      "status": "todo",
+      "status": "in_progress",
+      "note": "잡음: 2026-11-09 19:12 KST (예약 대화, 목 진행)",
       "passes": false,
       "review": null
     },
