@@ -133,9 +133,10 @@
         5,
         26
       ],
-      "status": "todo",
+      "status": "in_progress",
       "passes": false,
-      "review": null
+      "review": null,
+      "note": "잡음: 2026-11-09 11:20 UTC (예약 대화, 목 진행)"
     },
     {
       "id": 13,
