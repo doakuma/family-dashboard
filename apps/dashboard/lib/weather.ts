@@ -1,6 +1,6 @@
-// 날씨 어댑터. 기상청 키(#26)가 준비되기 전까지는 예시 데이터를 쓴다.
-// KmaWeatherSource(#12)가 생기면 createWeatherSource에서 바꾸기만 하면 된다.
-import { addDays, todayIn, type WeatherDay, type WeatherIcon, type WeatherSource } from "@hsh/core";
+// 날씨 어댑터 연결. KMA_SERVICE_KEY와 위키 config의 기상청 좌표 4개가 있으면 기상청(+30분 지역별 캐시), 아니면 예시 데이터.
+// 기상청 구현·캐시는 @hsh/core(weather/). 여기는 어떤 걸 쓸지 고르는 일만 한다.
+import { KmaWeatherSource, addDays, cachedByRegion, todayIn, type FamilyConfig, type KmaFetch, type KmaRegion, type WeatherDay, type WeatherIcon, type WeatherSource } from "@hsh/core";
 
 export class SampleWeatherSource implements WeatherSource {
   constructor(private readonly now: () => Date = () => new Date()) {}
@@ -15,23 +15,30 @@ export class SampleWeatherSource implements WeatherSource {
   }
 }
 
-/** 30분 캐시 */
-export function cached(source: WeatherSource, ttlMs = 30 * 60_000): WeatherSource {
-  let hit: { at: number; value: Promise<WeatherDay[]> } | undefined;
-  return {
-    week() {
-      if (!hit || Date.now() - hit.at > ttlMs) {
-        const value = source.week().catch((e) => {
-          hit = undefined;
-          throw e;
-        });
-        hit = { at: Date.now(), value };
-      }
-      return hit.value;
-    },
-  };
+/** config의 기상청 좌표 4개가 모두 있을 때만 지역으로 본다 */
+export function regionFromConfig(c: Pick<FamilyConfig, "kmaNx" | "kmaNy" | "kmaMidLandRegId" | "kmaMidTaRegId"> | undefined): KmaRegion | undefined {
+  if (!c || c.kmaNx === undefined || c.kmaNy === undefined || !c.kmaMidLandRegId || !c.kmaMidTaRegId) return undefined;
+  return { nx: c.kmaNx, ny: c.kmaNy, midLandRegId: c.kmaMidLandRegId, midTaRegId: c.kmaMidTaRegId };
 }
 
-export function createWeatherSource(): WeatherSource {
-  return cached(new SampleWeatherSource());
+export interface WeatherDeps {
+  serviceKey?: string;
+  /** 지금 위키 config의 지역(읽기만). 요청마다 부르므로 #22에서 바뀐 지역이 다음 요청에 반영된다 */
+  region: () => KmaRegion | undefined;
+  fetch?: KmaFetch;
+  now?: () => Date;
+}
+
+export function createWeatherSource(deps?: WeatherDeps): WeatherSource {
+  const sample = new SampleWeatherSource(deps?.now);
+  if (!deps?.serviceKey) return sample;
+  const now = deps.now ?? (() => new Date());
+  const kma = cachedByRegion(
+    new KmaWeatherSource({ serviceKey: deps.serviceKey, fetch: deps.fetch ?? ((url, init) => fetch(url, init)), now, region: deps.region }),
+    { now: () => now().getTime() },
+  );
+  return {
+    // 지역이 아직 없으면(세팅 전·좌표 일부 없음) 예시 날씨
+    week: () => (deps.region() ? kma.week() : sample.week()),
+  };
 }

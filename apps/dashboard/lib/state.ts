@@ -4,7 +4,7 @@ import { FsConnectCodeStore, FsSetupNoticeStore, FsWikiRepository } from "@hsh/c
 import { resolve } from "node:path";
 import { cache } from "react";
 import { config } from "./config";
-import { SampleWeatherSource, createWeatherSource } from "./weather";
+import { SampleWeatherSource, createWeatherSource, regionFromConfig } from "./weather";
 
 let wiki: FsWikiRepository | undefined;
 
@@ -23,7 +23,18 @@ function getWiki(): FsWikiRepository {
   }
   return wiki;
 }
-const weather = createWeatherSource();
+// 날씨: KMA_SERVICE_KEY + 위키 config의 기상청 좌표가 있으면 기상청, 아니면 예시. 지역은 요청마다 위키 config.md를 읽어 정한다(읽기만).
+const weather = createWeatherSource({
+  serviceKey: config.get("kmaServiceKey"),
+  region: () => {
+    try {
+      const text = getWiki().files.read("config.md");
+      return regionFromConfig(text ? parseConfigFile(text, () => {}) ?? undefined : undefined);
+    } catch {
+      return undefined;
+    }
+  },
+});
 
 // 첫 세팅 쓰기용 저장소. 읽기용(push:false)과 달리 push를 켠다(원격이 없으면 건너뜀). 쓰기 큐를 하나만 쓰도록 globalThis에 둔다.
 const WRITER = Symbol.for("hsh.wiki.writer.v1");

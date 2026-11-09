@@ -19,3 +19,5 @@ export * from "./wiki/apply";
 export * from "./wiki/read";
 export * from "./wiki/setup";
 export * from "./wiki/settings";
+export * from "./weather/kma";
+export * from "./weather/kma-source";

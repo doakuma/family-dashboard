@@ -13,6 +13,12 @@ describe("EnvConfigProvider", () => {
     expect(c.get("slack")).toEqual({ botToken: undefined, appToken: undefined, familyChannel: undefined });
   });
 
+  it("KMA_SERVICE_KEY: 없거나 공백이면 undefined, 있으면 앞뒤 공백만 제거", () => {
+    expect(new EnvConfigProvider({}).get("kmaServiceKey")).toBeUndefined();
+    expect(new EnvConfigProvider({ KMA_SERVICE_KEY: "  " }).get("kmaServiceKey")).toBeUndefined();
+    expect(new EnvConfigProvider({ KMA_SERVICE_KEY: " ab+c/d== " }).get("kmaServiceKey")).toBe("ab+c/d==");
+  });
+
   it("Ollama 호출 설정: OLLAMA_TIMEOUT_MS·OLLAMA_NUM_CTX·OLLAMA_KEEP_ALIVE, 잘못된 값은 기본값", () => {
     const llm = (env: Record<string, string>) => new EnvConfigProvider(env).get("llm");
     expect(llm({ OLLAMA_TIMEOUT_MS: "240000", OLLAMA_NUM_CTX: "4096", OLLAMA_KEEP_ALIVE: "1h" })).toMatchObject({ timeoutMs: 240000, numCtx: 4096, keepAlive: "1h" });

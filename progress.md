@@ -276,3 +276,9 @@
 - 실연결에 필요한 값: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL, WIKI_REPO_PATH, HSH_STATE_DIR(대시보드·봇 같은 값), ADMIN_PIN_HASH, DASHBOARD_BASE_URL. `.env*`는 읽지 않음.
 - 남은 문제: 실제 슬랙 동작은 #3 토큰 뒤 확인. 스펙 "인터페이스" 절에 `applySettings`·`SettingsChange` 갱신 필요(오너). #22는 passes=false, review=null.
 - #22 리뷰: 1차 통과(중간 2: 대시보드·봇 프로세스 간 위키 쓰기 잠금 없음, 원격 없을 때 잘못된 동기화 경고) → 11ad633 반영 → 2차 통과(중간: 살아 있는 주인 잠금 강제 정리 + git 네트워크 시간 제한 없음) → 6332c18 반영 → 3차 통과. #22 review=pass, passes=false(목 완료·실연결 대기). 남은 중간(pull 연결 전): pull timeout 시 자식 git 고아 → fetch/rebase 분리 또는 프로세스 그룹 kill. pnpm check 1143 테스트.
+
+## 2026-11-09 · #12 기상청 날씨 어댑터 + 30분 캐시 (목 진행)
+- 오너 결정(11-09)에 따라 키·네트워크 없이 구현. 결정 기록 `docs/decisions/0011-kma-weather.md`. core `weather/kma.ts`(발표 시각 단기 +10분/중기 +30분, 응답 봉투·XML 키 오류 구분, 단기·중기 파싱, 7일 합치기), `weather/kma-source.ts`(`KmaWeatherSource`: 단기 1+중기 2회·10초 제한·부분 성공·NO_DATA면 직전 발표, `cachedByRegion`: 지역 키 30분 TTL·동시 요청 합침·실패 시 직전 값 6시간 상한·5분 재시도). 공식 형식 예시는 `weather/__fixtures__/`(숫자는 지어낸 값).
+- 대시보드: `createWeatherSource({serviceKey, region})` - `KMA_SERVICE_KEY` + config 좌표 4개가 있으면 기상청, 아니면 예시(키 없으면 동작 같음, 예시의 30분 캐시만 제거). 지역은 요청마다 config.md 읽기(쓰기 없음)라 #22 지역 변경이 다음 요청에 반영. `ConfigProvider`에 `kmaServiceKey` 추가.
+- 검증: pnpm check 통과(1213 테스트). 오류·경고에 키/URL이 섞이지 않는 테스트 5종 포함. 실제 기상청 호출 안 함.
+- 필요한 환경 변수: `KMA_SERVICE_KEY`(공공데이터포털 '일반 인증키(Decoding)'). `.env.example`은 오너가 추가. 남은 문제: 실연결 확인 6건은 0011 끝 절. #12는 passes=false, review=null.

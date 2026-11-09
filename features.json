@@ -136,7 +136,7 @@
       "status": "in_progress",
       "passes": false,
       "review": null,
-      "note": "잡음: 2026-11-09 11:20 UTC (예약 대화, 목 진행)"
+      "note": "목 구현 완료(키 없이 주입 fetch + 공식 형식 예시). core weather/kma.ts·kma-source.ts, dashboard lib/weather.ts, 결정 0011. 필요한 환경 변수 KMA_SERVICE_KEY(공공데이터포털 일반 인증키 Decoding, .env.example은 오너가 추가). 실연결은 #26 키 뒤 확인(0011 마지막 절). review=null."
     },
     {
       "id": 13,

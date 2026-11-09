@@ -38,6 +38,8 @@ export interface AppConfig {
   dashboardBaseUrl?: string;
   /** 관리자 PIN 해시(`pnpm pin:hash`). 없으면 아무도 /setup에 못 들어간다 */
   adminPinHash?: string;
+  /** 기상청 API 인증키(공공데이터포털 '일반 인증키(Decoding)', KMA_SERVICE_KEY). 없으면 예시 날씨. 비밀값이라 로그·응답에 싣지 않는다 */
+  kmaServiceKey?: string;
   /** 잘못된 설정이면 읽을 때 던진다(LLM을 쓰지 않는 앱이 죽지 않게 이 키를 읽을 때만) */
   llm: LlmConfig;
   slack: SlackConfig;

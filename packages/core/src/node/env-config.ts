@@ -83,6 +83,7 @@ export class EnvConfigProvider implements ConfigProvider {
       stateDir: () => stateDirFromEnv(env),
       dashboardBaseUrl: () => env.DASHBOARD_BASE_URL,
       adminPinHash: () => env.ADMIN_PIN_HASH,
+      kmaServiceKey: () => blank(env.KMA_SERVICE_KEY),
       llm: () => llmFromEnv(env),
       slack: () => ({ botToken: env.SLACK_BOT_TOKEN || undefined, appToken: env.SLACK_APP_TOKEN || undefined, familyChannel: env.SLACK_FAMILY_CHANNEL || undefined }),
     };
