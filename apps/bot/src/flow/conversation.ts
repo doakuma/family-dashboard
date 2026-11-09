@@ -38,6 +38,7 @@ export const TEXT = {
   llmFailed: "지금은 말을 알아듣지 못했어요(언어 모델 연결 문제). 잠시 뒤 다시 보내 주세요.",
   unrelated: '일정이에요? 예: "다음 주 화요일 3시 치과", "우유 사야 돼", "이번 주 토요일 뭐 있어?"',
   readFailed: "위키를 읽지 못했어요. 잠시 뒤 다시 보내 주세요.",
+  readRetry: "위키를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.",
   childNoWrite: "아이 계정은 질문만 할 수 있어요. 일정이나 할 일을 넣고 싶으면 보호자에게 부탁해 주세요.",
   unregisteredNoWrite: "아직 가족 구성원으로 연결되지 않았어요. 대시보드 세팅의 연결 코드로 먼저 연결해 주세요.",
   tooMany: "비슷한 항목이 많아요. 날짜나 이름을 더 붙여서 다시 말해 주세요.",
@@ -104,19 +105,30 @@ export class Conversation {
 
     switch (a.action) {
       case "insert":
-        if (this.pending.transition(p, ["confirm"], "applying") && (await this.stillAllowed(p, "applying"))) await this.runApply(p);
+        if (this.pending.transition(p, ["confirm"], "applying")) {
+          // 판정 중에도 카드를 바로 "넣는 중"으로 바꿔 버튼을 없앤다(그 사이 취소·중복 누름을 받지 않는다)
+          await this.updateCard(p, textCard(`${TEXT.inserting}\n${p.preview}`));
+          if (await this.stillAllowed(p, "applying", "confirm")) await this.runApply(p);
+        }
         return;
       case "retry":
-        if (this.pending.transition(p, ["failed"], "applying") && (await this.stillAllowed(p, "applying"))) await this.runApply(p);
+        if (this.pending.transition(p, ["failed"], "applying")) {
+          await this.updateCard(p, textCard(`${TEXT.inserting}\n${p.preview}`));
+          if (await this.stillAllowed(p, "applying", "failed")) await this.runApply(p);
+        }
         return;
-      case "edit":
+      case "edit": {
         // 일부를 이미 넣은 요청은 고치면 넣은 것까지 다시 들어가므로 고치기를 받지 않는다
+        const prev = p.status;
         if (p.applied === 0 && this.pending.transition(p, ["confirm", "failed"], "editing")) {
-          if (!(await this.stillAllowed(p, "editing"))) return;
+          if (!(await this.stillAllowed(p, "editing", prev as "confirm" | "failed"))) return;
+          // 권한을 보는 사이에 [취소]됐으면 카드를 덮어쓰지 않는다
+          if (p.status !== "editing") return;
           const ask = p.thread.isDirect ? TEXT.editingDirect : TEXT.editing;
           await this.updateCard(p, { text: `${ask}\n(처음: ${p.preview})`, buttons: [button(p, "cancel", "취소")] });
         }
         return;
+      }
       case "cancel":
         if (this.pending.transition(p, ["confirm", "choose", "failed", "editing"], "cancelled")) {
           const kept = p.applied > 0 ? `\n(앞의 ${p.applied}개는 이미 넣었어요)` : "";
@@ -199,19 +211,25 @@ export class Conversation {
 
   /**
    * 버튼 시점 재확인: 위키를 다시 읽어 지금도 보호자인지 본다(그 사이 역할 변경·연결 해제).
-   * 권한이 없거나 읽지 못하면(안전한 쪽) 요청을 닫고 카드를 안내 문구로 바꾼 뒤 false.
+   * - 권한 없음: 요청을 cancelled로 닫고 카드를 안내 문구로 바꾼다(넣은 게 있으면 개수도).
+   * - 읽기 실패(안전한 쪽으로 쓰지 않음): 닫지 않고 `back` 상태로 되돌린 뒤 원래 카드(버튼 포함)에 "다시 눌러 주세요"를 붙인다.
    */
-  private async stillAllowed(p: Pending, from: Pending["status"]): Promise<boolean> {
+  private async stillAllowed(p: Pending, from: Pending["status"], back: "confirm" | "failed"): Promise<boolean> {
     let text: string | undefined;
     try {
       const wiki = await this.deps.wiki.read(p.familyId);
       text = denyText(permissionFor(wiki.members, p.userId));
     } catch (e) {
       this.log(`권한 확인 위해 위키 읽기 실패: ${errorText(e)}`);
-      text = TEXT.readFailed;
+      if (this.pending.transition(p, [from], back)) {
+        const card = back === "failed" ? failedCard(p) : confirmCard(p);
+        if (from === "editing") await this.safeWhisper(p.thread, p.userId, TEXT.readRetry);
+        else await this.updateCard(p, { ...card, text: `${card.text}\n${TEXT.readRetry}` });
+      }
+      return false;
     }
     if (!text) return true;
-    if (this.pending.transition(p, [from], "cancelled")) await this.updateCard(p, textCard(`${text}\n(요청: ${p.preview})`));
+    if (this.pending.transition(p, [from], "cancelled")) await this.updateCard(p, textCard(`${text}\n(요청: ${p.preview})${keptNote(p)}`));
     return false;
   }
 
@@ -229,7 +247,7 @@ export class Conversation {
       });
       const deny = denyText(permissionFor(wiki.members, p.userId));
       if (deny) {
-        if (this.pending.transition(p, ["confirm"], "cancelled")) await this.updateCard(p, textCard(`${deny}\n(요청: ${p.preview})`));
+        if (this.pending.transition(p, ["confirm"], "cancelled")) await this.updateCard(p, textCard(`${deny}\n(요청: ${p.preview})${keptNote(p)}`));
         return;
       }
       // 위키를 읽는 사이에 [취소]됐으면 카드를 덮어쓰지 않는다
@@ -244,13 +262,13 @@ export class Conversation {
       await this.updateCard(p, confirmCard(p));
     } catch (e) {
       this.log(`후보 확인 실패: ${errorText(e)}`);
-      if (this.pending.transition(p, ["confirm"], "cancelled")) await this.updateCard(p, textCard(TEXT.readFailed));
+      // 읽지 못했으면 후보 고르기로 되돌리고(카드는 그대로) 본인에게만 다시 누르라고 알린다
+      if (this.pending.transition(p, ["confirm"], "choose")) await this.safeWhisper(p.thread, p.userId, TEXT.readRetry);
     }
   }
 
   /** 남은 변경을 앞에서부터 넣는다. 하나라도 실패하면 거기서 멈추고 [다시 시도]를 단다(넣은 것은 다시 넣지 않는다). */
   private async runApply(p: Pending): Promise<void> {
-    await this.updateCard(p, textCard(`${TEXT.inserting}\n${p.preview}`));
     const syncErrors: string[] = [];
     try {
       while (p.applied < p.changes.length) {
@@ -264,11 +282,7 @@ export class Conversation {
       this.pending.transition(p, ["applying"], "failed");
       p.lastError = errorText(e);
       this.log(`위키 쓰기 실패(${p.id}): ${p.lastError}`);
-      const done = p.applied > 0 ? `\n(앞의 ${p.applied}개는 넣었어요. 다시 시도하면 나머지만 넣어요)` : "";
-      await this.updateCard(p, {
-        text: `⚠️ 못 넣었어요: ${p.preview}\n원인: ${truncate(p.lastError, MAX_CAUSE)}${done}`,
-        buttons: [button(p, "retry", "다시 시도", "primary"), ...(p.applied === 0 ? [button(p, "edit", "고치기")] : []), button(p, "cancel", "취소")],
-      });
+      await this.updateCard(p, failedCard(p));
       return;
     }
     this.pending.transition(p, ["applying"], "done");
@@ -320,6 +334,19 @@ export class Conversation {
 
 function button(p: Pending, action: CardButton["action"], label: string, style?: CardButton["style"], pickId?: string): CardButton {
   return { action, label, style, pendingId: p.id, pickId };
+}
+
+function keptNote(p: Pending): string {
+  return p.applied > 0 ? `\n(앞의 ${p.applied}개는 이미 넣었어요)` : "";
+}
+
+/** 넣기에 실패한 카드: 원인 + [다시 시도][고치기(넣은 게 없을 때)][취소] */
+function failedCard(p: Pending): Card {
+  const done = p.applied > 0 ? `\n(앞의 ${p.applied}개는 넣었어요. 다시 시도하면 나머지만 넣어요)` : "";
+  return {
+    text: `⚠️ 못 넣었어요: ${p.preview}\n원인: ${truncate(p.lastError ?? "", MAX_CAUSE)}${done}`,
+    buttons: [button(p, "retry", "다시 시도", "primary"), ...(p.applied === 0 ? [button(p, "edit", "고치기")] : []), button(p, "cancel", "취소")],
+  };
 }
 
 /** "11/3(화) 15:00 하늘 치과 — 넣을까요?" (여러 줄이면 줄을 바꿔 묻는다) + [넣기][고치기][취소] */

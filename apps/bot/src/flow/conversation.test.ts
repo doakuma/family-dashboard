@@ -545,14 +545,112 @@ describe("권한(#21): 보호자만 쓰기", () => {
     expect(w3.applied).toEqual([]);
   });
 
-  it("버튼 시점에 위키를 못 읽으면 쓰지 않는다(안전한 쪽)", async () => {
+  it("넣기 시점에 위키를 못 읽으면 쓰지 않고, 닫지 않고 확인 카드(버튼 유지)로 되돌린다", async () => {
     const { conv, wiki, ui, logs, press } = setup({ llm: fakeLlm(ADD) });
     await conv.handleMessage(say("치과"));
     wiki.readError = true;
     await press("insert");
     expect(wiki.applied).toEqual([]);
-    expect(ui.last().card?.text).toContain(TEXT.readFailed);
+    expect(ui.last().card?.text).toContain(TEXT.readRetry);
+    expect(actions(ui.last().card)).toEqual(["insert", "edit", "cancel"]);
     expect(logs.join("\n")).toContain("위키 읽기 실패");
+    // 잠시 뒤 다시 누르면 된다
+    wiki.readError = false;
+    await press("insert");
+    expect(wiki.applied).toEqual([ADD_CHANGE]);
+  });
+
+  it("다시 시도 시점에 위키를 못 읽으면 실패 카드(버튼 유지)로 되돌리고 나중에 다시 시도할 수 있다", async () => {
+    const wiki = fakeWiki({ failAt: [0] });
+    const { conv, ui, press } = setup({ wiki, llm: fakeLlm(ADD) });
+    await conv.handleMessage(say("치과"));
+    await press("insert");
+    wiki.readError = true;
+    await press("retry");
+    expect(wiki.applied).toEqual([]);
+    expect(ui.last().card?.text).toContain("못 넣었어요");
+    expect(ui.last().card?.text).toContain(TEXT.readRetry);
+    expect(actions(ui.last().card)).toEqual(["retry", "edit", "cancel"]);
+    wiki.readError = false;
+    await press("retry");
+    expect(wiki.applied).toEqual([ADD_CHANGE]);
+  });
+
+  it("일부 넣은 뒤 강등되면 다시 시도를 거절하고 넣은 개수를 남긴다", async () => {
+    const wiki = fakeWiki({ failAt: [1] });
+    const two = { intent: "task.add", items: [{ list: "shopping", title: "우유" }, { list: "shopping", title: "사과" }] };
+    const { conv, ui, press } = setup({ wiki, llm: fakeLlm(two) });
+    await conv.handleMessage(say("장보기 우유 계란"));
+    await press("insert");
+    expect(wiki.applied).toHaveLength(1);
+    wiki.members = members.map((m) => (m.id === "mom" ? { ...m, role: "child" as const } : m));
+    await press("retry");
+    expect(wiki.applied).toHaveLength(1);
+    expect(ui.last().card?.text).toContain(TEXT.childNoWrite);
+    expect(ui.last().card?.text).toContain("앞의 1개는 이미 넣었어요");
+  });
+
+  it("일부 넣은 뒤 다시 시도 시점에 읽기 실패면 '앞의 N개' 표시가 남은 실패 카드로 되돌린다", async () => {
+    const wiki = fakeWiki({ failAt: [1] });
+    const two = { intent: "task.add", items: [{ list: "shopping", title: "우유" }, { list: "shopping", title: "사과" }] };
+    const { conv, ui, press } = setup({ wiki, llm: fakeLlm(two) });
+    await conv.handleMessage(say("장보기 우유 계란"));
+    await press("insert");
+    wiki.readError = true;
+    await press("retry");
+    expect(ui.last().card?.text).toContain("앞의 1개는 넣었어요");
+    expect(actions(ui.last().card)).toEqual(["retry", "cancel"]);
+  });
+
+  it("고치기 시점 읽기 실패면 확인 카드를 그대로 두고 본인에게만 알린다", async () => {
+    const { conv, wiki, ui, press } = setup({ llm: fakeLlm(ADD) });
+    await conv.handleMessage(say("치과"));
+    wiki.readError = true;
+    await press("edit");
+    expect(ui.last()).toMatchObject({ kind: "whisper", text: TEXT.readRetry });
+    wiki.readError = false;
+    await press("edit");
+    expect(ui.last().card?.text).toContain(TEXT.editing);
+  });
+
+  it("고치기 권한을 보는 사이에 취소되면 카드를 고치기 안내로 덮어쓰지 않는다", async () => {
+    const { conv, wiki, ui, press } = setup({ llm: fakeLlm(ADD) });
+    await conv.handleMessage(say("치과"));
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => (release = r));
+    const read = wiki.read.bind(wiki);
+    wiki.read = async () => {
+      await gate;
+      return read();
+    };
+    const editing = press("edit");
+    await Promise.resolve();
+    await press("cancel");
+    release();
+    await editing;
+    expect(ui.last().card?.text).toContain(TEXT.cancelled);
+    expect(ui.sent.some((x) => x.card?.text.includes(TEXT.editing))).toBe(false);
+  });
+
+  it("넣기를 누른 직후 카드가 '넣는 중'으로 바뀌어, 판정 중에는 취소가 먹지 않는다", async () => {
+    const { conv, wiki, ui, press } = setup({ llm: fakeLlm(ADD) });
+    await conv.handleMessage(say("치과"));
+    const card = lastCard(ui);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => (release = r));
+    const read = wiki.read.bind(wiki);
+    wiki.read = async () => {
+      await gate;
+      return read();
+    };
+    const inserting = press("insert", { card });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ui.last().card?.text).toContain(TEXT.inserting);
+    await press("cancel", { card });
+    release();
+    await inserting;
+    expect(wiki.applied).toEqual([ADD_CHANGE]);
   });
 
   it("취소는 권한이 없어도 된다", async () => {
