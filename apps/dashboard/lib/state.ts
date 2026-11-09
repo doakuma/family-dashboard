@@ -1,5 +1,5 @@
 import "server-only";
-import { DEFAULT_SKIN, SetupError, eventsForMonthView, existingSetupContent, needsSetup, parseConfigFile, toPublicState, todayIn, type ApiState, type DashboardState, type SkinId, type WikiRepository } from "@hsh/core";
+import { DEFAULT_SKIN, SetupError, eventsForMonthView, existingSetupContent, needsSetup, parseConfigFile, toPublicState, todayIn, type ApiState, type DashboardState, type SkinId, type WikiRepository, type WikiState } from "@hsh/core";
 import { FsConnectCodeStore, FsSetupNoticeStore, FsWikiRepository } from "@hsh/core/node";
 import { resolve } from "node:path";
 import { cache } from "react";
@@ -29,7 +29,7 @@ const weather = createWeatherSource();
 const WRITER = Symbol.for("hsh.wiki.writer.v1");
 type G = typeof globalThis & { [WRITER]?: FsWikiRepository };
 
-export function getWikiWriter(): Pick<WikiRepository, "applySetup"> {
+export function getWikiWriter(): Pick<WikiRepository, "applySetup" | "applySettings"> {
   const g = globalThis as G;
   if (g[WRITER]) return g[WRITER];
   const path = config.get("wikiRepoPath");
@@ -49,6 +49,12 @@ const NOTICE = Symbol.for("hsh.setup.notice.v1");
 export function getNoticeStore(): FsSetupNoticeStore {
   const g = globalThis as typeof globalThis & { [NOTICE]?: FsSetupNoticeStore };
   return (g[NOTICE] ??= new FsSetupNoticeStore({ dir: config.get("stateDir") }));
+}
+
+/** /settings 화면과 API가 읽는 위키 상태(읽기 경로는 /api/state와 같은 저장소) */
+export async function getSettingsState(): Promise<{ state: Pick<WikiState, "config" | "members">; writable: boolean }> {
+  const state = await getWiki().read(config.get("familyId"));
+  return { state, writable: Boolean(config.get("wikiRepoPath")) };
 }
 
 /** /setup 화면이 필요한 것: 세팅이 필요한지, 지워질 이전 세팅 파일이 있는지, 쓸 수 있는 위키인지 */

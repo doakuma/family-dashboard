@@ -1,0 +1,21 @@
+/* /settings: 마법사(setup.module.css)의 카드·목록·버튼을 그대로 쓰고, 줄 안의 배치만 더한다. 색은 쓰지 않는다(토큰은 setup.module.css가 가진다). */
+.itemWrap {
+  flex-wrap: wrap;
+}
+.push {
+  margin-left: auto;
+}
+.editor {
+  flex-basis: 100%;
+  display: grid;
+  gap: 0.75rem;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.stack {
+  display: grid;
+  gap: 1rem;
+}

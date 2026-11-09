@@ -1,6 +1,6 @@
 // 어댑터 인터페이스 — 위젯은 타입만 알고, 입력·저장·외부 서비스는 이 뒤에 숨긴다.
 // 저장 방식(git 파일, DB 등)의 용어는 여기에 쓰지 않는다(결정 0003). 구현 세부는 구현 클래스 안에만 둔다.
-import type { Change, Event, FamilyId, IncomingMessage, SetupInput, WeatherDay, WikiState } from "./types";
+import type { Change, Event, FamilyId, IncomingMessage, SettingsChange, SetupInput, WeatherDay, WikiState } from "./types";
 
 /** 쓰기 결과: 저장은 끝났고, 다른 저장 위치(원격 등)와의 동기화는 실패할 수 있다. */
 export interface WriteResult {
@@ -23,6 +23,13 @@ export interface WikiRepository {
    * 실패하면 원래대로 되돌린다. 거부 사유는 `SetupError`(already_done·needs_confirm·invalid·read_only).
    */
   applySetup(familyId: FamilyId, setup: SetupInput, opts?: { overwrite?: boolean }): Promise<WriteResult>;
+  /**
+   * 세팅 뒤 설정 변경(/settings, 슬랙 색 변경 고정 명령): 구성원 추가·색·슬랙 연결, 지역. 하나의 저장 단위(파일 + 변경 기록 한 줄).
+   * `Change`가 아니라 LLM이 만들 수 없는 내부 메서드다(결정 0010). 세팅이 끝난 위키에서만 쓸 수 있다.
+   * 실패하면 원래대로 되돌린다. 거부 사유는 `SettingsError`(invalid·not_found·conflict·read_only·needs_setup).
+   * opts.author는 변경 기록·커밋 작성자(예: `settings`, `slack:U0123`).
+   */
+  applySettings(familyId: FamilyId, change: SettingsChange, opts?: { author?: string }): Promise<WriteResult>;
 }
 
 /** 메신저: 슬랙 1차, 이후 추가 */

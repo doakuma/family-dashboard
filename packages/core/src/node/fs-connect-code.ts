@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import {
   CONNECT_CLAIM_TTL_MS,
+  CONNECT_SCOPES,
   CONNECT_CODE_TTL_MS,
   CONNECT_MAX_ACTIVE,
   ConnectStoreError,
@@ -29,7 +30,7 @@ const recordSchema = z.object({
   memberKey: z.string().min(1).max(40),
   name: z.string().min(1).max(100),
   role: z.enum(["guardian", "child"]),
-  scope: z.enum(["setup"]),
+  scope: z.enum(CONNECT_SCOPES),
   issuedAt: z.string(),
   expiresAt: z.string(),
 });

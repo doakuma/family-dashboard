@@ -38,3 +38,30 @@ export function stringifyFrontmatter(data: Record<string, string | number | unde
     });
   return `---\n${lines.join("\n")}\n---\n${body ? `\n${body}` : ""}`;
 }
+
+/**
+ * 프론트매터의 키 몇 개만 바꾼 새 글을 돌려준다. 나머지 줄(모르는 키·주석·순서)과 본문, 앞의 주석(`<!-- -->`)·줄바꿈 방식(LF/CRLF)은 그대로 둔다.
+ * 값이 undefined면 그 키의 줄을 지운다. 없는 키는 프론트매터 끝에 더한다. 프론트매터가 없으면 null.
+ * 값은 stringifyFrontmatter와 같은 규칙으로 검사한다(줄바꿈·제어문자·앞뒤 공백·따옴표 감쌈은 오류).
+ */
+export function updateFrontmatterValues(text: string, updates: Record<string, string | number | undefined>): string | null {
+  const m = /^(\s*<!--[\s\S]*?-->\s*)?---(\r?\n)([\s\S]*?)(\r?\n)---/.exec(text);
+  if (!m) return null;
+  const eol = m[2] ?? "\n";
+  const lines = (m[3] ?? "").split(/\r?\n/);
+  for (const [key, raw] of Object.entries(updates)) {
+    const value = raw === undefined ? undefined : String(raw);
+    if (value !== undefined) assertSafe(key, value);
+    const at = lines.findIndex((l) => {
+      const t = l.trim();
+      const i = t.indexOf(":");
+      return !t.startsWith("#") && i > 0 && t.slice(0, i).trim() === key;
+    });
+    if (value === undefined || value === "") {
+      if (at >= 0) lines.splice(at, 1);
+    } else if (at >= 0) lines[at] = `${key}: ${value}`;
+    else lines.push(`${key}: ${value}`);
+  }
+  const head = `${m[1] ?? ""}---${eol}`;
+  return `${head}${lines.join(eol)}${m[4] ?? "\n"}---${text.slice(m[0].length)}`;
+}

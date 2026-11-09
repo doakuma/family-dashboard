@@ -158,6 +158,21 @@ export interface SetupInput {
   anniversaries: Anniversary[];
 }
 
+/**
+ * 세팅 뒤 설정 변경(/settings, 슬랙 고정 명령). LLM이 만드는 `Change`가 아니다(0004와 같은 이유로 유니언을 늘리지 않음):
+ * 위키 쓰기는 `WikiRepository.applySettings`만 한다. 구성원 삭제·역할 변경·이름 변경은 스펙에 없어 두지 않는다.
+ */
+export type SettingsChange =
+  /** 구성원 추가. id를 생략하면 이름으로 자동 생성(영문 slug 또는 member-N). 슬랙 연결은 member.slack으로 따로 */
+  | { kind: "member.add"; payload: { name: string; role: MemberRole; color: string; id?: MemberId } }
+  | { kind: "member.color"; payload: { id: MemberId; color: string } }
+  /** slackId가 null이면 연결 해제 */
+  | { kind: "member.slack"; payload: { id: MemberId; slackId: string | null } }
+  /** 지역과 기상청 코드 묶음(네 값은 함께) */
+  | { kind: "config.region"; payload: { region: string; kmaNx: number; kmaNy: number; kmaMidLandRegId: string; kmaMidTaRegId: string } };
+
+export type SettingsChangeKind = SettingsChange["kind"];
+
 export interface IncomingMessage {
   /** 메신저 종류 (1차: 'slack') */
   source: string;

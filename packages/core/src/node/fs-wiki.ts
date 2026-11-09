@@ -4,9 +4,10 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync,
 import { dirname, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { WikiRepository, WriteResult } from "../ports";
-import { DEFAULT_FAMILY_ID, type Change, type FamilyId, type SetupInput, type WikiState } from "../types";
+import { DEFAULT_FAMILY_ID, type Change, type FamilyId, type SettingsChange, type SetupInput, type WikiState } from "../types";
 import { applyChange, formatLogLine, type ApplyResult, type WikiFiles } from "../wiki/apply";
 import { readWiki } from "../wiki/read";
+import { SettingsError, buildSettingsFiles } from "../wiki/settings";
 import { SetupError, buildSetupFiles } from "../wiki/setup";
 
 const run = promisify(execFile);
@@ -39,6 +40,9 @@ export interface ApplyOutcome extends ApplyResult, WriteResult {}
 export interface SetupOutcome extends WriteResult {
   summary: string;
 }
+
+/** applySettings 결과: 쓰기 결과와 요약 */
+export type SettingsOutcome = SetupOutcome;
 
 /** 이 저장소가 맡지 않은 가족 id로 불렸다 */
 export class FamilyMismatchError extends Error {
@@ -203,6 +207,21 @@ export class FsWikiRepository implements WikiRepository {
       const log = this.files.read("log.md") ?? "# 변경 기록\n";
       files.set("log.md", `${log.replace(/\n*$/, "\n")}${formatLogLine(at, "setup", built.summary, by)}\n`);
       return this.commitFiles(files, `[setup] ${built.summary}`, by, { summary: built.summary });
+    });
+  }
+
+  /** 세팅 뒤 설정 변경(WikiRepository.applySettings). 쓰기 큐 안에서 검증·계산하고 커밋 하나로 쓴다. */
+  async applySettings(familyId: FamilyId, change: SettingsChange, opts: { author?: string } = {}): Promise<SettingsOutcome> {
+    this.assertFamily(familyId);
+    if (this.opts.readOnly) throw new SettingsError("읽기 전용 위키에는 쓸 수 없어요", "read_only");
+    const by = opts.author ?? this.opts.author ?? "settings";
+    return this.enqueue(async () => {
+      await this.assertReady();
+      const built = buildSettingsFiles(this.files, change);
+      const files = new Map<string, string | null>(built.files);
+      const log = this.files.read("log.md") ?? "# 변경 기록\n";
+      files.set("log.md", `${log.replace(/\n*$/, "\n")}${formatLogLine(formatSeoul(this.opts.now?.() ?? new Date()), "settings", built.summary, by, built.id)}\n`);
+      return this.commitFiles(files, `[settings] ${built.summary}`, by, { summary: built.summary });
     });
   }
 

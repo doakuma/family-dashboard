@@ -73,6 +73,10 @@ function fakeRepo(s: WikiState = state()) {
       calls.push("applySetup");
       throw new Error("질문 경로에서 쓰면 안 돼요");
     },
+    async applySettings() {
+      calls.push("applySettings");
+      throw new Error("질문 경로에서 쓰면 안 돼요");
+    },
   };
   return { repo, calls };
 }

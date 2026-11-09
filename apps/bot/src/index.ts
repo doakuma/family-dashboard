@@ -9,6 +9,8 @@ import { createLlmAdapter } from "./llm/client";
 import { EnvInstallationStore, authorizeWith } from "./slack/installation";
 import { ACTION_PATTERN, SlackUi, toActionInput, toConversationMessage } from "./slack/messenger";
 import { checkBotToken, type WhoAmI } from "./slack/startup";
+import { SettingsCommandHandler, isSettingsPendingId } from "./settings/handler";
+import { SettingsPendingStore } from "./settings/pending";
 import { slackWelcomePoster, WELCOME_CLIENT_OPTIONS } from "./welcome/slack";
 import { WelcomeWorker } from "./welcome/worker";
 
@@ -58,6 +60,10 @@ const app = new App({
 /** 이벤트의 client(토큰이 들어 있음)로 말하는 대화 흐름 */
 const conversationWith = (client: webApi.WebClient) => new Conversation({ wiki, llm, familyId, pending, ui: new SlackUi(async () => client) });
 
+// 설정 변경 고정 명령("하늘이 색 초록으로 바꿔줘")도 LLM 앞에서 가로챈다. 확인을 기다리는 요청은 이벤트마다 만드는 처리기가 함께 쓴다
+const settingsPending = new SettingsPendingStore();
+const settingsWith = (client: webApi.WebClient) => new SettingsCommandHandler({ wiki, ui: new SlackUi(async () => client), familyId, pending: settingsPending });
+
 // 슬랙 연결 코드(`연결 482913`)는 대화 흐름(LLM)보다 먼저 가로챈다. 코드를 LLM에 보내지 않고, 채널에 올라온 코드는 여기서 지운다
 const connectLimiter = new AttemptLimiter(Date.now);
 const connectStore = new FsConnectCodeStore({ dir: config.get("stateDir") });
@@ -71,6 +77,7 @@ app.message(async ({ message, client, context }) => {
   const m = toConversationMessage(message, { familyChannel, botUserId: context.botUserId });
   if (!m || m.text === "ping") return;
   if (await connectWith(client).tryHandle(m)) return;
+  if (await settingsWith(client).tryHandle(m)) return;
   await conversationWith(client).handleMessage(m);
 });
 
@@ -78,7 +85,10 @@ app.message(async ({ message, client, context }) => {
 app.action(ACTION_PATTERN, async ({ ack, body, client }) => {
   await ack();
   const a = toActionInput(body);
-  if (a) await conversationWith(client).handleAction(a);
+  if (!a) return;
+  // 설정 변경 확인 버튼은 id 머리말로 가려 설정 처리기로, 나머지는 대화 흐름으로
+  if (isSettingsPendingId(a.pendingId)) await settingsWith(client).handleAction(a);
+  else await conversationWith(client).handleAction(a);
 });
 
 // 세팅 완료 알림(대시보드가 상자에 넣음)을 확인해 #가족 채널에 환영 메시지를 한 번 올린다. 설정이 잘못돼도 봇의 나머지는 계속 돈다.

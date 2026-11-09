@@ -2,7 +2,7 @@
 // 3단계가 보이는 동안만 연결 상태를 몇 초 간격으로 묻는 훅. 이 훅을 쓰는 컴포넌트가 사라지면(다른 단계로 가면) 멈춘다.
 // 탭이 가려져 있으면 묻지 않고, 다시 보이면 바로 한 번 묻는다. 연결됨·만료인 코드는 더 묻지 않는다.
 import { useEffect, useRef, useState } from "react";
-import { fetchConnectStates, type ConnectState } from "@/lib/setup/connect-client";
+import { fetchConnectStates, type ConnectState, type StatusResult } from "@/lib/setup/connect-client";
 import { pollableCodes } from "@/lib/setup/connect-view";
 
 export const POLL_MS = 3000;
@@ -15,13 +15,19 @@ export interface ConnectStates {
   problem?: string;
 }
 
-export function useConnectStates(members: readonly { connectCode?: string }[]): ConnectStates {
+/** 상태를 묻는 함수. 기본은 마법사용(/api/setup/connect/status), /settings는 자기 API를 넣는다 */
+export type StatesFetcher = (codes: readonly string[], signal: AbortSignal) => Promise<StatusResult>;
+const wizardFetcher: StatesFetcher = (codes, signal) => fetchConnectStates(codes, fetch, signal);
+
+export function useConnectStates(members: readonly { connectCode?: string }[], fetchStates: StatesFetcher = wizardFetcher): ConnectStates {
   const [states, setStates] = useState<Record<string, ConnectState>>({});
   const [problem, setProblem] = useState<string | undefined>();
   const statesRef = useRef(states);
   statesRef.current = states;
   const membersRef = useRef(members);
   membersRef.current = members;
+  const fetchStatesRef = useRef(fetchStates);
+  fetchStatesRef.current = fetchStates;
 
   // 묻는 대상(코드 목록)이 바뀌면 타이머를 새로 건다
   const codes = pollableCodes(members, states).join(",");
@@ -39,7 +45,7 @@ export function useConnectStates(members: readonly { connectCode?: string }[]): 
       if (stopped || inFlight || want.length === 0) return;
       if (typeof document !== "undefined" && document.hidden) return; // 보일 때 visibilitychange로 다시 시작한다
       inFlight = true;
-      const r = await fetchConnectStates(want, fetch, ctl.signal).finally(() => {
+      const r = await fetchStatesRef.current(want, ctl.signal).finally(() => {
         inFlight = false;
       });
       if (stopped) return;

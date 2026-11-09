@@ -267,3 +267,11 @@
 - 오너 확인 필요(스펙에 없어 정한 것): (1) 미등록 사용자의 질문도 답함 (2) 판정을 메시지·버튼 두 번 (3) 안내 문구 2종.
 - 남은 문제: 실제 슬랙 동작은 #3 토큰 뒤 확인. 설정 변경 고정 명령 보호자 제한은 #22. #21은 passes=false, review=null.
 - #21 리뷰 1차 반영: 버튼 시점 위키 읽기 실패는 cancelled가 아니라 원래 상태·카드로 되돌림(+다시 눌러 달라는 안내), 권한 거절 카드에 '앞의 N개는 이미 넣었어요', 고치기 판정 중 취소 경쟁 방지, 넣기·다시 시도는 누르자마자 '넣는 중' 카드로. pnpm check 973 테스트 통과. review는 pending 유지.
+
+## 2026-11-09 · #22 /settings + 슬랙 설정 변경 (목 진행)
+- 오너 결정(11-09)에 따라 슬랙 토큰 없이 목으로 구현. 결정 기록 `docs/decisions/0010-settings.md`(오너 확인 항목 10개). core: `SettingsChange`(member.add·color·slack, config.region)를 `Change`와 분리하고 `WikiRepository.applySettings` 추가. 계산은 순수 함수 `wiki/settings.ts`, 구성원·config 파일은 고칠 줄만 바꿔 모르는 필드·본문을 보존(`updateFrontmatterValues`). 오류 `SettingsError`, 슬랙 ID는 요약·log.md·커밋에 안 남김. 색 표(`member-colors.ts`)·`suggestMemberId`를 core로 옮김. `ConnectScope`에 `settings` 추가.
+- 대시보드: `/settings`(구성원 목록·색 바꾸기·구성원 추가 / 슬랙 연결(코드 받기→폴링→[연결 반영]·연결 풀기) / 지역), 마법사의 카드·폼·지역 선택을 재사용, 구역별 독립 저장. `POST /api/settings`(kind별, 공통 관문 `guardJson`, 응답에 슬랙 ID 없음, 지역은 키만 받아 서버가 코드를 채움).
+- 봇: `settings/`(파서·대상 찾기·핸들러·보관소). "하늘이 색 초록으로 바꿔줘"를 LLM 없이 가로채 확인 카드→[바꾸기]→버튼 시점 재판정→`applySettings(member.color)`. 보호자만, 같은 색이면 버튼 없이 안내, 모호한 이름은 후보 안내, 모르는 색은 목록 안내. 작성자 `slack:<이름>`.
+- 검증: pnpm check 통과(1130 테스트, 이전 973). build 후 `settings.e2e.mjs`(신규 10단계)·`auth.e2e.mjs`·`setup.e2e.mjs`(SKIP_TABLET_WAIT=1) 통과(tsx 필요).
+- 실연결에 필요한 값: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL, WIKI_REPO_PATH, HSH_STATE_DIR(대시보드·봇 같은 값), ADMIN_PIN_HASH, DASHBOARD_BASE_URL. `.env*`는 읽지 않음.
+- 남은 문제: 실제 슬랙 동작은 #3 토큰 뒤 확인. 스펙 "인터페이스" 절에 `applySettings`·`SettingsChange` 갱신 필요(오너). #22는 passes=false, review=null.

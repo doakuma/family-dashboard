@@ -247,3 +247,43 @@ describe("revoke · clearScope", () => {
     expect(await s.claimed("123456")).toBeUndefined();
   });
 });
+
+describe("settings 범위 (#22: 세팅 뒤 재연결)", () => {
+  const skySettings = { memberKey: "haneul", name: "하늘", role: "child" as const, scope: "settings" as const };
+
+  it("settings 코드를 발급·claim·조회하고 기록에 범위가 남는다", async () => {
+    const s = make();
+    const r = await s.issue(skySettings);
+    expect(r.scope).toBe("settings");
+    expect((await s.states([r.code]))[r.code]).toBe("pending");
+    expect(await s.claim(r.code, "U0SKY")).toMatchObject({ ok: true });
+    expect((await s.states([r.code]))[r.code]).toBe("connected");
+    expect(await s.claimed(r.code)).toMatchObject({ slackId: "U0SKY", record: { scope: "settings", memberKey: "haneul" } });
+  });
+
+  it("범위가 다르면 같은 memberKey여도 서로의 코드를 무효로 하지 않는다", async () => {
+    const s = make();
+    const a = await s.issue({ ...sky, memberKey: "haneul" });
+    const b = await s.issue(skySettings);
+    expect((await s.states([a.code, b.code]))[a.code]).toBe("pending");
+    expect((await s.states([a.code, b.code]))[b.code]).toBe("pending");
+  });
+
+  it("clearScope는 그 범위만 지운다", async () => {
+    const s = make();
+    const a = await s.issue(sky);
+    const b = await s.issue(skySettings);
+    await s.clearScope("setup");
+    const st = await s.states([a.code, b.code]);
+    expect(st[a.code]).toBe("expired");
+    expect(st[b.code]).toBe("pending");
+  });
+
+  it("같은 슬랙 계정 중복 검사는 같은 범위 안에서만", async () => {
+    const s = make();
+    const a = await s.issue(sky);
+    expect(await s.claim(a.code, "U0X")).toMatchObject({ ok: true });
+    const b = await s.issue({ ...mom, scope: "settings" });
+    expect(await s.claim(b.code, "U0X")).toMatchObject({ ok: true });
+  });
+});

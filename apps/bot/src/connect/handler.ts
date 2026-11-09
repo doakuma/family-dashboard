@@ -11,6 +11,8 @@ export const CONNECT_TEXT = {
   locked: "연결 시도가 너무 많았어요. 15분 뒤에 다시 보내 주세요.",
   failed: "지금은 연결하지 못했어요. 잠시 뒤에 다시 보내 주세요.",
   connected: (name: string) => `'${name}'(으)로 연결했어요. 세팅을 마치면 이 슬랙 계정으로 쓸 수 있어요.`,
+  /** 세팅 뒤 /settings에서 받은 코드(범위 settings): 화면에서 '연결 반영'을 눌러야 위키에 저장된다 */
+  connectedSettings: (name: string) => `'${name}'(으)로 확인했어요. 설정 화면에서 '연결 반영'을 눌러야 저장돼요.`,
   alreadyYours: (name: string) => `이미 '${name}'(으)로 연결돼 있어요. 세팅 화면에서 '연결됨'을 확인해 주세요.`,
   slackTaken: (name: string) => `이 슬랙 계정은 이미 '${name}'(으)로 연결돼 있어요. 한 계정은 한 구성원에만 연결할 수 있어요. 잘못 연결했다면 세팅 화면에서 '${name}' 구성원의 코드를 다시 받으면 풀려요.`,
 } as const;
@@ -101,7 +103,7 @@ export class ConnectHandler {
       const r = await this.deps.store.claim(code, userId);
       if (r.ok) {
         this.limiter.succeed(userId);
-        await this.reply(msg, CONNECT_TEXT.connected(r.record.name));
+        await this.reply(msg, r.record.scope === "settings" ? CONNECT_TEXT.connectedSettings(r.record.name) : CONNECT_TEXT.connected(r.record.name));
         return true;
       }
       switch (r.reason) {

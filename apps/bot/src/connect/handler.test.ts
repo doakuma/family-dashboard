@@ -177,3 +177,14 @@ describe("실제 파일 저장소와 한 바퀴 (임시 폴더)", () => {
     expect((await store.claimed(a.code))?.slackId).toBe("U1");
   });
 });
+
+describe("settings 범위 코드 (#22)", () => {
+  it("DM에서 settings 코드를 claim하면 '설정 화면에서 연결 반영' 안내(세팅 마침 안내가 아님)", async () => {
+    const { store } = fakeStore({ ok: true, record: { ...record, scope: "settings", memberKey: "haneul" } });
+    const u = fakeUi();
+    expect(await new ConnectHandler({ store, ui: u.ui }).tryHandle(say("연결 482913"))).toBe(true);
+    expect(u.texts()).toEqual([CONNECT_TEXT.connectedSettings("하늘")]);
+    expect(CONNECT_TEXT.connectedSettings("하늘")).toContain("연결 반영");
+    expect(CONNECT_TEXT.connectedSettings("하늘")).not.toContain("세팅을 마치면");
+  });
+});

@@ -128,7 +128,7 @@ try {
   await phone.goto(`${BASE}/setup`);
   await phone.getByRole("heading", { name: "우리 집" }).waitFor(); // 세션이 생기면 6단계 마법사의 1단계(#18)
   await phone.goto(`${BASE}/settings`);
-  await phone.getByText("설정 화면은 준비 중").waitFor();
+  await phone.getByText("아직 첫 세팅이 끝나지 않았어요").waitFor(); // 빈 위키: 설정 화면은 세팅 뒤에 열린다(#22)
   ok("같은 세션으로 /setup, /settings 열림");
 
   // 5. 토큰 일회성: 쓴 토큰은 다른 브라우저에서 못 쓴다

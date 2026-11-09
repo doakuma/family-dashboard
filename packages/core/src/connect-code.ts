@@ -10,8 +10,12 @@ export const CONNECT_CLAIM_TTL_MS = 24 * 60 * 60_000;
 /** 한 범위에서 동시에 살아 있는 코드 상한(구성원 12명 + 여유). 발급 API 남용 방지 */
 export const CONNECT_MAX_ACTIVE = 40;
 
-/** 코드가 쓰이는 곳. 지금은 첫 세팅만. #22(/settings 재연결)는 값을 더해 쓴다 */
-export type ConnectScope = "setup";
+/**
+ * 코드가 쓰이는 곳. setup = 첫 세팅 마법사(memberKey는 draft 키), settings = 세팅 뒤 /settings 재연결(memberKey는 위키 구성원 id).
+ * 범위가 다르면 서로의 코드를 지우거나 같은 슬랙 계정 중복 검사에 얽히지 않는다.
+ */
+export const CONNECT_SCOPES = ["setup", "settings"] as const;
+export type ConnectScope = (typeof CONNECT_SCOPES)[number];
 
 export const CONNECT_CODE_RE = /^\d{6}$/;
 export const isConnectCode = (v: unknown): v is string => typeof v === "string" && CONNECT_CODE_RE.test(v);

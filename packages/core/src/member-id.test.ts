@@ -1,4 +1,4 @@
-import { memberIdSchema } from "@hsh/core";
+import { memberIdSchema } from "./schema";
 import { describe, expect, it } from "vitest";
 import { latinSlug, suggestMemberId } from "./member-id";
 

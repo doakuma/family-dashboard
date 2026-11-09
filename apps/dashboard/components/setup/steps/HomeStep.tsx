@@ -1,9 +1,10 @@
 "use client";
-import { REGION_GROUPS, findRegion } from "@hsh/core";
+import { findRegion } from "@hsh/core";
 import { SelectField, TextField } from "@/components/ui/form/Field";
 import { LinkButton } from "@/components/ui/form/Button";
 import { Disclosure } from "@/components/ui/form/Disclosure";
 import { fieldId } from "@/lib/setup/validate";
+import { RegionOptions } from "../RegionOptions";
 import { SkinPreviewSlot } from "../SkinPreviewSlot";
 import s from "../setup.module.css";
 import type { StepProps } from "./types";
@@ -39,16 +40,7 @@ export function HomeStep({ draft, errors, onChange }: StepProps) {
             error={errors.region}
             hint="날씨를 가져오는 데 써요. 시·군·구 단위로 골라 주세요."
           >
-            <option value="">지역을 골라 주세요</option>
-            {REGION_GROUPS.map((g) => (
-              <optgroup key={g.name} label={g.name}>
-                {g.regions.map((r) => (
-                  <option key={r.key} value={r.key}>
-                    {r.label.replace(`${g.name} `, "")}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
+            <RegionOptions />
           </SelectField>
           {region?.taApprox && <p className={s.note}>이 지역의 기온 예보는 가까운 도시 기준으로 가져와요.</p>}
           <LinkButton onClick={() => set({ regionMode: "manual" })}>목록에 없어요 · 직접 입력</LinkButton>

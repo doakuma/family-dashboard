@@ -1,8 +1,9 @@
 // 외부 입력(LLM 응답·세팅 폼 등)과 위키 파일 내용을 도메인 타입으로 받기 전에 검증하는 스키마.
 // 읽기(파서)와 쓰기(applyChange·format*File)가 같은 스키마를 쓴다.
 import { z } from "zod";
+import { PICKABLE_COLORS } from "./member-colors";
 import { KMA_NX_RANGE, KMA_NY_RANGE, KMA_REG_ID_RE } from "./regions";
-import { CHARACTER_IDS, FAMILY_ID, SKIN_IDS, isFamilyId, type Anniversary, type Change, type DashboardState, type Event, type FamilyId, type FamilyConfig, type Member, type SetupInput, type Task, type WeatherDay } from "./types";
+import { CHARACTER_IDS, FAMILY_ID, SKIN_IDS, isFamilyId, type Anniversary, type Change, type DashboardState, type Event, type FamilyId, type FamilyConfig, type Member, type SettingsChange, type SetupInput, type Task, type WeatherDay } from "./types";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const date = z.string().regex(DATE_RE, "YYYY-MM-DD").refine(isRealDate, "없는 날짜");
@@ -145,6 +146,12 @@ const setupConfigSchema = familyConfigSchema.omit({ setupCompletedAt: true }).ex
 
 const setupAnniversarySchema = z.object({ monthDay: realMonthDay, title, member: memberIdSchema.optional() });
 
+/** 세팅·설정에서 새로 쓰는 구성원 한 명의 규칙(id 32자 이하·예약어 거부·따옴표 감싼 이름 거부) */
+export const setupMemberSchema = memberSchema.extend({
+  id: memberIdSchema.max(32).refine((id) => id !== FAMILY_ID, "family는 예약 id").refine((id) => !isWindowsReservedName(id), WINDOWS_RESERVED_MESSAGE),
+  name: plain(40).refine(notQuoted, QUOTED),
+});
+
 /**
  * 첫 세팅 전체 검증. 개별 스키마(memberSchema·familyConfigSchema)에 더해 묶음 규칙을 본다:
  * 구성원 id는 대소문자 구분 없이 유일(Windows 파일 이름 충돌 방지), 보호자 1명 이상, 기념일의 구성원은 등록된 id 또는 family,
@@ -153,7 +160,7 @@ const setupAnniversarySchema = z.object({ monthDay: realMonthDay, title, member:
 export const setupSchema = z
   .object({
     config: setupConfigSchema,
-    members: z.array(memberSchema.extend({ id: memberIdSchema.max(32).refine((id) => id !== FAMILY_ID, "family는 예약 id").refine((id) => !isWindowsReservedName(id), WINDOWS_RESERVED_MESSAGE), name: plain(40).refine(notQuoted, QUOTED) })).min(1, "구성원을 한 명 이상 넣어 주세요").max(SETUP_MAX_MEMBERS, `구성원은 ${SETUP_MAX_MEMBERS}명까지예요`),
+    members: z.array(setupMemberSchema).min(1, "구성원을 한 명 이상 넣어 주세요").max(SETUP_MAX_MEMBERS, `구성원은 ${SETUP_MAX_MEMBERS}명까지예요`),
     anniversaries: z.array(setupAnniversarySchema).max(SETUP_MAX_ANNIVERSARIES),
   })
   .superRefine((v, ctx) => {
@@ -172,6 +179,35 @@ export const setupSchema = z
     const grid = [c.kmaNx, c.kmaNy, c.kmaMidLandRegId, c.kmaMidTaRegId];
     if (grid.some((x) => x !== undefined) && grid.some((x) => x === undefined)) ctx.addIssue({ code: "custom", path: ["config", "kmaNx"], message: "격자(nx, ny)와 지역 코드 2개를 함께 넣어 주세요" });
   }) satisfies z.ZodType<SetupInput>;
+
+// ---------- /settings · 슬랙 설정 변경 (WikiRepository.applySettings 입력) ----------
+
+const pickableColor = z.enum(PICKABLE_COLORS);
+const slackIdSchema = z.string().min(1).max(32).regex(/^[A-Za-z0-9]+$/);
+
+export const settingsChangeSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("member.add"),
+    payload: z.strictObject({
+      name: setupMemberSchema.shape.name,
+      role: z.enum(["guardian", "child"]),
+      color: pickableColor,
+      id: setupMemberSchema.shape.id.optional(),
+    }),
+  }),
+  z.object({ kind: z.literal("member.color"), payload: z.strictObject({ id: memberIdSchema.max(32), color: pickableColor }) }),
+  z.object({ kind: z.literal("member.slack"), payload: z.strictObject({ id: memberIdSchema.max(32), slackId: slackIdSchema.nullable() }) }),
+  z.object({
+    kind: z.literal("config.region"),
+    payload: z.strictObject({
+      region: plain(80).refine(notQuoted, QUOTED),
+      kmaNx: setupConfigSchema.shape.kmaNx.unwrap(),
+      kmaNy: setupConfigSchema.shape.kmaNy.unwrap(),
+      kmaMidLandRegId: kmaRegId,
+      kmaMidTaRegId: kmaRegId,
+    }),
+  }),
+]) satisfies z.ZodType<SettingsChange>;
 
 // ---------- /api/state 응답 ----------
 
