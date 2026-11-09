@@ -17,7 +17,7 @@ const tasks: Task[] = [{ id: "task-e5f6", list: "shopping", title: "우유", don
 // 2026-10-29(목) 22:00 서울
 const NOW = new Date("2026-10-29T13:00:00Z");
 
-const wikiState = (): WikiState => ({ familyId: DEFAULT_FAMILY_ID, skin: "default", character: "none", members, events, tasks, anniversaries: [], warnings: [] });
+const wikiState = (m: Member[] = members): WikiState => ({ familyId: DEFAULT_FAMILY_ID, skin: "default", character: "none", members: m, events, tasks, anniversaries: [], warnings: [] });
 
 /** 위키: 읽기는 고정 상태, 쓰기는 기록. failAt 번째(0부터) apply는 던진다 */
 function fakeWiki(opts: { failAt?: number[]; synced?: boolean; readError?: boolean } = {}) {
@@ -25,9 +25,12 @@ function fakeWiki(opts: { failAt?: number[]; synced?: boolean; readError?: boole
   let calls = 0;
   return {
     applied,
+    /** 테스트 중에 바꿀 수 있는 현재 구성원·읽기 실패 여부 */
+    members: members as Member[],
+    readError: !!opts.readError,
     async read() {
-      if (opts.readError) throw new Error("디스크 오류");
-      return wikiState();
+      if (this.readError) throw new Error("디스크 오류");
+      return wikiState(this.members);
     },
     async apply(_f: unknown, change: Change): Promise<WriteResult> {
       const n = calls++;
@@ -411,5 +414,162 @@ describe("시간이 지난 버튼", () => {
     await press("insert");
     expect(wiki.applied).toEqual([]);
     expect(ui.last()).toEqual({ kind: "update", ref, card: { text: TEXT.expired, buttons: [] } });
+  });
+});
+
+describe("권한(#21): 보호자만 쓰기", () => {
+  const KID = "U00KID";
+  const kidMember: Member = { id: "haneul", name: "하늘", role: "child", color: "blue", slackId: KID };
+  const withKid = (extra: Member[] = []): Member[] => [...members.filter((m) => m.id !== "haneul"), kidMember, ...extra];
+  const noWrite = (wiki: ReturnType<typeof fakeWiki>, pending: PendingStore) => {
+    expect(wiki.applied).toEqual([]);
+    expect(pending.size).toBe(0);
+  };
+
+  it("보호자의 쓰기는 그대로 된다", async () => {
+    const { conv, wiki, press } = setup({ llm: fakeLlm(ADD) });
+    await conv.handleMessage(say("치과"));
+    await press("insert");
+    expect(wiki.applied).toEqual([ADD_CHANGE]);
+  });
+
+  it("아이의 쓰기 의도는 요청을 만들지 않고 안내만 한다(apply 0회)", async () => {
+    const wiki = fakeWiki();
+    wiki.members = withKid();
+    const pending = new PendingStore();
+    const { conv, ui } = setup({ wiki, llm: fakeLlm(ADD), pending });
+    await conv.handleMessage(say("치과 넣어줘", CHANNEL, KID));
+    noWrite(wiki, pending);
+    expect(ui.sent).toHaveLength(1);
+    expect(ui.last()).toMatchObject({ kind: "post", thread: CHANNEL, card: { text: TEXT.childNoWrite, buttons: [] } });
+  });
+
+  it("아이도 질문은 한다", async () => {
+    const wiki = fakeWiki();
+    wiki.members = withKid();
+    const { conv, ui } = setup({ wiki, llm: fakeLlm({ intent: "question", query: { kind: "events", from: "2026-11-03", to: "2026-11-03" } }) });
+    await conv.handleMessage(say("11월 3일 뭐 있어?", CHANNEL, KID));
+    expect(ui.last().card?.text).toContain("치과");
+    expect(ui.last().card?.text).not.toBe(TEXT.childNoWrite);
+  });
+
+  it("미등록 사용자의 쓰기는 거절하고 연결을 안내한다", async () => {
+    const wiki = fakeWiki();
+    const pending = new PendingStore();
+    const { conv, ui } = setup({ wiki, llm: fakeLlm(ADD), pending });
+    await conv.handleMessage(say("치과", CHANNEL, "U99NOBODY"));
+    noWrite(wiki, pending);
+    expect(ui.last().card?.text).toBe(TEXT.unregisteredNoWrite);
+  });
+
+  it("미등록 사용자의 질문은 답한다(스펙은 쓰기만 제한)", async () => {
+    const { conv, ui } = setup({ llm: fakeLlm({ intent: "question", query: { kind: "events", from: "2026-11-03", to: "2026-11-03" } }) });
+    await conv.handleMessage(say("11월 3일 뭐 있어?", CHANNEL, "U99NOBODY"));
+    expect(ui.last().card?.text).toContain("치과");
+  });
+
+  it("role이 없는 구성원은 child로 읽혀 쓰기가 거절된다", async () => {
+    const wiki = fakeWiki();
+    wiki.members = [{ id: "x", name: "손님", color: "gray", slackId: "U00X" } as unknown as Member];
+    const pending = new PendingStore();
+    const { conv, ui } = setup({ wiki, llm: fakeLlm(ADD), pending });
+    await conv.handleMessage(say("치과", CHANNEL, "U00X"));
+    noWrite(wiki, pending);
+    expect(ui.last().card?.text).toBe(TEXT.childNoWrite);
+  });
+
+  it("choose 분기도 아이에게는 후보를 띄우지 않는다", async () => {
+    const wiki = fakeWiki();
+    wiki.members = withKid();
+    const pending = new PendingStore();
+    const { conv, ui } = setup({ wiki, llm: fakeLlm({ intent: "event.update", targetIds: ["evt-a1b2", "evt-c3d4"], start: "16:00" }), pending });
+    await conv.handleMessage(say("치과 4시로", CHANNEL, KID));
+    noWrite(wiki, pending);
+    expect(ui.last().card?.text).toBe(TEXT.childNoWrite);
+  });
+
+  it("넣기 버튼 시점에 보호자가 아이로 바뀌었으면 쓰지 않고 카드를 안내로 바꾼다", async () => {
+    const { conv, wiki, ui, press } = setup({ llm: fakeLlm(ADD) });
+    await conv.handleMessage(say("치과"));
+    const first = ui.sent[0];
+    wiki.members = members.map((m) => (m.id === "mom" ? { ...m, role: "child" as const } : m));
+    await press("insert");
+    expect(wiki.applied).toEqual([]);
+    expect(ui.last()).toMatchObject({ kind: "update", ref: first?.ref });
+    expect(ui.last().card?.text).toContain(TEXT.childNoWrite);
+    expect(ui.last().card?.buttons).toEqual([]);
+    // 닫힌 요청이라 다시 눌러도 쓰지 않는다
+    wiki.members = members;
+    await press("insert", { card: first?.card });
+    expect(wiki.applied).toEqual([]);
+  });
+
+  it("버튼 시점에 연결이 해제됐으면(slackId 없음) 쓰지 않는다", async () => {
+    const { conv, wiki, ui, press } = setup({ llm: fakeLlm(ADD) });
+    await conv.handleMessage(say("치과"));
+    wiki.members = members.map((m) => (m.id === "mom" ? { ...m, slackId: undefined } : m));
+    await press("insert");
+    expect(wiki.applied).toEqual([]);
+    expect(ui.last().card?.text).toContain(TEXT.unregisteredNoWrite);
+  });
+
+  it("다시 시도·고치기·고르기 버튼도 시점에 재확인한다", async () => {
+    const demote = (w: ReturnType<typeof fakeWiki>) => {
+      w.members = members.map((m) => (m.id === "mom" ? { ...m, role: "child" as const } : m));
+    };
+    // 다시 시도
+    const w1 = fakeWiki({ failAt: [0] });
+    const a = setup({ wiki: w1, llm: fakeLlm(ADD) });
+    await a.conv.handleMessage(say("치과"));
+    await a.press("insert");
+    demote(w1);
+    await a.press("retry");
+    expect(w1.applied).toEqual([]);
+    expect(a.ui.last().card?.text).toContain(TEXT.childNoWrite);
+    // 고치기
+    const w2 = fakeWiki();
+    const b = setup({ wiki: w2, llm: fakeLlm(ADD) });
+    await b.conv.handleMessage(say("치과"));
+    demote(w2);
+    await b.press("edit");
+    expect(b.ui.last().card?.text).toContain(TEXT.childNoWrite);
+    expect(b.ui.last().card?.text).not.toContain(TEXT.editing);
+    // 고르기
+    const w3 = fakeWiki();
+    const c = setup({ wiki: w3, llm: fakeLlm({ intent: "event.update", targetIds: ["evt-a1b2", "evt-c3d4"], start: "16:00" }) });
+    await c.conv.handleMessage(say("치과 4시로"));
+    demote(w3);
+    await c.press("pick", { label: "11/3" });
+    expect(c.ui.last().card?.text).toContain(TEXT.childNoWrite);
+    expect(c.ui.last().card?.buttons).toEqual([]);
+    expect(w3.applied).toEqual([]);
+  });
+
+  it("버튼 시점에 위키를 못 읽으면 쓰지 않는다(안전한 쪽)", async () => {
+    const { conv, wiki, ui, logs, press } = setup({ llm: fakeLlm(ADD) });
+    await conv.handleMessage(say("치과"));
+    wiki.readError = true;
+    await press("insert");
+    expect(wiki.applied).toEqual([]);
+    expect(ui.last().card?.text).toContain(TEXT.readFailed);
+    expect(logs.join("\n")).toContain("위키 읽기 실패");
+  });
+
+  it("취소는 권한이 없어도 된다", async () => {
+    const { conv, wiki, ui, press } = setup({ llm: fakeLlm(ADD) });
+    await conv.handleMessage(say("치과"));
+    wiki.members = [];
+    await press("cancel");
+    expect(ui.last().card?.text).toContain(TEXT.cancelled);
+  });
+
+  it("고치는 중에 보낸 글도 같은 판정을 거친다(강등되면 새 카드 없음)", async () => {
+    const { conv, wiki, ui, press } = setup({ llm: fakeLlm(ADD, { ...ADD, start: "16:00" }) });
+    await conv.handleMessage(say("치과"));
+    await press("edit");
+    wiki.members = members.map((m) => (m.id === "mom" ? { ...m, role: "child" as const } : m));
+    await conv.handleMessage(say("4시로"));
+    expect(ui.last().card).toMatchObject({ text: TEXT.childNoWrite, buttons: [] });
+    expect(wiki.applied).toEqual([]);
   });
 });

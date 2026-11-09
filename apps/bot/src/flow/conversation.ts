@@ -1,7 +1,8 @@
 // 메신저 한 바퀴: 글 → 의도 → (질문이면 답 | 쓰기면 미리보기 + [넣기][고치기][취소]) → 버튼 → 위키 쓰기 → "넣었어요".
 // 메신저 종류와 무관하다(ConversationUi 포트로만 말한다). 위키 쓰기는 WikiRepository.apply만 한다.
-// 권한(보호자만 쓰기, #21)과 캘린더 복사(#11)는 아직 붙이지 않았다.
-import { todayIn, type FamilyId, type LlmAdapter, type WikiRepository, type WikiState } from "@hsh/core";
+// 권한(#21): 쓰기로 이어지는 분기(change·choose)와 버튼(넣기·다시 시도·고치기·고르기)은 보호자만. 판정은 core `permissionFor`.
+// 질문은 누구나(미등록 포함). 연결 코드 DM은 이 앞의 ConnectHandler가 먼저 가로챈다. 캘린더 복사(#11)는 아직 붙이지 않았다.
+import { canWrite, permissionFor, todayIn, type FamilyId, type Permission, type LlmAdapter, type WikiRepository, type WikiState } from "@hsh/core";
 import { answerFromQuery } from "../answer/answer";
 import { formatWhen } from "../format";
 import { extractIntent, resolveChoice, type Intent } from "../intent/extract";
@@ -37,8 +38,16 @@ export const TEXT = {
   llmFailed: "지금은 말을 알아듣지 못했어요(언어 모델 연결 문제). 잠시 뒤 다시 보내 주세요.",
   unrelated: '일정이에요? 예: "다음 주 화요일 3시 치과", "우유 사야 돼", "이번 주 토요일 뭐 있어?"',
   readFailed: "위키를 읽지 못했어요. 잠시 뒤 다시 보내 주세요.",
+  childNoWrite: "아이 계정은 질문만 할 수 있어요. 일정이나 할 일을 넣고 싶으면 보호자에게 부탁해 주세요.",
+  unregisteredNoWrite: "아직 가족 구성원으로 연결되지 않았어요. 대시보드 세팅의 연결 코드로 먼저 연결해 주세요.",
   tooMany: "비슷한 항목이 많아요. 날짜나 이름을 더 붙여서 다시 말해 주세요.",
 } as const;
+
+/** 쓰기를 거절할 때 보낼 문구(권한이 있으면 undefined) */
+function denyText(permission: Permission): string | undefined {
+  if (canWrite(permission)) return undefined;
+  return permission === "child" ? TEXT.childNoWrite : TEXT.unregisteredNoWrite;
+}
 
 export class Conversation {
   private readonly pending: PendingStore;
@@ -95,14 +104,15 @@ export class Conversation {
 
     switch (a.action) {
       case "insert":
-        if (this.pending.transition(p, ["confirm"], "applying")) await this.runApply(p);
+        if (this.pending.transition(p, ["confirm"], "applying") && (await this.stillAllowed(p, "applying"))) await this.runApply(p);
         return;
       case "retry":
-        if (this.pending.transition(p, ["failed"], "applying")) await this.runApply(p);
+        if (this.pending.transition(p, ["failed"], "applying") && (await this.stillAllowed(p, "applying"))) await this.runApply(p);
         return;
       case "edit":
         // 일부를 이미 넣은 요청은 고치면 넣은 것까지 다시 들어가므로 고치기를 받지 않는다
         if (p.applied === 0 && this.pending.transition(p, ["confirm", "failed"], "editing")) {
+          if (!(await this.stillAllowed(p, "editing"))) return;
           const ask = p.thread.isDirect ? TEXT.editingDirect : TEXT.editing;
           await this.updateCard(p, { text: `${ask}\n(처음: ${p.preview})`, buttons: [button(p, "cancel", "취소")] });
         }
@@ -133,11 +143,13 @@ export class Conversation {
         return;
       }
       case "change": {
+        if (await this.denied(msg, wiki)) return;
         const p = this.pending.create({ familyId: this.deps.familyId, userId, thread, text: ctx.text, status: "confirm", changes: intent.changes, preview: intent.preview });
         await this.postCard(p, confirmCard(p));
         return;
       }
       case "choose": {
+        if (await this.denied(msg, wiki)) return;
         const candidates = intent.candidates.slice(0, MAX_CANDIDATES + 1);
         if (candidates.length > MAX_CANDIDATES) {
           await this.safePost(thread, textCard(TEXT.tooMany));
@@ -177,6 +189,32 @@ export class Conversation {
     }
   }
 
+  /** 보내는 사람이 쓸 수 없으면 안내를 스레드에 답하고 true. 요청은 만들지 않는다. */
+  private async denied(msg: ConversationMessage, wiki: Pick<WikiState, "members">): Promise<boolean> {
+    const text = denyText(permissionFor(wiki.members, msg.userId));
+    if (!text) return false;
+    await this.safePost(msg.thread, textCard(text));
+    return true;
+  }
+
+  /**
+   * 버튼 시점 재확인: 위키를 다시 읽어 지금도 보호자인지 본다(그 사이 역할 변경·연결 해제).
+   * 권한이 없거나 읽지 못하면(안전한 쪽) 요청을 닫고 카드를 안내 문구로 바꾼 뒤 false.
+   */
+  private async stillAllowed(p: Pending, from: Pending["status"]): Promise<boolean> {
+    let text: string | undefined;
+    try {
+      const wiki = await this.deps.wiki.read(p.familyId);
+      text = denyText(permissionFor(wiki.members, p.userId));
+    } catch (e) {
+      this.log(`권한 확인 위해 위키 읽기 실패: ${errorText(e)}`);
+      text = TEXT.readFailed;
+    }
+    if (!text) return true;
+    if (this.pending.transition(p, [from], "cancelled")) await this.updateCard(p, textCard(`${text}\n(요청: ${p.preview})`));
+    return false;
+  }
+
   /** 후보를 골랐다: 위키를 다시 읽어 변경을 만들고, 같은 카드를 확인 카드로 바꾼다 */
   private async resolvePick(p: Pending, pickId: string): Promise<void> {
     const choice = p.choice;
@@ -189,6 +227,11 @@ export class Conversation {
         tasks: wiki.tasks,
         today: todayIn(this.now()),
       });
+      const deny = denyText(permissionFor(wiki.members, p.userId));
+      if (deny) {
+        if (this.pending.transition(p, ["confirm"], "cancelled")) await this.updateCard(p, textCard(`${deny}\n(요청: ${p.preview})`));
+        return;
+      }
       // 위키를 읽는 사이에 [취소]됐으면 카드를 덮어쓰지 않는다
       if (p.status !== "confirm") return;
       if (r.type !== "change") {

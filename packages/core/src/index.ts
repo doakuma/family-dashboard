@@ -3,6 +3,7 @@ export * from "./types";
 export * from "./ports";
 export * from "./config";
 export * from "./connect-code";
+export * from "./permission";
 export * from "./setup-notice";
 export * from "./date";
 export * from "./date-guide";

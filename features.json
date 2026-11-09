@@ -249,7 +249,7 @@
       "status": "in_progress",
       "passes": false,
       "review": null,
-      "note": "잡음: 2026-11-09 15:24 KST (목 진행 큐 4번, 예약 대화)."
+      "note": "잡음: 2026-11-09 15:24 KST (목 진행 큐 4번, 예약 대화). 목 완료, 실연결 확인 대기(필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL, WIKI_REPO_PATH). 오너 확인: (1) 미등록 사용자의 질문 허용 (2) 판정 2번(메시지·버튼) (3) 안내 문구 2종(0009)."
     },
     {
       "id": 22,

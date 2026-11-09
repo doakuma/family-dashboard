@@ -259,3 +259,10 @@
 - 남은 문제: 환영 문구·예시 오너 검토, 봇이 claim한 채 죽으면 5분 뒤 중복 게시 가능성(0008), 실제 슬랙 게시·5초 전환 e2e는 토큰 뒤 확인. #21·#22는 건드리지 않음.
 - #20 리뷰 1차 반영: 봇 환영 게시 클라이언트는 설치 저장소(InstallationStore)의 토큰으로 만들고 `timeout 10초·retries 0·rejectRateLimitedCalls`(재시도는 worker 백오프만), claim이 토큰을 돌려주고 release는 자기 번호만(임대 넘긴 A의 늦은 release가 B의 claim을 건드리지 않는 테스트), 삭제 순서(알림->claim->done), list 파일 단위 오류 건너뜀, tick 경고 중복 억제, 가족 이름 서식 기호 제거, 완료 화면 문구 "태블릿이 곧 대시보드로 바뀝니다", worker 테스트 캐스팅 제거. pnpm check 949 테스트 통과, build 후 setup.e2e.mjs(전환 대기 포함) 전체 통과. 참고: #19 fs-connect-code 테스트 하나가 병렬 실행에서 한 번 간헐 실패(재실행 통과).
 - 2차 재리뷰 통과(fc70cc8). #20 review=pass, passes=false(목 완료·실연결 대기). 남은 [낮음]은 features #20 note, #19 테스트 간헐 실패는 #19 note.
+
+## 2026-11-09 · #21 구성원 권한 체크 (목 진행)
+- 오너 결정(11-09)에 따라 슬랙 토큰 없이 목으로 구현. 결정 기록 `docs/decisions/0009-member-permission.md`. core `permission.ts`(`permissionFor` -> guardian|child|unregistered, `canWrite`; role 누락·오타 child, 같은 slackId 여럿이면 child).
+- Conversation: 의도 추출 뒤 change·choose는 보호자만, 아니면 요청 없이 스레드에 안내(아이: 질문만·보호자에게 부탁 / 미등록: 연결 코드로 먼저 연결). 버튼 넣기·다시 시도·고치기·고르기는 위키를 다시 읽어 재확인(권한 없음·읽기 실패면 cancelled + 카드 안내, 쓰지 않음), 취소는 항상 허용, 고치기 글도 같은 판정.
+- 검증: pnpm check 통과(967 테스트, 이전 949). 권한 테스트: 아이·미등록·role 누락·choose·버튼 시점 강등·연결 해제·읽기 실패 모두 apply 0회. #19 fs-connect-code '같은 난수' 테스트는 병렬에서 간헐 실패(재실행 통과).
+- 오너 확인 필요(스펙에 없어 정한 것): (1) 미등록 사용자의 질문도 답함 (2) 판정을 메시지·버튼 두 번 (3) 안내 문구 2종.
+- 남은 문제: 실제 슬랙 동작은 #3 토큰 뒤 확인. 설정 변경 고정 명령 보호자 제한은 #22. #21은 passes=false, review=null.
