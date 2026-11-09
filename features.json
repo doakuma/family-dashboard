@@ -235,7 +235,7 @@
       ],
       "status": "in_progress",
       "passes": false,
-      "review": null,
+      "review": "pending",
       "note": "잡음: 2026-11-09 (목 진행 큐 3번). 목 완료, 실연결 확인 대기(필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL, HSH_STATE_DIR(선택)) + 슬랙 앱 chat:write, 봇이 #가족 채널에 들어가 있어야 함. 한 일: log.md·커밋 요약 \"세팅 완료: …\", 세팅 화면 폴링 5초(대시보드 60초), core SetupNoticeStore/FsSetupNoticeStore(상태 폴더 notice/, link 배타 claim, 24시간 만료), runSetup이 성공 뒤 알림 put(실패해도 세팅 성공), 봇 welcome/(5초 확인·재시도 백오프·환영 메시지 순수 함수, 예시 3개). 결정 0008. 리뷰 1차 반영: WebClient 재시도 0·10초·레이트리밋 즉시 실패, 토큰은 InstallationStore, claim 토큰(release는 자기 번호만), 완료 화면 문구. setup.e2e.mjs 전체(전환 대기 포함) 통과. 참고: #19 fs-connect-code.test \"같은 난수\" 테스트가 병렬 실행 때 한 번 간헐 실패(재실행 통과)."
     },
     {
