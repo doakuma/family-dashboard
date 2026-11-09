@@ -98,8 +98,8 @@
       ],
       "status": "in_progress",
       "passes": false,
-      "review": null,
-      "note": "잡음: 2026-11-09 13:50 KST (목 진행 큐 1번)"
+      "review": "pending",
+      "note": "잡음: 2026-11-09 13:50 KST (목 진행 큐 1번) / 목 구현 완료, 리뷰 대기. 필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL(채널 id), WIKI_REPO_PATH"
     },
     {
       "id": 10,

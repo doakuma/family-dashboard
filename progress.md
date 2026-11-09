@@ -225,3 +225,14 @@
 - 오너 확인 대기(표시만 함): 다다음 주 일요일, 지난 주 일요일, 일요일 당일 주말·지난 주말, 일요일 당일 지난 주말(오늘 포함).
 - 후속4 리뷰 수정: keep_alive 단위 없는 정수는 숫자(초)로·단위 있으면 문자열(Go 파서 400 방지), qTense "" 허용, 채점 보고에 Ollama prompt_eval_count(문항별·최대·평균, num_ctx 90% 초과 경고, OllamaClient.lastUsage).
 - 남은 문제: 실제 모델 정답률 재측정 필요(`pnpm --filter @hsh/bot eval:dates`). 풀이표가 길어져 토큰 수가 늘었으니 문맥/속도는 노트북에서 확인.
+
+## 2026-11-09 · #9 슬랙 확인 버튼 흐름 (목 진행)
+- 오너 결정(11-09)에 따라 슬랙 토큰 없이 목으로 구현. 흐름은 메신저와 무관한 `apps/bot/src/flow/`(conversation·pending·ui 포트), 슬랙은 `slack/messenger.ts`(Block Kit 그리기, message·block_actions 페이로드 zod 검증, chat.postMessage/update/postEphemeral)만 맡는다. `index.ts`가 #가족 채널·DM 글과 `hsh:` 버튼을 흐름으로 넘긴다.
+- 쓰기: 미리보기 "… — 넣을까요?" + [넣기][고치기][취소] → 넣기 시 카드 "⏳ 넣는 중…" → `WikiRepository.apply`(log.md는 apply가 씀) → 카드 ✅ + 스레드 "넣었어요". 실패하면 카드에 원인 + [다시 시도][고치기][취소]. 여러 개(장보기 등)는 카드 하나, 차례로 넣고 일부 실패 시 다시 시도는 남은 것만(이때 고치기 없음). 동기화(push)만 실패하면 버튼 없이 알림.
+- 고르기: 대상이 여럿이면 후보 버튼(최대 5개, 넘으면 더 구체적으로 말해 달라고 함) → 고르면 위키를 다시 읽어 resolveChoice → 같은 카드가 확인 카드로.
+- 질문은 answerFromQuery 답을 스레드에. 잡담(`cause: "unrelated"` 추가)은 채널에서 무시, DM에서 되묻기. LLM 실패는 연결 문제 안내, 내용 문제는 이유 + "다시 말해 주세요".
+- 보관: 요청은 메모리(PendingStore, 24시간, 500건). 버튼 값에는 요청 id만. 상태 전이로 두 번 눌러도 한 번만 씀. 재시작·만료된 버튼은 카드를 "시간이 지났어요"로.
+- 검증: pnpm check 통과(799 테스트, 실제 슬랙·LLM 호출 없음). 테스트: flow/conversation.test.ts(20), slack/messenger.test.ts.
+- 실연결에 필요한 값: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL(채널 **id**, C로 시작), WIKI_REPO_PATH. 슬랙 앱: Interactivity 켬(Socket Mode), 봇 스코프 chat:write·channels:history·im:history(+비공개 채널이면 groups:history), 이벤트 message.channels·message.im.
+- 오너 확인 필요(스펙에 없어 정한 것): (1) [고치기] = 스레드에 고칠 말을 보내면 "처음 말 + 고친 내용"을 LLM에 다시 보냄 (2) 버튼은 요청한 사람만 누름(다른 사람은 본인에게만 안내) (3) 여러 항목은 카드 하나 (4) 봇 재시작 시 기다리던 버튼은 무효 (5) core `MessengerAdapter` 대신 봇 내부 포트 `ConversationUi`(카드 고치기·본인 안내가 필요)를 씀 → 스펙 "인터페이스" 절 갱신 여부 (6) log.md 작성자는 "slack"(포트에 작성자 인자가 없음).
+- 남은 문제: 권한(#21), 캘린더 복사(#11)는 연결 안 함. 실제 슬랙에서 버튼 모양·스레드 동작 확인 필요(#3 토큰 후).

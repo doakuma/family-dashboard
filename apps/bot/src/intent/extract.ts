@@ -25,8 +25,8 @@ export type Intent =
   | { type: "choose"; kind: "event.update" | "event.remove" | "task.done"; candidates: string[]; patch?: Partial<Event>; preview: string }
   /** 읽기 전용 질문. 답은 코드가 위키에서 만든다(answer/) */
   | { type: "question"; query: QuestionQuery }
-  /** cause: LLM 호출 자체가 실패했거나 응답 형식이 틀린 경우(메시지 내용 문제가 아님) */
-  | { type: "unknown"; reason: string; cause?: "llm_error" | "bad_format" };
+  /** cause: LLM 호출 자체가 실패했거나 응답 형식이 틀린 경우(메시지 내용 문제가 아님), unrelated = 일정·할 일과 관련 없는 글(잡담) */
+  | { type: "unknown"; reason: string; cause?: "llm_error" | "bad_format" | "unrelated" };
 
 export const QUESTION_KINDS = ["events", "tasks", "anniversaries"] as const;
 export type QuestionKind = (typeof QUESTION_KINDS)[number];
@@ -173,7 +173,7 @@ function toIntent(o: LlmOutput, ctx: Ctx): Intent {
     }
 
     default:
-      return { type: "unknown", reason: "일정·할 일과 관련 없는 메시지" };
+      return { type: "unknown", reason: "일정·할 일과 관련 없는 메시지", cause: "unrelated" };
   }
 }
 
