@@ -96,9 +96,10 @@
         7,
         8
       ],
-      "status": "todo",
+      "status": "in_progress",
       "passes": false,
-      "review": null
+      "review": null,
+      "note": "잡음: 2026-11-09 13:50 KST (목 진행 큐 1번)"
     },
     {
       "id": 10,
