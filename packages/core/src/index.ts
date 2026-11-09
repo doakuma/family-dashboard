@@ -4,6 +4,7 @@ export * from "./ports";
 export * from "./config";
 export * from "./connect-code";
 export * from "./permission";
+export * from "./lock-error";
 export * from "./member-colors";
 export * from "./member-id";
 export * from "./setup-notice";

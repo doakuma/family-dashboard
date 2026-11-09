@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync,
 import { link, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import { promisify } from "node:util";
+import { WikiLockError } from "../lock-error";
 import type { WikiRepository, WriteResult } from "../ports";
 import { DEFAULT_FAMILY_ID, type Change, type FamilyId, type SettingsChange, type SetupInput, type WikiState } from "../types";
 import { applyChange, formatLogLine, type ApplyResult, type WikiFiles } from "../wiki/apply";
@@ -31,20 +32,18 @@ export interface FsWikiOptions {
   random?: () => number;
   /** 프로세스 간 쓰기 잠금을 기다리는 최대 시간(ms). 기본 30초. 넘으면 WikiLockError */
   lockWaitMs?: number;
-  /** 이 시간보다 오래된 잠금은 죽은 프로세스가 남긴 것으로 보고 치운다(ms). 기본 5분 */
+  /** 주인이 살아 있는 잠금이 이 시간보다 오래되면 경고만 남긴다(치우지 않음, ms). 기본 30분 */
   lockStaleMs?: number;
   /** 잠금 재시도 간격(ms). 기본 50 */
   lockRetryMs?: number;
+  /** push·pull 같은 네트워크 git 명령의 제한 시간(ms). 기본 90초. 넘으면 push는 synced:false + syncError(커밋은 유지), pull은 되돌리고 오류 */
+  gitNetworkTimeoutMs?: number;
 }
 
-/** 다른 프로세스(대시보드·봇)가 쓰는 중이라 제때 쓰기 잠금을 얻지 못했다 */
-export class WikiLockError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "WikiLockError";
-  }
-}
+export { WikiLockError };
 
+/** 로그인 창을 기다리며 멈추지 않게 */
+const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
 const LOCK_NAME = "hsh-write.lock";
 const isErr = (e: unknown, ...codes: string[]) => codes.includes((e as NodeJS.ErrnoException | undefined)?.code ?? "");
 const pidAlive = (pid: number): boolean => {
@@ -152,7 +151,7 @@ export class FsWikiRepository implements WikiRepository {
       await this.assertReady();
       if (!(await this.hasRemote())) return;
       try {
-        await this.git("pull", "--rebase", "--autostash");
+        await this.gitNet("pull", "--rebase", "--autostash");
       } catch (e) {
         // 충돌 등으로 rebase가 도중에 멈추면 레포가 그 상태로 남아 다음 apply가 엉뚱한 데 커밋한다 -> 되돌린다.
         const detail = await this.abortInProgress();
@@ -219,13 +218,16 @@ export class FsWikiRepository implements WikiRepository {
     const lock = this.gitPath(LOCK_NAME);
     const token = randomBytes(8).toString("hex");
     const wait = this.opts.lockWaitMs ?? 30_000;
-    const stale = this.opts.lockStaleMs ?? 300_000;
+    const stale = this.opts.lockStaleMs ?? 30 * 60_000;
     const retry = this.opts.lockRetryMs ?? 50;
     const until = Date.now() + wait;
     for (;;) {
       if (await this.tryLock(lock, token)) break;
       await this.clearStale(lock, stale);
-      if (Date.now() >= until) throw new WikiLockError(`다른 프로세스가 위키에 쓰는 중이라 ${Math.round(wait / 1000)}초 기다렸지만 잠금을 얻지 못했어요. 잠시 뒤 다시 해 주세요 (${lock})`);
+      if (Date.now() >= until) {
+        (this.opts.warn ?? console.warn)(`[wiki] 다른 프로세스가 쓰는 중이라 ${Math.round(wait / 1000)}초 기다렸지만 쓰기 잠금을 얻지 못했어요: ${lock}`);
+        throw new WikiLockError();
+      }
       await new Promise((r) => setTimeout(r, retry));
     }
     try {
@@ -250,7 +252,13 @@ export class FsWikiRepository implements WikiRepository {
       }
       return true;
     } catch (e) {
-      if (isErr(e, "EEXIST", "EPERM", "EBUSY")) return false;
+      if (isErr(e, "EEXIST")) return false;
+      // 잠금 파일이 없는데도 link가 거부되면 남이 쥔 게 아니라 하드 링크를 못 만드는 곳(FAT·일부 네트워크 드라이브)이다
+      if (isErr(e, "EPERM", "EBUSY", "ENOTSUP", "EOPNOTSUPP", "EXDEV") && !existsSync(lock)) {
+        (this.opts.warn ?? console.warn)(`[wiki] 쓰기 잠금용 하드 링크를 만들 수 없어요(${(e as NodeJS.ErrnoException).code}): ${lock}`);
+        throw new Error("위키 폴더가 하드 링크를 지원하지 않아 쓰기 잠금을 만들 수 없어요. NTFS·ext4 같은 파일 시스템에 두세요", { cause: e });
+      }
+      if (isErr(e, "EPERM", "EBUSY")) return false;
       throw e;
     } finally {
       await unlink(tmp).catch(() => {});
@@ -266,18 +274,29 @@ export class FsWikiRepository implements WikiRepository {
     }
   }
 
-  /** 시각이 오래됐거나(주인을 알 수 없는 깨진 잠금 포함) 같은 기계의 주인 프로세스가 없으면 치운다. 지우기 직전에 다시 읽어 같은 잠금일 때만 */
+  /**
+   * 주인 프로세스가 없거나(같은 기계의 pid 확인) 내용이 깨진 잠금만 치운다. 지우기 직전에 다시 읽어 같은 잠금일 때만.
+   * 주인이 살아 있으면 오래돼도 치우지 않는다(push가 느린 것일 수 있고, 빼앗으면 동시 쓰기가 된다). 아주 오래됐으면(staleMs) 경고만 남긴다.
+   */
   private async clearStale(lock: string, staleMs: number): Promise<void> {
     const first = await this.readLock(lock);
     if (!first) return;
-    const old = typeof first.at !== "number" || Date.now() - first.at > staleMs;
+    const broken = typeof first.pid !== "number" || typeof first.at !== "number";
     const dead = typeof first.pid === "number" && !pidAlive(first.pid);
-    if (!old && !dead) return;
+    if (!broken && !dead) {
+      if (Date.now() - (first.at ?? 0) > staleMs && this.warnedLock !== first.token) {
+        this.warnedLock = first.token;
+        (this.opts.warn ?? console.warn)(`[wiki] pid ${first.pid ?? "?"}이(가) ${Math.round(staleMs / 60_000)}분이 넘게 쓰기 잠금을 쥐고 있어요(살아 있어 치우지 않음). 멈췄다면 그 프로세스를 확인해 주세요`);
+      }
+      return;
+    }
     const again = await this.readLock(lock);
     if (again?.token !== first.token) return;
-    (this.opts.warn ?? console.warn)(`[wiki] 오래된 쓰기 잠금을 치웠어요(pid ${first.pid ?? "?"})`);
+    (this.opts.warn ?? console.warn)(`[wiki] 주인 없는 쓰기 잠금을 치웠어요(pid ${first.pid ?? "?"})`);
     await unlink(lock).catch(() => {});
   }
+
+  private warnedLock: string | undefined;
 
   private async applyNow(change: Change, by: string): Promise<ApplyOutcome> {
     await this.assertReady();
@@ -356,7 +375,7 @@ export class FsWikiRepository implements WikiRepository {
     if (this.opts.push !== false) {
       try {
         if (await this.hasRemote()) {
-          await this.git("push");
+          await this.gitNet("push");
           synced = true;
         }
       } catch (e) {
@@ -399,8 +418,19 @@ export class FsWikiRepository implements WikiRepository {
     return stdout.trim().length > 0;
   }
 
+  /** 네트워크를 쓰는 git 명령: 멈추면 잠금을 오래 쥐게 되므로 제한 시간을 둔다 */
+  private async gitNet(...args: string[]) {
+    const ms = this.opts.gitNetworkTimeoutMs ?? 90_000;
+    try {
+      return await run("git", args, { cwd: this.root, timeout: ms, killSignal: "SIGKILL", env: GIT_ENV });
+    } catch (e) {
+      if ((e as { killed?: boolean }).killed) throw new Error(`git ${args[0] ?? ""}가 ${Math.round(ms / 1000)}초 안에 끝나지 않아 멈췄어요(시간 초과)`, { cause: e });
+      throw e;
+    }
+  }
+
   private git(...args: string[]) {
-    return run("git", args, { cwd: this.root });
+    return run("git", args, { cwd: this.root, env: GIT_ENV });
   }
 }
 

@@ -1,6 +1,6 @@
 // POST /api/settings의 본체: 본문 모양(zod) -> 읽기/발급/조회 -> repo.applySettings -> HTTP 응답으로 번역. (출처·세션·본문 크기는 lib/setup/guard.ts의 guardSettingsJson + route.ts)
 // 위키 쓰기는 항상 WikiRepository.applySettings 하나. 슬랙 ID는 서버 안(연결 기록 -> 위키)에서만 돌고 응답에는 연결됨 여부만 나간다.
-import { ConnectStoreError, SettingsError, findRegion, isConnectCode, regionToConfigFields, type ConnectCodeState, type ConnectCodeStore, type FamilyId, type SettingsChange, type SettingsIssue, type WikiRepository, type WikiState } from "@hsh/core";
+import { ConnectStoreError, SettingsError, WikiLockError, findRegion, isConnectCode, regionToConfigFields, type ConnectCodeState, type ConnectCodeStore, type FamilyId, type SettingsChange, type SettingsIssue, type WikiRepository, type WikiState } from "@hsh/core";
 import { z } from "zod";
 import { toSettingsView, type SettingsView } from "./view";
 
@@ -21,7 +21,7 @@ export type SettingsBody =
     }
   | { ok: false; code: ErrorCode; message: string; issues?: SettingsIssue[] };
 
-export type ErrorCode = "bad_request" | "invalid" | "not_found" | "conflict" | "needs_setup" | "not_connected" | "too_many" | "read_only" | "failed";
+export type ErrorCode = "bad_request" | "invalid" | "not_found" | "conflict" | "needs_setup" | "not_connected" | "too_many" | "read_only" | "busy" | "failed";
 
 export interface SettingsResult {
   status: 200 | 409 | 422 | 429 | 500 | 503;
@@ -90,6 +90,7 @@ export async function runSettings(raw: unknown, deps: SettingsApiDeps): Promise<
       return { status: 200, body: { ok: true, saved: true, synced: r.synced, ...(r.syncError ? { syncError: r.syncError } : {}), ...optionalView(await view()) } };
     } catch (e) {
       if (e instanceof SettingsError) return fail(STATUS[e.code], e.code, e.message, e.issues);
+      if (e instanceof WikiLockError) return fail(503, "busy", e.message);
       log(`위키 쓰기 실패: ${e instanceof Error ? e.message : String(e)}`);
       return fail(500, "failed", MSG.writeFailed);
     }

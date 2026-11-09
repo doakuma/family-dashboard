@@ -1,4 +1,4 @@
-import { SettingsError, asFamilyId, ConnectStoreError, type ConnectCodeStore, type Member, type SettingsChange } from "@hsh/core";
+import { SettingsError, WikiLockError, asFamilyId, ConnectStoreError, type ConnectCodeStore, type Member, type SettingsChange } from "@hsh/core";
 import { describe, expect, it, vi } from "vitest";
 import { runSettings, type SettingsApiDeps } from "./api";
 
@@ -86,6 +86,10 @@ describe("runSettings: 오류 번역", () => {
   ] as const)("SettingsError %s -> %i", async (code, status) => {
     const r = await runSettings({ kind: "member.color", id: "haneul", color: "green" }, rejecting(new SettingsError("안내 문구", code)));
     expect(r).toMatchObject({ status, body: { ok: false, code, message: "안내 문구" } });
+  });
+  it("다른 곳에서 저장 중(WikiLockError)이면 503 + 다시 하라는 문구", async () => {
+    const r = await runSettings({ kind: "member.color", id: "haneul", color: "green" }, rejecting(new WikiLockError()));
+    expect(r).toMatchObject({ status: 503, body: { ok: false, code: "busy", message: "다른 곳에서 저장 중이에요. 잠시 뒤 다시 해 주세요" } });
   });
   it("그 밖의 오류는 500 + 일반 문구(내부 메시지를 싣지 않는다)", async () => {
     const r = await runSettings({ kind: "member.color", id: "haneul", color: "green" }, rejecting(new Error("fatal: /home/x/secret")));

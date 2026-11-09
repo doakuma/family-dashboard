@@ -53,13 +53,57 @@ describe("FsWikiRepository 프로세스 간 쓰기 잠금", () => {
     expect(existsSync(lock)).toBe(true);
   });
 
-  it("오래된 잠금·죽은 프로세스의 잠금·깨진 잠금은 치우고 쓴다", async () => {
+  it("주인 프로세스가 없는 잠금·깨진 잠금은 치우고 쓴다", async () => {
     const dead = Number(execFileSync("node", ["-e", "process.stdout.write(String(process.pid))"]).toString());
-    for (const content of [JSON.stringify({ pid: process.pid, token: "x", at: Date.now() - 10 * 60_000 }), JSON.stringify({ pid: dead, token: "y", at: Date.now() }), "{깨짐"]) {
+    for (const content of [JSON.stringify({ pid: dead, token: "y", at: Date.now() }), JSON.stringify({ pid: dead, token: "z", at: Date.now() - 99 * 60_000 }), "{깨짐"]) {
       writeFileSync(lock, content);
       await repo({ lockWaitMs: 2000 }).apply(FID, { kind: "task.add", payload: { list: "shopping", title: `t${content.length}` } });
       expect(existsSync(lock)).toBe(false);
     }
+  });
+
+  it("주인이 살아 있으면 오래돼도 치우지 않는다(경고만, 한 번)", async () => {
+    const warns: string[] = [];
+    const old = JSON.stringify({ pid: process.pid, token: "slow", at: Date.now() - 40 * 60_000 });
+    writeFileSync(lock, old);
+    const r = repo({ lockWaitMs: 80, lockStaleMs: 30 * 60_000, warn: (m) => warns.push(m) });
+    await expect(r.apply(FID, { kind: "task.add", payload: { list: "shopping", title: "우유" } })).rejects.toBeInstanceOf(WikiLockError);
+    expect(readFileSync(lock, "utf8")).toBe(old);
+    expect(warns.filter((w) => w.includes("살아 있어"))).toHaveLength(1);
+  });
+
+  it("WikiLockError 메시지에는 경로가 없고(로그에만), 화면용 문구다", async () => {
+    const warns: string[] = [];
+    writeFileSync(lock, JSON.stringify({ pid: process.pid, token: "other", at: Date.now() }));
+    const e = await repo({ lockWaitMs: 50, warn: (m) => warns.push(m) }).apply(FID, { kind: "task.add", payload: { list: "shopping", title: "우유" } }).catch((x: unknown) => x);
+    expect(e).toBeInstanceOf(WikiLockError);
+    expect((e as Error).message).toBe("다른 곳에서 저장 중이에요. 잠시 뒤 다시 해 주세요");
+    expect((e as Error).message).not.toContain(root);
+    expect(warns.join("\n")).toContain(lock);
+  });
+
+  it("push가 멈추면 제한 시간 뒤 커밋은 남기고 synced:false + syncError, 잠금은 풀린다", async () => {
+    git(root, "config", "protocol.ext.allow", "always");
+    git(root, "remote", "add", "origin", "ext::sleep 30");
+    git(root, "config", "branch.main.remote", "origin");
+    git(root, "config", "branch.main.merge", "refs/heads/main");
+    const t0 = Date.now();
+    const r = await repo({ push: true, gitNetworkTimeoutMs: 300 }).apply(FID, { kind: "task.add", payload: { list: "shopping", title: "우유" } });
+    expect(Date.now() - t0).toBeLessThan(10_000);
+    expect(r.synced).toBe(false);
+    expect(r.syncError).toContain("시간 초과");
+    expect(git(root, "rev-parse", "HEAD")).toBe(r.version);
+    expect(readFileSync(join(root, "tasks.md"), "utf8")).toContain("우유");
+    expect(existsSync(lock)).toBe(false);
+  });
+
+  it("pull이 멈추면 제한 시간 뒤 오류를 던지고 잠금은 풀린다", async () => {
+    git(root, "config", "protocol.ext.allow", "always");
+    git(root, "remote", "add", "origin", "ext::sleep 30");
+    git(root, "config", "branch.main.remote", "origin");
+    git(root, "config", "branch.main.merge", "refs/heads/main");
+    await expect(repo({ gitNetworkTimeoutMs: 300 }).pull()).rejects.toThrow(/시간 초과/);
+    expect(existsSync(lock)).toBe(false);
   });
 
   it("쓰기가 실패해도 잠금은 풀린다", async () => {
