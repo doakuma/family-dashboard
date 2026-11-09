@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Card } from "../flow/ui";
-import { ACTION_PATTERN, SlackUi, escapeMrkdwn, renderCard, toActionInput, toConversationMessage, type SlackChatClient } from "./messenger";
+import { ACTION_PATTERN, SlackUi, escapeMrkdwn, fromSlackText, renderCard, toActionInput, toConversationMessage, type SlackChatClient } from "./messenger";
 
 const card: Card = {
   text: "11/3(화) 15:00 하늘 치과 — 넣을까요?",
@@ -33,6 +33,8 @@ describe("renderCard", () => {
     expect(escapeMrkdwn("<!channel> a&b <@U1>")).toBe("&lt;!channel&gt; a&amp;b &lt;@U1&gt;");
     const r = renderCard({ text: "<!here> 치과", buttons: [] });
     expect(r.blocks[0]).toMatchObject({ text: { text: "&lt;!here&gt; 치과" } });
+    // 알림용 대체 글도 같은 규칙
+    expect(r.text).toBe("&lt;!here&gt; 치과");
   });
 
   it("고르기 버튼은 값에 후보 id를 싣고, 긴 이름은 75자로 자른다", () => {
@@ -62,6 +64,11 @@ describe("toConversationMessage", () => {
     expect(toConversationMessage({ ...dm, thread_ts: "1.1" }, {})?.thread.threadId).toBe("1.1");
   });
 
+  it("파일과 함께 쓴 글, 채널에도 보낸 스레드 답글은 듣는다", () => {
+    expect(toConversationMessage({ ...base, subtype: "file_share" }, opts)?.text).toBe("치과");
+    expect(toConversationMessage({ ...base, subtype: "thread_broadcast", thread_ts: "1.1" }, opts)?.thread.threadId).toBe("1.1");
+  });
+
   it("다른 채널, 가족 채널 미설정, 봇 글, 수정·삭제(subtype)는 듣지 않는다", () => {
     expect(toConversationMessage({ ...base, channel: "C0OTHER" }, opts)).toBeUndefined();
     expect(toConversationMessage(base, {})).toBeUndefined();
@@ -70,9 +77,24 @@ describe("toConversationMessage", () => {
     expect(toConversationMessage({ type: "message", channel: "C0FAMILY" }, opts)).toBeUndefined();
   });
 
-  it("봇 멘션은 떼고, 남는 글이 없으면 무시한다", () => {
-    expect(toConversationMessage({ ...base, text: "<@U0BOT> 우유 사야 돼" }, opts)?.text).toBe("우유 사야 돼");
-    expect(toConversationMessage({ ...base, text: "<@U0BOT>" }, opts)).toBeUndefined();
+  it("봇 멘션만 떼고(다른 사람 멘션은 @U…로 남김), 남는 글이 없으면 무시한다", () => {
+    const o = { ...opts, botUserId: "U0BOT" };
+    expect(toConversationMessage({ ...base, text: "<@U0BOT> 우유 사야 돼" }, o)?.text).toBe("우유 사야 돼");
+    expect(toConversationMessage({ ...base, text: "<@U0BOT> <@U00DAD> 내일 치과" }, o)?.text).toBe("@U00DAD 내일 치과");
+    expect(toConversationMessage({ ...base, text: "<@U0BOT>" }, o)).toBeUndefined();
+  });
+});
+
+describe("fromSlackText", () => {
+  it("엔티티를 원래 글자로 푼다(위키에 &amp;가 남지 않게)", () => {
+    expect(fromSlackText("M&amp;M 사기 &lt;중요&gt;")).toBe("M&M 사기 <중요>");
+    expect(fromSlackText("&amp;lt;")).toBe("&lt;");
+  });
+  it("채널·링크는 보이는 글자로, 전체 알림은 지운다", () => {
+    expect(fromSlackText("<#C123|가족> <https://a.kr|안내> <https://b.kr> <!here> 확인")).toBe("#가족 안내 https://b.kr 확인");
+  });
+  it("이름이 붙은 멘션도 id로 읽는다", () => {
+    expect(fromSlackText("<@U00DAD|dad> 치과", "U0BOT")).toBe("@U00DAD 치과");
   });
 });
 

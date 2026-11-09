@@ -28,6 +28,8 @@ export interface Pending {
   /** 버튼이 달린 메시지(상태가 바뀌면 이 메시지를 고친다) */
   card?: MessageRef;
   createdAt: number;
+  /** 마지막으로 상태가 바뀐 시각. 만료는 이때부터 센다(실패 뒤 다시 시도할 시간을 준다) */
+  touchedAt: number;
   lastError?: string;
 }
 
@@ -51,10 +53,10 @@ export class PendingStore {
     private readonly ttlMs: number = PENDING_TTL_MS,
   ) {}
 
-  create(p: Omit<Pending, "id" | "createdAt" | "applied">): Pending {
+  create(p: Omit<Pending, "id" | "createdAt" | "touchedAt" | "applied">): Pending {
     this.prune();
     const id = `p${this.now().toString(36)}${(++this.seq).toString(36)}`;
-    const item: Pending = { ...p, id, applied: 0, createdAt: this.now() };
+    const item: Pending = { ...p, id, applied: 0, createdAt: this.now(), touchedAt: this.now() };
     this.items.set(id, item);
     return item;
   }
@@ -70,12 +72,18 @@ export class PendingStore {
     return p;
   }
 
-  /** 이 스레드에서 이 사람이 고치는 중인 요청 */
+  /**
+   * 이 자리에서 이 사람이 고치는 중인 요청. 1:1 대화방은 본문·스레드 어디에 답해도 같은 대화로 본다
+   * (카드가 본문에 달려 있어 카드에 스레드로 답하면 스레드 id가 달라지므로). 여럿이면 가장 최근 것.
+   */
   findEditing(userId: string, thread: Thread): Pending | undefined {
+    let found: Pending | undefined;
     for (const p of this.items.values()) {
-      if (p.status === "editing" && p.userId === userId && p.thread.channelId === thread.channelId && p.thread.threadId === thread.threadId && !this.expired(p)) return p;
+      if (p.status !== "editing" || p.userId !== userId || p.thread.channelId !== thread.channelId || this.expired(p)) continue;
+      if (!thread.isDirect && p.thread.threadId !== thread.threadId) continue;
+      if (!found || p.touchedAt >= found.touchedAt) found = p;
     }
-    return undefined;
+    return found;
   }
 
   /**
@@ -85,6 +93,7 @@ export class PendingStore {
   transition(p: Pending, from: readonly PendingStatus[], to: PendingStatus): boolean {
     if (!from.includes(p.status)) return false;
     p.status = to;
+    p.touchedAt = this.now();
     return true;
   }
 
@@ -94,7 +103,7 @@ export class PendingStore {
 
   private expired(p: Pending): boolean {
     // 넣는 중인 요청은 시간이 지나도 끝날 때까지 둔다
-    return p.status !== "applying" && this.now() - p.createdAt > this.ttlMs;
+    return p.status !== "applying" && this.now() - p.touchedAt > this.ttlMs;
   }
 
   private prune(): void {

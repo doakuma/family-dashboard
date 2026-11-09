@@ -239,6 +239,17 @@ describe("고치기", () => {
     expect(wiki.applied).toMatchObject([{ kind: "event.add", payload: { start: "16:00" } }]);
   });
 
+  it("DM에서는 카드에 스레드로 답해도 고친 내용으로 본다", async () => {
+    const llm = fakeLlm(ADD, { ...ADD, start: "16:00" });
+    const { conv, ui } = setup({ llm });
+    await conv.handleMessage(say("치과", DM));
+    const b = lastCard(ui).buttons.find((x) => x.action === "edit");
+    await conv.handleAction({ action: "edit", pendingId: b?.pendingId ?? "", userId: "U00MOM", thread: DM, card: ui.sent[0]?.ref });
+    expect(ui.last().card?.text).toContain(TEXT.editingDirect);
+    await conv.handleMessage(say("4시로", { ...DM, threadId: ui.sent[0]?.ref?.messageId }));
+    expect(llm.users[1]).toBe("치과\n고친 내용: 4시로");
+  });
+
   it("다른 스레드나 다른 사람의 글은 고친 내용으로 보지 않는다", async () => {
     const llm = fakeLlm(ADD, ADD, ADD);
     const { conv, press } = setup({ llm });
@@ -247,6 +258,49 @@ describe("고치기", () => {
     await conv.handleMessage(say("4시로", { ...CHANNEL, threadId: "222.2" }));
     await conv.handleMessage(say("4시로", CHANNEL, "U00DAD"));
     expect(llm.users.slice(1)).toEqual(["4시로", "4시로"]);
+  });
+});
+
+describe("후보 고르기·취소", () => {
+  it("후보를 고르는 사이(위키 읽는 중)에 취소되면 카드를 확인 카드로 덮어쓰지 않는다", async () => {
+    const base = fakeWiki();
+    let release = () => {};
+    let reads = 0;
+    const wiki = {
+      ...base,
+      read: async () => {
+        if (++reads === 2) await new Promise<void>((r) => (release = r));
+        return wikiState();
+      },
+    };
+    const { conv, ui, press } = setup({ wiki, llm: fakeLlm({ intent: "event.remove", targetIds: ["evt-a1b2", "evt-c3d4"] }) });
+    await conv.handleMessage(say("치과 지워줘"));
+    const card = lastCard(ui);
+    const picking = press("pick", { label: "11/3", card });
+    await new Promise((r) => setTimeout(r, 0));
+    await press("cancel", { card });
+    release();
+    await picking;
+    expect(ui.last().card?.text.startsWith(TEXT.cancelled)).toBe(true);
+    expect(base.applied).toEqual([]);
+  });
+
+  it("일부를 넣은 뒤 취소하면 넣은 개수를 남긴다", async () => {
+    const { conv, ui, press } = setup({
+      wiki: fakeWiki({ failAt: [1] }),
+      llm: fakeLlm({ intent: "task.add", items: [{ list: "shopping", title: "우유" }, { list: "shopping", title: "사과" }] }),
+    });
+    await conv.handleMessage(say("우유랑 사과"));
+    await press("insert");
+    await press("cancel");
+    expect(ui.last().card?.text).toContain("앞의 1개는 이미 넣었어요");
+  });
+
+  it("멘션(@U…)은 구성원 이름으로 바꿔 LLM에 보낸다", async () => {
+    const llm = fakeLlm(ADD);
+    const { conv } = setup({ llm });
+    await conv.handleMessage(say("@U00DAD 내일 치과 @U0NOBODY"));
+    expect(llm.users[0]).toBe("아빠 내일 치과 @U0NOBODY");
   });
 });
 
@@ -334,6 +388,19 @@ describe("질문·잡담·실패", () => {
 });
 
 describe("시간이 지난 버튼", () => {
+  it("만료는 마지막 상태 변화부터 센다(실패 뒤 하루 안에는 다시 시도할 수 있다)", async () => {
+    let t = 0;
+    const pending = new PendingStore(() => t);
+    const wiki = fakeWiki({ failAt: [0] });
+    const { conv, press } = setup({ wiki, llm: fakeLlm(ADD), pending });
+    await conv.handleMessage(say("치과"));
+    t = PENDING_TTL_MS - 10;
+    await press("insert");
+    t = PENDING_TTL_MS + 1000;
+    await press("retry");
+    expect(wiki.applied).toEqual([ADD_CHANGE]);
+  });
+
   it("보관소에 없는 요청(재시작·만료)의 버튼은 카드를 '시간이 지났어요'로 바꾼다", async () => {
     let t = 0;
     const pending = new PendingStore(() => t);

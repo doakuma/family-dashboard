@@ -30,6 +30,7 @@ export const TEXT = {
   inserted: "넣었어요",
   cancelled: "취소했어요",
   editing: "✏️ 고칠 내용을 이 스레드에 보내 주세요. 처음 말과 합쳐서 다시 확인할게요.",
+  editingDirect: "✏️ 고칠 내용을 이 대화에 보내 주세요. 처음 말과 합쳐서 다시 확인할게요.",
   edited: "✏️ 고친 내용으로 다시 확인할게요.",
   expired: "⌛ 시간이 지났거나 봇이 다시 켜져서 이 버튼은 쓸 수 없어요. 다시 말해 주세요.",
   notOwner: "요청한 분만 누를 수 있어요.",
@@ -73,6 +74,8 @@ export class Conversation {
       return;
     }
 
+    // "@U…"(메신저 사용자 멘션)는 구성원 이름으로 바꿔 LLM에 보낸다
+    text = text.replace(/@(U[A-Z0-9]+)/g, (m, id: string) => wiki.members.find((x) => x.slackId === id)?.name ?? m);
     const now = this.now();
     const intent = await extractIntent({ text, now, senderSlackId: userId, ...wiki }, this.deps.llm);
     await this.respond(intent, { msg, text, wiki, today: todayIn(now), wasEditing: !!editing });
@@ -100,12 +103,14 @@ export class Conversation {
       case "edit":
         // 일부를 이미 넣은 요청은 고치면 넣은 것까지 다시 들어가므로 고치기를 받지 않는다
         if (p.applied === 0 && this.pending.transition(p, ["confirm", "failed"], "editing")) {
-          await this.updateCard(p, { text: `${TEXT.editing}\n(처음: ${p.preview})`, buttons: [button(p, "cancel", "취소")] });
+          const ask = p.thread.isDirect ? TEXT.editingDirect : TEXT.editing;
+          await this.updateCard(p, { text: `${ask}\n(처음: ${p.preview})`, buttons: [button(p, "cancel", "취소")] });
         }
         return;
       case "cancel":
         if (this.pending.transition(p, ["confirm", "choose", "failed", "editing"], "cancelled")) {
-          await this.updateCard(p, textCard(`${TEXT.cancelled}: ${p.preview}`));
+          const kept = p.applied > 0 ? `\n(앞의 ${p.applied}개는 이미 넣었어요)` : "";
+          await this.updateCard(p, textCard(`${TEXT.cancelled}: ${p.preview}${kept}`));
         }
         return;
       case "pick":
@@ -184,8 +189,10 @@ export class Conversation {
         tasks: wiki.tasks,
         today: todayIn(this.now()),
       });
+      // 위키를 읽는 사이에 [취소]됐으면 카드를 덮어쓰지 않는다
+      if (p.status !== "confirm") return;
       if (r.type !== "change") {
-        p.status = "cancelled";
+        this.pending.transition(p, ["confirm"], "cancelled");
         await this.updateCard(p, textCard(`${r.type === "unknown" ? r.reason : "고를 수 없어요"}. 다시 말해 주세요.`));
         return;
       }
@@ -193,9 +200,8 @@ export class Conversation {
       p.preview = r.preview;
       await this.updateCard(p, confirmCard(p));
     } catch (e) {
-      p.status = "cancelled";
       this.log(`후보 확인 실패: ${errorText(e)}`);
-      await this.updateCard(p, textCard(TEXT.readFailed));
+      if (this.pending.transition(p, ["confirm"], "cancelled")) await this.updateCard(p, textCard(TEXT.readFailed));
     }
   }
 
@@ -212,7 +218,7 @@ export class Conversation {
         if (!r.synced && r.syncError) syncErrors.push(r.syncError);
       }
     } catch (e) {
-      p.status = "failed";
+      this.pending.transition(p, ["applying"], "failed");
       p.lastError = errorText(e);
       this.log(`위키 쓰기 실패(${p.id}): ${p.lastError}`);
       const done = p.applied > 0 ? `\n(앞의 ${p.applied}개는 넣었어요. 다시 시도하면 나머지만 넣어요)` : "";
@@ -222,7 +228,7 @@ export class Conversation {
       });
       return;
     }
-    p.status = "done";
+    this.pending.transition(p, ["applying"], "done");
     await this.updateCard(p, textCard(`✅ ${p.preview}`));
     // 저장은 끝났고 원격 반영만 실패한 경우: 다시 넣으면 중복이므로 버튼 없이 알리기만 한다
     const sync = syncErrors.length ? `\n(위키 저장은 됐지만 원격 동기화는 실패했어요: ${truncate(syncErrors.join(" / "), MAX_CAUSE)})` : "";
@@ -235,7 +241,7 @@ export class Conversation {
       p.card = await this.deps.ui.post(p.thread, card);
     } catch (e) {
       // 카드를 못 띄웠으면 누를 버튼도 없다 → 요청을 닫는다
-      p.status = "cancelled";
+      this.pending.transition(p, ["confirm", "choose"], "cancelled");
       this.log(`카드 보내기 실패(${p.id}): ${errorText(e)}`);
     }
   }

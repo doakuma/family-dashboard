@@ -236,3 +236,5 @@
 - 실연결에 필요한 값: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL(채널 **id**, C로 시작), WIKI_REPO_PATH. 슬랙 앱: Interactivity 켬(Socket Mode), 봇 스코프 chat:write·channels:history·im:history(+비공개 채널이면 groups:history), 이벤트 message.channels·message.im.
 - 오너 확인 필요(스펙에 없어 정한 것): (1) [고치기] = 스레드에 고칠 말을 보내면 "처음 말 + 고친 내용"을 LLM에 다시 보냄 (2) 버튼은 요청한 사람만 누름(다른 사람은 본인에게만 안내) (3) 여러 항목은 카드 하나 (4) 봇 재시작 시 기다리던 버튼은 무효 (5) core `MessengerAdapter` 대신 봇 내부 포트 `ConversationUi`(카드 고치기·본인 안내가 필요)를 씀 → 스펙 "인터페이스" 절 갱신 여부 (6) log.md 작성자는 "slack"(포트에 작성자 인자가 없음).
 - 남은 문제: 권한(#21), 캘린더 복사(#11)는 연결 안 함. 실제 슬랙에서 버튼 모양·스레드 동작 확인 필요(#3 토큰 후).
+- 리뷰(1차 통과, 중간 3·낮음 5) 반영: 슬랙 글 형식 풀기(`fromSlackText`: 엔티티 &amp;·&lt;·&gt; 원래 글자로, 봇 멘션만 떼고 다른 멘션은 `@U…` → 흐름이 구성원 이름으로, 채널·링크는 보이는 글자로), DM 고치기는 본문·스레드 어디에 답해도 이어짐(문구도 "이 대화에"), 만료는 마지막 상태 변화부터, 고르는 중 취소 시 카드 덮어쓰기 막음(상태는 모두 transition으로), 일부 넣은 뒤 취소하면 넣은 개수 표시, ping은 `/^ping$/`만, file_share·thread_broadcast 글도 들음, 알림용 대체 글도 이스케이프. pnpm check 808 테스트.
+- 실연결 안내 추가: DM을 받으려면 슬랙 앱 App Home의 Messages 탭을 켠다. 스펙 "인터페이스" 절(MessengerAdapter ↔ ConversationUi)은 오너 결정 대기.

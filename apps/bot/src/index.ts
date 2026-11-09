@@ -55,12 +55,12 @@ const app = new App({
 /** 이벤트의 client(토큰이 들어 있음)로 말하는 대화 흐름 */
 const conversationWith = (client: webApi.WebClient) => new Conversation({ wiki, llm, familyId, pending, ui: new SlackUi(async () => client) });
 
-app.message("ping", async ({ say }) => {
+app.message(/^ping$/, async ({ say }) => {
   await say("pong 🏠");
 });
 
-app.message(async ({ message, client }) => {
-  const m = toConversationMessage(message, { familyChannel });
+app.message(async ({ message, client, context }) => {
+  const m = toConversationMessage(message, { familyChannel, botUserId: context.botUserId });
   if (!m || m.text === "ping") return;
   await conversationWith(client).handleMessage(m);
 });

@@ -59,15 +59,16 @@ export function renderCard(card: Card): { text: string; blocks: SlackBlock[] } {
       })),
     });
   }
-  return { text: cut(card.text, SECTION_TEXT_MAX), blocks };
+  return { text: cut(escapeMrkdwn(card.text), SECTION_TEXT_MAX), blocks };
 }
 
 /** 1:1 대화방(DM) 채널 id는 D로 시작한다 */
 const isDmChannel = (id: string) => id.startsWith("D");
 
+/** 사람이 쓴 글로 보는 subtype: 없음, 파일과 함께 쓴 글, 스레드 답글을 채널에도 보낸 글. 수정·삭제·봇 글 등은 듣지 않는다 */
 const messageEventSchema = z.object({
   type: z.literal("message"),
-  subtype: z.undefined().optional(),
+  subtype: z.enum(["file_share", "thread_broadcast"]).optional(),
   bot_id: z.undefined().optional(),
   user: z.string().min(1),
   text: z.string(),
@@ -81,18 +82,35 @@ const messageEventSchema = z.object({
  * 슬랙 message 이벤트 → 흐름 입력. 듣지 않는 글이면 undefined.
  * 듣는 곳: 1:1 대화방과 가족 채널(familyChannel, 채널 id)만. 봇 글·수정·삭제 같은 subtype은 무시한다.
  */
-export function toConversationMessage(event: unknown, opts: { familyChannel?: string }): ConversationMessage | undefined {
+export function toConversationMessage(event: unknown, opts: { familyChannel?: string; botUserId?: string }): ConversationMessage | undefined {
   const r = messageEventSchema.safeParse(event);
   if (!r.success) return undefined;
   const m = r.data;
   const isDirect = m.channel_type === "im" || isDmChannel(m.channel);
   if (!isDirect && (!opts.familyChannel || m.channel !== opts.familyChannel)) return undefined;
-  // 봇을 부른 멘션(<@U…>)은 떼고 읽는다
-  const text = m.text.replace(/<@[A-Z0-9]+>/g, " ").replace(/\s+/g, " ").trim();
+  const text = fromSlackText(m.text, opts.botUserId);
   if (!text) return undefined;
   // 단체 채널은 사용자의 글 아래 스레드에 답한다. DM은 스레드에서 말했을 때만 스레드에 답한다.
   const thread: Thread = isDirect ? { channelId: m.channel, threadId: m.thread_ts, isDirect } : { channelId: m.channel, threadId: m.thread_ts ?? m.ts, isDirect };
   return { userId: m.user, text, thread };
+}
+
+/**
+ * 슬랙 글 형식 → 평문. 봇 멘션은 떼고, 다른 사람 멘션은 "@U…"로 남긴다(흐름이 구성원 이름으로 바꾼다).
+ * 채널·링크는 보이는 글자로, 특수 기호 엔티티(&amp; &lt; &gt;)는 원래 글자로 푼다(이 순서: 엔티티는 마지막).
+ */
+export function fromSlackText(raw: string, botUserId?: string): string {
+  return raw
+    .replace(/<@([A-Z0-9]+)(?:\|[^>]*)?>/g, (_, id: string) => (id === botUserId ? " " : `@${id}`))
+    .replace(/<#[A-Z0-9]+\|([^>]*)>/g, (_, name: string) => `#${name}`)
+    .replace(/<!(here|channel|everyone)(?:\|[^>]*)?>/g, "")
+    .replace(/<([^>|]+)\|([^>]+)>/g, (_, _url: string, label: string) => label)
+    .replace(/<([^>]+)>/g, (_, url: string) => url)
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 const actionBodySchema = z.object({
