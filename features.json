@@ -222,7 +222,7 @@
       "status": "in_progress",
       "passes": false,
       "review": "pass",
-      "note": "잡음: 2026-11-09 (목 진행 큐 2번, 예약 대화). 목 완료, 실연결 확인 대기(리뷰 2차 통과 2c1be3d). 필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, HSH_STATE_DIR(선택), 슬랙 앱 im:history·message.im·App Home Messages 탭. 남은 낮음: mpim·message_changed 글의 코드 무효화, 봇 전체 rate limit, child_process(e2e claim 흉내) 테스트, 봇 시작 시 HSH_STATE_DIR 잘못되면 스택 대신 안내+exit(1)(index.ts:61), claim 재확인 직후 revoke 좁은 경쟁, 2단계 이름 수정 시 연결 풀림 안내 없음. 오너 확인: 미연결 구성원은 완료를 막지 않음(unlinked), 연결 기록 24시간, 한 계정 한 구성원, 잠금은 봇 메모리, 스펙 환경 절·.env.example에 HSH_STATE_DIR"
+      "note": "잡음: 2026-11-09 (목 진행 큐 2번, 예약 대화). 목 완료, 실연결 확인 대기(리뷰 2차 통과 2c1be3d). 필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, HSH_STATE_DIR(선택), 슬랙 앱 im:history·message.im·App Home Messages 탭. 남은 낮음: mpim·message_changed 글의 코드 무효화, 봇 전체 rate limit, child_process(e2e claim 흉내) 테스트, 봇 시작 시 HSH_STATE_DIR 잘못되면 스택 대신 안내+exit(1)(index.ts:61), claim 재확인 직후 revoke 좁은 경쟁, 2단계 이름 수정 시 연결 풀림 안내 없음. 오너 확인: 미연결 구성원은 완료를 막지 않음(unlinked), 연결 기록 24시간, 한 계정 한 구성원, 잠금은 봇 메모리, 스펙 환경 절·.env.example에 HSH_STATE_DIR | 추가 낮음(#20 리뷰): fs-connect-code.test '같은 난수' 테스트가 병렬에서 간헐 실패(a의 random이 고정값이라 link 경쟁에 의존) — 테스트 수정 필요."
     },
     {
       "id": 20,
@@ -235,8 +235,8 @@
       ],
       "status": "in_progress",
       "passes": false,
-      "review": "pending",
-      "note": "잡음: 2026-11-09 (목 진행 큐 3번). 목 완료, 실연결 확인 대기(필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL, HSH_STATE_DIR(선택)) + 슬랙 앱 chat:write, 봇이 #가족 채널에 들어가 있어야 함. 한 일: log.md·커밋 요약 \"세팅 완료: …\", 세팅 화면 폴링 5초(대시보드 60초), core SetupNoticeStore/FsSetupNoticeStore(상태 폴더 notice/, link 배타 claim, 24시간 만료), runSetup이 성공 뒤 알림 put(실패해도 세팅 성공), 봇 welcome/(5초 확인·재시도 백오프·환영 메시지 순수 함수, 예시 3개). 결정 0008. 리뷰 1차 반영: WebClient 재시도 0·10초·레이트리밋 즉시 실패, 토큰은 InstallationStore, claim 토큰(release는 자기 번호만), 완료 화면 문구. setup.e2e.mjs 전체(전환 대기 포함) 통과. 참고: #19 fs-connect-code.test \"같은 난수\" 테스트가 병렬 실행 때 한 번 간헐 실패(재실행 통과)."
+      "review": "pass",
+      "note": "잡음: 2026-11-09 (목 진행 큐 3번). 목 완료, 실연결 확인 대기(필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL, HSH_STATE_DIR(선택)) + 슬랙 앱 chat:write, 봇이 #가족 채널에 들어가 있어야 함. 한 일: log.md·커밋 요약 \"세팅 완료: …\", 세팅 화면 폴링 5초(대시보드 60초), core SetupNoticeStore/FsSetupNoticeStore(상태 폴더 notice/, link 배타 claim, 24시간 만료), runSetup이 성공 뒤 알림 put(실패해도 세팅 성공), 봇 welcome/(5초 확인·재시도 백오프·환영 메시지 순수 함수, 예시 3개). 결정 0008. 리뷰 1차 반영: WebClient 재시도 0·10초·레이트리밋 즉시 실패, 토큰은 InstallationStore, claim 토큰(release는 자기 번호만), 완료 화면 문구. setup.e2e.mjs 전체(전환 대기 포함) 통과. 참고: #19 fs-connect-code.test \"같은 난수\" 테스트가 병렬 실행 때 한 번 간헐 실패(재실행 통과). | 리뷰 2차 통과(fc70cc8). 남은 낮음: 게시 직전 done 재확인 없음(주석·0008 '멈춘다' 문구 정정 필요), 10초 타임아웃인데 슬랙은 받은 경우 한 번 더 게시 가능(0008 한계에 추가), removeAll 순서 단언 약함, worker.test installation() as never. 오너 확인: 환영 문구·예시 3개 초안, 알림 24시간, 완료 화면 문구 '태블릿이 곧 대시보드로 바뀝니다', log 요약 '세팅 완료:'로 변경."
     },
     {
       "id": 21,
