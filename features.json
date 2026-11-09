@@ -260,9 +260,9 @@
         21
       ],
       "status": "in_progress",
-      "note": "목 완료(2026-11-09, 슬랙 토큰·실제 계정 없이): core SettingsChange+WikiRepository.applySettings(member.add/color/slack/config.region, 줄 단위 수정으로 본문·모르는 필드 보존, SettingsError), ConnectScope settings, /settings(구성원·슬랙 연결·지역, 구역별 저장)+POST /api/settings(출처→PIN 세션→본문→zod, 슬랙 ID 비노출), 봇 색 변경 고정 명령(LLM 없음, 보호자만, 확인 카드, 버튼 시점 재판정). 결정 기록 docs/decisions/0010-settings.md(오너 확인 항목 포함). 실연결에 필요한 값: SLACK_BOT_TOKEN·SLACK_APP_TOKEN·SLACK_FAMILY_CHANNEL·WIKI_REPO_PATH·HSH_STATE_DIR(대시보드·봇 같은 값)·ADMIN_PIN_HASH·DASHBOARD_BASE_URL. 실제 슬랙 DM·버튼은 #3 토큰 뒤 확인. 스펙 인터페이스 절에 applySettings 갱신 필요.",
+      "note": "목 완료(2026-11-09, 슬랙 토큰·실제 계정 없이): core SettingsChange+WikiRepository.applySettings(member.add/color/slack/config.region, 줄 단위 수정으로 본문·모르는 필드 보존, SettingsError), ConnectScope settings, /settings(구성원·슬랙 연결·지역, 구역별 저장)+POST /api/settings(출처→PIN 세션→본문→zod, 슬랙 ID 비노출), 봇 색 변경 고정 명령(LLM 없음, 보호자만, 확인 카드, 버튼 시점 재판정). 결정 기록 docs/decisions/0010-settings.md(오너 확인 항목 포함). 실연결에 필요한 값: SLACK_BOT_TOKEN·SLACK_APP_TOKEN·SLACK_FAMILY_CHANNEL·WIKI_REPO_PATH·HSH_STATE_DIR(대시보드·봇 같은 값)·ADMIN_PIN_HASH·DASHBOARD_BASE_URL. 실제 슬랙 DM·버튼은 #3 토큰 뒤 확인. 스펙 인터페이스 절에 applySettings 갱신 필요. | 리뷰 3차 통과(6332c18): 위키 쓰기 프로세스 간 잠금(.git/hsh-write.lock), git push/pull 90초 제한. 목 완료, 실연결 확인 대기. 남은 중간(pull 연결 전 처리): pull timeout 시 자식 git 고아 → fetch(제한)·로컬 rebase 분리 또는 프로세스 그룹 kill. 남은 낮음: ssh 원격 GIT_SSH_COMMAND BatchMode·ConnectTimeout, 시간 초과 테스트 고아 sleep. 오너 확인 10건(0010).",
       "passes": false,
-      "review": null
+      "review": "pass"
     },
     {
       "id": 23,

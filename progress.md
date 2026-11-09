@@ -275,3 +275,4 @@
 - 검증: pnpm check 통과(1130 테스트, 이전 973). build 후 `settings.e2e.mjs`(신규 10단계)·`auth.e2e.mjs`·`setup.e2e.mjs`(SKIP_TABLET_WAIT=1) 통과(tsx 필요).
 - 실연결에 필요한 값: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL, WIKI_REPO_PATH, HSH_STATE_DIR(대시보드·봇 같은 값), ADMIN_PIN_HASH, DASHBOARD_BASE_URL. `.env*`는 읽지 않음.
 - 남은 문제: 실제 슬랙 동작은 #3 토큰 뒤 확인. 스펙 "인터페이스" 절에 `applySettings`·`SettingsChange` 갱신 필요(오너). #22는 passes=false, review=null.
+- #22 리뷰: 1차 통과(중간 2: 대시보드·봇 프로세스 간 위키 쓰기 잠금 없음, 원격 없을 때 잘못된 동기화 경고) → 11ad633 반영 → 2차 통과(중간: 살아 있는 주인 잠금 강제 정리 + git 네트워크 시간 제한 없음) → 6332c18 반영 → 3차 통과. #22 review=pass, passes=false(목 완료·실연결 대기). 남은 중간(pull 연결 전): pull timeout 시 자식 git 고아 → fetch/rebase 분리 또는 프로세스 그룹 kill. pnpm check 1143 테스트.
