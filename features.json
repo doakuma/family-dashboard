@@ -135,8 +135,8 @@
       ],
       "status": "in_progress",
       "passes": false,
-      "review": null,
-      "note": "목 구현 완료(키 없이 주입 fetch + 공식 형식 예시). core weather/kma.ts·kma-source.ts, dashboard lib/weather.ts, 결정 0011. 필요한 환경 변수 KMA_SERVICE_KEY(공공데이터포털 일반 인증키 Decoding, .env.example은 오너가 추가). 실연결은 #26 키 뒤 확인(0011 마지막 절). review=null."
+      "review": "pass",
+      "note": "목 완료, 실연결 확인 대기(필요: KMA_SERVICE_KEY = 공공데이터포털 일반 인증키 Decoding, #26). 결정 0011. 리뷰 2차 통과(298476c). 남은 낮음: fixture 서브패스 import 막는 장치 없음, 02시 보충 실패 결과가 30분 캐시(partial로 표시 안 함), 23:10 이후 불필요한 02시분 요청 가능, 대시보드 globalThis 싱글턴은 dev에서 재시작 필요. 오너 확인: 키 있는데 config 지역 없으면 예시 날씨로 넘어감(빈 배열이 맞는지), 중기 +30분 여유·stale 6시간·비/눈→snow 정책값."
     },
     {
       "id": 13,
@@ -149,7 +149,7 @@
       "status": "partial",
       "passes": false,
       "review": "pass",
-      "note": "예시 날씨(SampleWeatherSource). 응답 zod 검증·needsSetup 포함. #12 후 기상청으로 교체 [재리뷰 필요] #31: ?month 파라미터·월별 일정 필터 추가(응답에 그 달 달력 칸+오늘·내일 일정만)."
+      "note": "예시 날씨(SampleWeatherSource). 응답 zod 검증·needsSetup 포함. #12 후 기상청으로 교체 [재리뷰 필요] #31: ?month 파라미터·월별 일정 필터 추가(응답에 그 달 달력 칸+오늘·내일 일정만). #12(목) 후: 키·지역 있으면 KmaWeatherSource(SWR 캐시), 없으면 예시. 실키 확인은 키 받은 뒤."
     },
     {
       "id": 14,
