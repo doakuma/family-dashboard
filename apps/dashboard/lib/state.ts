@@ -24,17 +24,22 @@ function getWiki(): FsWikiRepository {
   return wiki;
 }
 // 날씨: KMA_SERVICE_KEY + 위키 config의 기상청 좌표가 있으면 기상청, 아니면 예시. 지역은 요청마다 위키 config.md를 읽어 정한다(읽기만).
-const weather = createWeatherSource({
-  serviceKey: config.get("kmaServiceKey"),
-  region: () => {
-    try {
-      const text = getWiki().files.read("config.md");
-      return regionFromConfig(text ? parseConfigFile(text, () => {}) ?? undefined : undefined);
-    } catch {
-      return undefined;
-    }
-  },
-});
+// 캐시가 들어 있어 개발 서버의 모듈 재평가에도 하나만 쓰도록 globalThis에 둔다.
+const WEATHER = Symbol.for("hsh.weather.source.v1");
+function getWeather() {
+  const g = globalThis as typeof globalThis & { [WEATHER]?: ReturnType<typeof createWeatherSource> };
+  return (g[WEATHER] ??= createWeatherSource({
+    serviceKey: config.get("kmaServiceKey"),
+    region: () => {
+      try {
+        const text = getWiki().files.read("config.md");
+        return regionFromConfig(text ? parseConfigFile(text, () => {}) ?? undefined : undefined);
+      } catch {
+        return undefined;
+      }
+    },
+  }));
+}
 
 // 첫 세팅 쓰기용 저장소. 읽기용(push:false)과 달리 push를 켠다(원격이 없으면 건너뜀). 쓰기 큐를 하나만 쓰도록 globalThis에 둔다.
 const WRITER = Symbol.for("hsh.wiki.writer.v1");
@@ -105,7 +110,7 @@ function logWikiWarnings(warnings: string[]) {
 
 /** at: 시안용 고정 시각. 예시 날씨도 그 날짜 기준으로 만든다. */
 export async function getDashboardState(at?: Date): Promise<DashboardState> {
-  const source = at ? new SampleWeatherSource(() => at) : weather;
+  const source = at ? new SampleWeatherSource(() => at) : getWeather();
   const [state, days] = await Promise.all([getWiki().read(config.get("familyId")), source.week().catch(() => [])]);
   logWikiWarnings(state.warnings);
   // 경고는 화면 상태에 싣지 않는다(허용 목록으로 골라 담는다)

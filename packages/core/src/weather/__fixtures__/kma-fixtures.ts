@@ -13,7 +13,7 @@ const sItem = (fcstDate: string, fcstTime: string, category: string, fcstValue: 
 
 function shortItems() {
   const out: ReturnType<typeof sItem>[] = [];
-  // 11/09 06~23시: 맑다가 오후부터 구름 (TMN 없음 = 0500 발표엔 오늘 최저가 없다고 보고 TMX만)
+  // 11/09 06~23시: 맑다가 오후부터 구름 (05시 발표분은 06시부터라 오늘 TMN·TMX를 모두 포함)
   // 11/10: 낮에 비 / 11/11: 흐림, 비 없음 / 11/12 0시 한 칸(낮 자료 없음 -> 단기에서 빠져야 함)
   const days: { d: string; from: number; to: number; sky: (h: number) => string; pty: (h: number) => string; pop: (h: number) => string; tmp: (h: number) => number }[] = [
     { d: "20261109", from: 6, to: 23, sky: (h) => (h < 13 ? "1" : "3"), pty: () => "0", pop: (h) => (h < 13 ? "0" : "10"), tmp: (h) => 5 + Math.round(10 * Math.sin(((h - 6) / 18) * Math.PI)) },
@@ -29,7 +29,7 @@ function shortItems() {
       out.push(sItem(day.d, t, "WAV", "0"), sItem(day.d, t, "PCP", day.pty(h) === "0" ? "강수없음" : "1.0mm"), sItem(day.d, t, "REH", "60"), sItem(day.d, t, "SNO", "적설없음"));
     }
   }
-  out.push(sItem("20261109", "1500", "TMX", "15.0"));
+  out.push(sItem("20261109", "0600", "TMN", "6.0"), sItem("20261109", "1500", "TMX", "15.0"));
   out.push(sItem("20261110", "0600", "TMN", "7.0"), sItem("20261110", "1500", "TMX", "12.0"));
   out.push(sItem("20261111", "0600", "TMN", "3.0"), sItem("20261111", "1500", "TMX", "10.0"));
   // 11/12 0시 한 칸
@@ -71,3 +71,17 @@ export const KEY_ERROR_XML = `<OpenAPI_ServiceResponse>
 \t\t<returnReasonCode>30</returnReasonCode>
 \t</cmmMsgHeader>
 </OpenAPI_ServiceResponse>`;
+
+/** 오늘(11/09) 02시 발표분: 오늘 TMN/TMX가 들어 있는 응답(보충용). 다른 항목은 줄였다 */
+export const SHORT_0200 = envelope([
+  { ...sItem("20261109", "0300", "TMP", "5"), baseTime: "0200" },
+  { ...sItem("20261109", "0600", "TMN", "4.0"), baseTime: "0200" },
+  { ...sItem("20261109", "1500", "TMX", "16.0"), baseTime: "0200" },
+]);
+
+/** 응답 JSON에서 category를 빼서 "그 시각이 지난 발표분" 흉내를 낸다 */
+export function withoutCategories(body: string, ...cats: string[]): string {
+  const j = JSON.parse(body) as { response: { body: { items: { item: { category: string; fcstDate: string }[] } } } };
+  j.response.body.items.item = j.response.body.items.item.filter((i) => !(cats.includes(i.category) && i.fcstDate === "20261109"));
+  return JSON.stringify(j);
+}

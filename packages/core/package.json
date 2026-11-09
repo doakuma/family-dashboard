@@ -7,7 +7,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./node": "./src/node/index.ts"
+    "./node": "./src/node/index.ts",
+    "./weather-fixtures": "./src/weather/__fixtures__/kma-fixtures.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

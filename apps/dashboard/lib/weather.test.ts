@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { KmaFetch } from "@hsh/core";
-import { APP_ERROR, FIXTURE_NOW, MID_LAND_OK, MID_TA_OK, SHORT_OK } from "../../../packages/core/src/weather/__fixtures__/kma-fixtures";
+import { APP_ERROR, FIXTURE_NOW, MID_LAND_OK, MID_TA_OK, SHORT_OK } from "@hsh/core/weather-fixtures";
 import { SampleWeatherSource, createWeatherSource, regionFromConfig } from "./weather";
 
 const REGION = { nx: 60, ny: 127, midLandRegId: "11B00000", midTaRegId: "11B10101" };
@@ -46,7 +46,7 @@ describe("createWeatherSource", () => {
     const w = createWeatherSource({ serviceKey: "k", region: () => region, fetch: f, now: () => FIXTURE_NOW });
     const days = await w.week();
     expect(days).toHaveLength(7);
-    expect(days[0]).toMatchObject({ date: "2026-11-09", icon: "partly", max: 15, min: 5 });
+    expect(days[0]).toMatchObject({ date: "2026-11-09", icon: "partly", max: 15, min: 6 });
     await w.week();
     expect(urls).toHaveLength(3);
     region = { nx: 98, ny: 76, midLandRegId: "11H20000", midTaRegId: "11H20201" };

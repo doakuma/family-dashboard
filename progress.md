@@ -282,3 +282,4 @@
 - 대시보드: `createWeatherSource({serviceKey, region})` - `KMA_SERVICE_KEY` + config 좌표 4개가 있으면 기상청, 아니면 예시(키 없으면 동작 같음, 예시의 30분 캐시만 제거). 지역은 요청마다 config.md 읽기(쓰기 없음)라 #22 지역 변경이 다음 요청에 반영. `ConfigProvider`에 `kmaServiceKey` 추가.
 - 검증: pnpm check 통과(1213 테스트). 오류·경고에 키/URL이 섞이지 않는 테스트 5종 포함. 실제 기상청 호출 안 함.
 - 필요한 환경 변수: `KMA_SERVICE_KEY`(공공데이터포털 '일반 인증키(Decoding)'). `.env.example`은 오너가 추가. 남은 문제: 실연결 확인 6건은 0011 끝 절. #12는 passes=false, review=null.
+- #12 리뷰 1차 반영: 오늘 TMN/TMX가 응답에 없으면 02시 발표분을 (지역, 날짜)당 하루 한 번 받아 보충, 캐시를 stale-while-revalidate로(TTL 뒤에도 6시간 이내 값은 즉시 + 뒤 갱신), 부분 성공 TTL 5분, LRU, 지역 한 번만 읽기(`weekFor`), 날씨 싱글턴 globalThis, 테스트 보강(단기 우선·지연 fetch 합치기). `@hsh/core/weather-fixtures` 시험용 export 추가. 상세 0011.

@@ -38,7 +38,10 @@ export function createWeatherSource(deps?: WeatherDeps): WeatherSource {
     { now: () => now().getTime() },
   );
   return {
-    // 지역이 아직 없으면(세팅 전·좌표 일부 없음) 예시 날씨
-    week: () => (deps.region() ? kma.week() : sample.week()),
+    // 지역이 아직 없으면(세팅 전·좌표 일부 없음) 예시 날씨. 지역은 요청당 한 번만 읽는다
+    week: () => {
+      const region = deps.region();
+      return region ? kma.weekFor(region) : sample.week();
+    },
   };
 }

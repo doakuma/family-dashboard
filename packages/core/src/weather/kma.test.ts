@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { APP_ERROR, FIXTURE_MID_TMFC, FIXTURE_NOW, FIXTURE_TODAY, KEY_ERROR_XML, MID_LAND_OK, MID_TA_OK, NO_DATA, SHORT_OK } from "./__fixtures__/kma-fixtures";
-import { KmaError, iconFromWf, mergeWeek, midTmFc, parseEnvelope, parseMidTerm, parseShortTerm, shortBase } from "./kma";
+import { APP_ERROR, FIXTURE_MID_TMFC, FIXTURE_NOW, FIXTURE_TODAY, KEY_ERROR_XML, MID_LAND_OK, MID_TA_OK, NO_DATA, SHORT_OK, withoutCategories } from "./__fixtures__/kma-fixtures";
+import { KmaError, extremesOf, iconFromWf, mergeWeek, midTmFc, parseEnvelope, parseMidTerm, parseShortTerm, shortBase } from "./kma";
 
 const kst = (s: string) => new Date(`${s}+09:00`);
 
@@ -74,8 +74,16 @@ describe("iconFromWf", () => {
 
 describe("parseShortTerm (예시 응답)", () => {
   const { days } = parseShortTerm(parseEnvelope(SHORT_OK), FIXTURE_TODAY);
-  it("오늘: TMN 없으면 TMP 최저, TMX 사용, 낮 SKY 평균", () => {
-    expect(days.get("2026-11-09")).toEqual({ date: "2026-11-09", icon: "partly", max: 15, min: 5, pop: 10 });
+  it("오늘: TMN·TMX 사용, 낮 SKY 평균", () => {
+    expect(days.get("2026-11-09")).toEqual({ date: "2026-11-09", icon: "partly", max: 15, min: 6, pop: 10 });
+  });
+  it("오늘 TMN·TMX가 없으면 보충값, 그것도 없으면 TMP 극값", () => {
+    const items = parseEnvelope(withoutCategories(SHORT_OK, "TMN", "TMX"));
+    expect(parseShortTerm(items, FIXTURE_TODAY).days.get("2026-11-09")).toMatchObject({ max: 15, min: 5 }); // TMP 극값
+    expect(parseShortTerm(items, FIXTURE_TODAY, { tmn: 4, tmx: 16 }).days.get("2026-11-09")).toMatchObject({ max: 16, min: 4 });
+    expect(parseShortTerm(items, FIXTURE_TODAY, { tmn: 4, tmx: 16 }).days.get("2026-11-10")).toMatchObject({ max: 12, min: 7 }); // 오늘 아닌 날은 보충 안 씀
+    expect(extremesOf(parseEnvelope(SHORT_OK), FIXTURE_TODAY)).toEqual({ tmn: 6, tmx: 15 });
+    expect(extremesOf(items, FIXTURE_TODAY)).toEqual({});
   });
   it("낮 강수형태가 있으면 강수 아이콘, 강수확률은 최대", () => {
     expect(days.get("2026-11-10")).toEqual({ date: "2026-11-10", icon: "rain", max: 12, min: 7, pop: 70 });
@@ -148,9 +156,13 @@ describe("mergeWeek", () => {
   it("오늘~+6일 7개, 단기 우선, 없으면 중기", () => {
     const w = mergeWeek(FIXTURE_TODAY, s, m);
     expect(w.map((d) => d.date)).toEqual(["2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15"]);
-    expect(w[2]?.icon).toBe("cloudy"); // 11/11은 단기(중기 n=3도 cloudy지만 기온 3/10 = 단기 값과 같게 지어서 pop으로 구분)
     expect(w[0]?.max).toBe(15);
-    expect(w[3]?.icon).toBe("rain"); // 중기
+    expect(w[3]?.icon).toBe("rain"); // 중기만 있는 날
+  });
+  it("같은 날짜에 둘 다 있으면 단기 값을 쓴다", () => {
+    const day = (icon: "sunny" | "snow", max: number) => ({ date: "2026-11-09", icon, max, min: 0 });
+    const w = mergeWeek("2026-11-09", new Map([["2026-11-09", day("sunny", 20)]]), new Map([["2026-11-09", day("snow", -5)]]));
+    expect(w).toEqual([day("sunny", 20)]);
   });
   it("값이 없는 날은 빠진다", () => {
     expect(mergeWeek(FIXTURE_TODAY, s, new Map())).toHaveLength(3);

@@ -121,6 +121,24 @@ const num = (v: unknown): number | undefined => {
   return Number.isFinite(n) && n > -900 ? n : undefined; // -999 등은 결측 표시
 };
 
+export interface Extremes {
+  tmn?: number;
+  tmx?: number;
+}
+
+/** 응답에서 그날의 TMN/TMX만 꺼낸다(오늘 값이 빠졌는지 보고, 02시 발표분에서 보충값을 읽을 때 쓴다) */
+export function extremesOf(items: Item[], dashDate: string): Extremes {
+  const out: Extremes = {};
+  for (const it of items) {
+    if (typeof it.fcstDate !== "string" || it.fcstDate.length !== 8 || dash(it.fcstDate) !== dashDate) continue;
+    const v = num(it.fcstValue);
+    if (v === undefined) continue;
+    if (it.category === "TMN") out.tmn = v;
+    else if (it.category === "TMX") out.tmx = v;
+  }
+  return out;
+}
+
 export interface Parsed {
   days: Map<string, WeatherDay>;
   warnings: string[];
@@ -128,12 +146,12 @@ export interface Parsed {
 
 /**
  * getVilageFcst item[] -> 날짜별 하루 예보.
- * - 최저/최고: TMN/TMX, 없으면 그날 TMP의 최저/최고(오늘은 이미 지난 시각이 빠져 있어 실제와 다를 수 있다)
+ * - 최저/최고: TMN/TMX, 없으면 supplement(오늘 02시 발표분에서 받은 오늘 값, 오늘에만), 그래도 없으면 그날 TMP의 최저/최고(오늘은 지난 시각이 빠져 있어 실제와 다를 수 있다)
  * - 강수확률: 그날 POP의 최대
  * - 아이콘: 낮(06~21시) 시간대만 본다. PTY가 하나라도 있으면 강수 아이콘(눈·진눈깨비 > 비 > 소나기), 없으면 SKY 평균(맑음 0, 구름많음 1, 흐림 2)
  * - 낮 자료가 없는 날은 오늘만 전체 시각으로 대신하고, 나머지는 뺀다(0시 한 칸만 걸친 먼 날이 중기를 가리지 않게)
  */
-export function parseShortTerm(items: Item[], today: string): Parsed {
+export function parseShortTerm(items: Item[], today: string, supplement?: Extremes): Parsed {
   type Acc = { tmp: number[]; tmn?: number; tmx?: number; pop: number[]; sky: Map<string, number>; pty: Map<string, number> };
   const byDate = new Map<string, Acc>();
   for (const it of items) {
@@ -171,8 +189,9 @@ export function parseShortTerm(items: Item[], today: string): Parsed {
       const mean = skies.reduce<number>((s, x) => s + x, 0) / skies.length;
       icon = mean < 0.5 ? "sunny" : mean < 1.5 ? "partly" : "cloudy";
     }
-    const max = a.tmx ?? (a.tmp.length ? Math.max(...a.tmp) : undefined);
-    const min = a.tmn ?? (a.tmp.length ? Math.min(...a.tmp) : undefined);
+    const sup = date === today ? supplement : undefined;
+    const max = a.tmx ?? sup?.tmx ?? (a.tmp.length ? Math.max(...a.tmp) : undefined);
+    const min = a.tmn ?? sup?.tmn ?? (a.tmp.length ? Math.min(...a.tmp) : undefined);
     if (max === undefined || min === undefined) {
       warnings.push(`단기예보 ${date}: 기온 값이 없어 뺐어요`);
       continue;
