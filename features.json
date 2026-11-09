@@ -221,8 +221,8 @@
       ],
       "status": "in_progress",
       "passes": false,
-      "review": null,
-      "note": "잡음: 2026-11-09 (목 진행 큐 2번, 예약 대화). 목 완료 대기(리뷰 전). 필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, HSH_STATE_DIR(선택), 슬랙 앱 im:history·message.im·App Home Messages 탭. 남은 낮음: mpim·message_changed 글의 코드 무효화, 봇 전체 rate limit, child_process(e2e claim 흉내) 테스트"
+      "review": "pass",
+      "note": "잡음: 2026-11-09 (목 진행 큐 2번, 예약 대화). 목 완료, 실연결 확인 대기(리뷰 2차 통과 2c1be3d). 필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, HSH_STATE_DIR(선택), 슬랙 앱 im:history·message.im·App Home Messages 탭. 남은 낮음: mpim·message_changed 글의 코드 무효화, 봇 전체 rate limit, child_process(e2e claim 흉내) 테스트, 봇 시작 시 HSH_STATE_DIR 잘못되면 스택 대신 안내+exit(1)(index.ts:61), claim 재확인 직후 revoke 좁은 경쟁, 2단계 이름 수정 시 연결 풀림 안내 없음. 오너 확인: 미연결 구성원은 완료를 막지 않음(unlinked), 연결 기록 24시간, 한 계정 한 구성원, 잠금은 봇 메모리, 스펙 환경 절·.env.example에 HSH_STATE_DIR"
     },
     {
       "id": 20,

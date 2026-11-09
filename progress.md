@@ -249,3 +249,4 @@
 - 오너 확인 필요: (1) 연결을 끝내지 못한 구성원은 완료를 막지 않고 알림만 (2) 연결된 코드 24시간 유지·코드 30분 (3) 같은 슬랙 계정 중복 연결 거부 (4) 잠금이 봇 메모리라 재시작하면 풀림 (5) 클라이언트 slackId는 제거가 아니라 422 거부 (6) 스펙 "환경" 절에 HSH_STATE_DIR 한 줄.
 - 남은 문제: 실제 슬랙 DM·채널 ephemeral 동작은 #3 토큰 뒤 확인. #20(환영 메시지)·#22(재연결)는 하지 않음. e2e의 claim 흉내는 전역 tsx가 필요(pnpm check에는 포함되지 않음). #19는 passes=false, review=null.
 - 리뷰 반영(1차 통과, 중간 5·낮음): 연결됨 줄에 "연결 풀고 다시 받기" + 마법사가 버린 코드는 revoke API로 서버 연결 기록도 해제(봇 slackTaken 문구에 안내), 채널 코드 무효화는 연결 전 코드만(`unclaimedOnly`), Windows 대응(sweep 실패 건너뜀·link 재시도·NTFS/ACL 기록·모드 단언 win32 제외), SlackStep 버튼 하나로 포커스 유지(e2e 단언), complete 연결 오류를 3단계 구성원 줄로, 낮음(linkSlack 읽기 실패→unlinked, HSH_STATE_DIR 상대·위키 안 거부, `.tmp-*` 정리, claim 후 재확인, never 검사, 폴링 in-flight, ConnectCodeSlot role, 주석). 상세 0007 "리뷰 반영". 남긴 낮음은 features #19 note.
+- 2차 재리뷰 통과(2c1be3d). #19 review=pass, passes=false(목 완료·실연결 대기). 남은 [낮음]은 features #19 note.
