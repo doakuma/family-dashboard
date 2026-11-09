@@ -1,6 +1,6 @@
 import "server-only";
 import { DEFAULT_SKIN, SetupError, eventsForMonthView, existingSetupContent, needsSetup, parseConfigFile, toPublicState, todayIn, type ApiState, type DashboardState, type SkinId, type WikiRepository } from "@hsh/core";
-import { FsConnectCodeStore, FsWikiRepository } from "@hsh/core/node";
+import { FsConnectCodeStore, FsSetupNoticeStore, FsWikiRepository } from "@hsh/core/node";
 import { resolve } from "node:path";
 import { cache } from "react";
 import { config } from "./config";
@@ -42,6 +42,13 @@ const CONNECT = Symbol.for("hsh.connect.store.v1");
 export function getConnectStore(): FsConnectCodeStore {
   const g = globalThis as typeof globalThis & { [CONNECT]?: FsConnectCodeStore };
   return (g[CONNECT] ??= new FsConnectCodeStore({ dir: config.get("stateDir") }));
+}
+
+// 세팅 완료 알림 상자(같은 상태 폴더). 봇이 꺼내 #가족 채널에 환영 메시지를 올린다.
+const NOTICE = Symbol.for("hsh.setup.notice.v1");
+export function getNoticeStore(): FsSetupNoticeStore {
+  const g = globalThis as typeof globalThis & { [NOTICE]?: FsSetupNoticeStore };
+  return (g[NOTICE] ??= new FsSetupNoticeStore({ dir: config.get("stateDir") }));
 }
 
 /** /setup 화면이 필요한 것: 세팅이 필요한지, 지워질 이전 세팅 파일이 있는지, 쓸 수 있는 위키인지 */

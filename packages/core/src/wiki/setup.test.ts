@@ -154,7 +154,7 @@ describe("buildSetupFiles", () => {
     expect(parseMemberFile(r.files.get("members/mom.md")!)).toMatchObject({ id: "mom", role: "guardian", color: "coral", birth: "1988-03-12" });
     expect(r.files.get("anniversaries.md")).toBe("- 03-12 엄마 생일 @mom\n- 11-21 결혼기념일 @family\n");
     expect(parseAnniversariesFile(r.files.get("anniversaries.md")!)).toHaveLength(2);
-    expect(r.summary).toBe("가족 세팅: 햇살네 (구성원 2명, 기념일 2건)");
+    expect(r.summary).toBe("세팅 완료: 햇살네 (구성원 2명, 기념일 2건)");
   });
 
   it("기념일이 없으면 anniversaries.md를 만들지 않는다", () => {

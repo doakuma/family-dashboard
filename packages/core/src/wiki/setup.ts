@@ -81,5 +81,5 @@ export function buildSetupFiles(files: WikiFiles, input: unknown, completedAt: s
   if (unique.length) out.set("anniversaries.md", `${unique.join("\n")}\n`);
   else if (files.read("anniversaries.md") !== undefined) out.set("anniversaries.md", null);
 
-  return { files: out, summary: `가족 세팅: ${setup.config.familyName} (구성원 ${setup.members.length}명, 기념일 ${unique.length}건)` };
+  return { files: out, summary: `세팅 완료: ${setup.config.familyName} (구성원 ${setup.members.length}명, 기념일 ${unique.length}건)` };
 }

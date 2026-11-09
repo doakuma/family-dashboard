@@ -1,6 +1,7 @@
 "use client";
 import { apiStateSchema, type ApiState } from "@hsh/core";
 import { useEffect, useRef, useState } from "react";
+import { pollIntervalMs } from "@/lib/poll-interval";
 
 export interface PolledState {
   state: ApiState;
@@ -15,6 +16,7 @@ export interface PollOptions {
   month?: string;
   /** 시안용 고정 시각(ISO). 서버가 previewQuery일 때만 받는다 */
   at?: string;
+  /** 없으면 세팅 화면은 5초, 대시보드는 60초(lib/poll-interval.ts) */
   intervalMs?: number;
 }
 
@@ -22,8 +24,9 @@ export interface PollOptions {
  * /api/state를 주기적으로 가져온다. 실패하거나 응답 형식이 다르면 마지막 상태를 그대로 둔다.
  * 보기 상태(보는 달·시트)는 이 훅 밖(DashboardViewState)에 있어서, 폴링 결과가 와도 바뀌지 않는다.
  */
-export function useDashboardState(initial: ApiState, { month, at, intervalMs = 60_000 }: PollOptions = {}): PolledState {
+export function useDashboardState(initial: ApiState, { month, at, intervalMs: fixedMs }: PollOptions = {}): PolledState {
   const [polled, setPolled] = useState<PolledState>({ state: initial, offline: false, loadedMonth: month });
+  const intervalMs = fixedMs ?? pollIntervalMs(polled.state.needsSetup);
   const firstMonth = useRef(month); // 서버가 첫 화면에 이미 실어 준 달은 바로 다시 가져오지 않는다
   const seq = useRef(0);
 

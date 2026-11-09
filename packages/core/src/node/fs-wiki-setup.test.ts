@@ -45,7 +45,7 @@ describe("FsWikiRepository.applySetup", () => {
 
     expect(Number(git(root, "rev-list", "--count", "HEAD")) - Number(before)).toBe(1);
     expect(git(root, "show", "--name-only", "--format=", "HEAD").split("\n").sort()).toEqual(["anniversaries.md", "config.md", "log.md", "members/haneul.md", "members/mom.md"]);
-    expect(git(root, "log", "-1", "--format=%s")).toBe("[setup] 가족 세팅: 햇살네 (구성원 2명, 기념일 1건)");
+    expect(git(root, "log", "-1", "--format=%s")).toBe("[setup] 세팅 완료: 햇살네 (구성원 2명, 기념일 1건)");
     expect(git(root, "log", "-1", "--format=%an")).toBe("setup");
     expect(r.version).toBe(git(root, "rev-parse", "HEAD"));
     expect(r.synced).toBe(true);
@@ -56,7 +56,7 @@ describe("FsWikiRepository.applySetup", () => {
     expect(needsSetup(state)).toBe(false);
     expect(state.config).toMatchObject({ familyName: "햇살네", setupCompletedAt: "2026-10-30T20:00:00+09:00", kmaNx: 59 });
     expect(state.members.map((m) => m.id)).toEqual(["mom", "haneul", "family"]);
-    expect(readFileSync(join(root, "log.md"), "utf8")).toContain("- 2026-10-30 20:00 [setup] 가족 세팅: 햇살네 (구성원 2명, 기념일 1건) (by setup)");
+    expect(readFileSync(join(root, "log.md"), "utf8")).toContain("- 2026-10-30 20:00 [setup] 세팅 완료: 햇살네 (구성원 2명, 기념일 1건) (by setup)");
   });
 
   it("push가 없는 위키(원격 없음)는 synced:false로 성공", async () => {

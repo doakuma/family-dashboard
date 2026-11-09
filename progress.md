@@ -250,3 +250,10 @@
 - 남은 문제: 실제 슬랙 DM·채널 ephemeral 동작은 #3 토큰 뒤 확인. #20(환영 메시지)·#22(재연결)는 하지 않음. e2e의 claim 흉내는 전역 tsx가 필요(pnpm check에는 포함되지 않음). #19는 passes=false, review=null.
 - 리뷰 반영(1차 통과, 중간 5·낮음): 연결됨 줄에 "연결 풀고 다시 받기" + 마법사가 버린 코드는 revoke API로 서버 연결 기록도 해제(봇 slackTaken 문구에 안내), 채널 코드 무효화는 연결 전 코드만(`unclaimedOnly`), Windows 대응(sweep 실패 건너뜀·link 재시도·NTFS/ACL 기록·모드 단언 win32 제외), SlackStep 버튼 하나로 포커스 유지(e2e 단언), complete 연결 오류를 3단계 구성원 줄로, 낮음(linkSlack 읽기 실패→unlinked, HSH_STATE_DIR 상대·위키 안 거부, `.tmp-*` 정리, claim 후 재확인, never 검사, 폴링 in-flight, ConnectCodeSlot role, 주석). 상세 0007 "리뷰 반영". 남긴 낮음은 features #19 note.
 - 2차 재리뷰 통과(2c1be3d). #19 review=pass, passes=false(목 완료·실연결 대기). 남은 [낮음]은 features #19 note.
+
+## 2026-11-09 · #20 세팅 완료 처리 (목 진행)
+- 오너 결정(11-09)에 따라 슬랙 토큰 없이 목으로 구현. 결정 기록 `docs/decisions/0008-setup-complete-welcome.md`. log.md 요약을 스펙 문구 `세팅 완료: 햇살네 (구성원 N명, 기념일 N건)`로(커밋 제목 포함), 세팅 화면 폴링을 5초로(`lib/poll-interval.ts`, 대시보드는 60초 그대로, e2e 대기 15초).
+- 환영 메시지: 대시보드와 봇이 다른 프로세스라 core `SetupNoticeStore` + `FsSetupNoticeStore`(HSH_STATE_DIR/notice/, link 배타 claim, done 표식, 24시간 만료)로 넘긴다. `runSetup`이 성공 뒤 알림(familyId·완료 시각·version만)을 넣고 실패해도 세팅은 성공. 봇 `welcome/`: 5초마다 확인 -> claim -> 위키에서 구성원 읽기 -> `SLACK_FAMILY_CHANNEL`에 글 하나(가족 이름 환영, 연결된 구성원 멘션, 예시 정확히 3개, 확인 안내) -> complete. 채널 없음은 경고 + 알림 보존, 실패는 5초부터 두 배 백오프, 24시간 지난 알림은 지움.
+- 검증: pnpm check 통과(941 테스트). 중복 방지(저장소 여러 개 동시 claim·봇 둘·재시작)·재시도·만료·메시지 조립·runSetup 알림 주입을 테스트. 실제 슬랙·e2e는 실행 안 함.
+- 실연결에 필요한 값: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL(채널 id), HSH_STATE_DIR(선택), 슬랙 앱 chat:write, 봇이 #가족 채널에 초대돼 있어야 함. `.env.example`은 권한상 못 열어 수정 못 함.
+- 남은 문제: 환영 문구·예시 오너 검토, 봇이 claim한 채 죽으면 5분 뒤 중복 게시 가능성(0008), 실제 슬랙 게시·5초 전환 e2e는 토큰 뒤 확인. #21·#22는 건드리지 않음.

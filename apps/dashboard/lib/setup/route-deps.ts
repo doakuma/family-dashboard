@@ -2,7 +2,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { isSameOrigin, readSession } from "@/lib/auth/server";
-import { getConnectStore, getSetupContext } from "@/lib/state";
+import { getConnectStore, getNoticeStore, getSetupContext } from "@/lib/state";
 import type { ConnectApiDeps } from "./connect";
 import { guardSetupJson } from "./guard";
 
@@ -16,6 +16,16 @@ export function tryConnectStore(): ReturnType<typeof getConnectStore> | undefine
     return getConnectStore();
   } catch (e) {
     console.error(`[setup] ${e instanceof Error ? e.message : String(e)}`);
+    return undefined;
+  }
+}
+
+/** 상태 폴더 설정이 잘못돼도 세팅은 막지 않는다: 알림 상자 없이(환영 메시지만 빠짐) 진행하고 로그만 남긴다 */
+export function tryNoticeStore(): ReturnType<typeof getNoticeStore> | undefined {
+  try {
+    return getNoticeStore();
+  } catch (e) {
+    console.error(`[setup] 환영 알림 상자를 열지 못했어요: ${e instanceof Error ? e.message : String(e)}`);
     return undefined;
   }
 }

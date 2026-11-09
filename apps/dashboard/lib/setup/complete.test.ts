@@ -58,4 +58,36 @@ describe("runSetup (HTTP 번역)", () => {
     expect(JSON.stringify(r.body)).not.toContain("secret");
     expect(log).toHaveBeenCalledWith(expect.stringContaining("index.lock"));
   });
+  describe("환영 알림 (#20)", () => {
+    const ok = async () => ({ version: "abc", synced: true });
+    const at = new Date("2026-11-09T09:00:00Z");
+
+    it("성공하면 가족 id·완료 시각·위키 version만 알림 상자에 넣는다", async () => {
+      const put = vi.fn().mockResolvedValue({});
+      const r = await runSetup({ setup: valid }, repoOf(ok), DEFAULT_FAMILY_ID, undefined, () => {}, undefined, { put }, () => at);
+      expect(r.status).toBe(200);
+      expect(put).toHaveBeenCalledOnce();
+      expect(put).toHaveBeenCalledWith({ familyId: DEFAULT_FAMILY_ID, completedAt: "2026-11-09T09:00:00.000Z", version: "abc" });
+    });
+
+    it("알림 넣기가 실패해도 세팅은 성공이고 로그만 남는다", async () => {
+      const log = vi.fn();
+      const put = vi.fn().mockRejectedValue(new Error("디스크 가득"));
+      const r = await runSetup({ setup: valid }, repoOf(ok), DEFAULT_FAMILY_ID, log, () => {}, undefined, { put });
+      expect(r).toEqual({ status: 200, body: { ok: true, synced: true } });
+      expect(log).toHaveBeenCalledWith(expect.stringContaining("디스크 가득"));
+    });
+
+    it("세팅이 실패하면(422·409·500) 알림을 넣지 않는다", async () => {
+      const put = vi.fn();
+      await runSetup({ setup: {} }, repoOf(ok), DEFAULT_FAMILY_ID, () => {}, () => {}, undefined, { put });
+      await runSetup({ setup: valid }, repoOf(async () => { throw new SetupError("x", "already_done"); }), DEFAULT_FAMILY_ID, () => {}, () => {}, undefined, { put });
+      await runSetup({ setup: valid }, repoOf(async () => { throw new Error("git"); }), DEFAULT_FAMILY_ID, () => {}, () => {}, undefined, { put });
+      expect(put).not.toHaveBeenCalled();
+    });
+
+    it("알림 상자가 없어도(상태 폴더 설정 오류) 세팅은 성공", async () => {
+      expect((await runSetup({ setup: valid }, repoOf(ok), DEFAULT_FAMILY_ID, () => {}, () => {})).status).toBe(200);
+    });
+  });
 });

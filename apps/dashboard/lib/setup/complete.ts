@@ -3,7 +3,7 @@
 //
 // 슬랙 연결(#19): 본문의 connectCodes([{memberId, memberKey, code}])를 저장소의 연결 기록(claim)과 맞춰 구성원의 slackId를 **서버가** 채운다.
 // 클라이언트가 보낸 slackId는 받지 않는다(만들어 보낸 값이 위키 member 파일에 들어가면 남의 계정으로 쓸 수 있으므로): setup.members[].slackId가 있으면 422로 거부한다.
-import { SetupError, isConnectCode, setupSchema, type ConnectCodeStore, type FamilyId, type Member, type SetupIssue, type WikiRepository } from "@hsh/core";
+import { SetupError, isConnectCode, setupSchema, type ConnectCodeStore, type FamilyId, type SetupNoticeStore, type Member, type SetupIssue, type WikiRepository } from "@hsh/core";
 import { z } from "zod";
 import { MEMBER_KEY_RE } from "./connect";
 
@@ -23,6 +23,8 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 const invalid = (issues: SetupIssue[]): CompleteResult => ({ status: 422, body: { ok: false, code: "invalid", message: "입력한 내용을 다시 확인해 주세요", issues } });
 
 export type ConnectResolver = Pick<ConnectCodeStore, "claimed" | "clearScope">;
+/** 세팅 완료 알림을 봇에게 넘기는 상자(#20). 넣기만 한다 */
+export type NoticeSink = Pick<SetupNoticeStore, "put">;
 
 export async function runSetup(
   raw: unknown,
@@ -31,6 +33,8 @@ export async function runSetup(
   log: (m: string) => void = console.error,
   info: (m: string) => void = console.info,
   connect?: ConnectResolver,
+  notice?: NoticeSink,
+  now: () => Date = () => new Date(),
 ): Promise<CompleteResult> {
   const codes = isRecord(raw) ? connectCodesSchema.safeParse(raw.connectCodes ?? []) : undefined;
   if (!isRecord(raw) || !("setup" in raw) || (raw.overwrite !== undefined && typeof raw.overwrite !== "boolean") || !codes?.success) {
@@ -54,6 +58,8 @@ export async function runSetup(
     info(`[setup] 위키 저장 version=${r.version} synced=${r.synced}`);
     // 세팅이 끝났으니 이 범위의 연결 코드를 모두 폐기한다(실패해도 세팅은 성공: 코드는 만료로 사라진다)
     await connect?.clearScope("setup").catch((e: unknown) => log(`[setup] 연결 코드 정리 실패: ${e instanceof Error ? e.message : String(e)}`));
+    // 환영 메시지는 봇이 게시한다(대시보드에는 슬랙 클라이언트가 없다). 알림을 못 넣어도 세팅은 성공이다(환영 메시지만 빠짐)
+    await notice?.put({ familyId, completedAt: now().toISOString(), version: r.version }).catch((e: unknown) => log(`[setup] 환영 알림 저장 실패(세팅은 성공): ${e instanceof Error ? e.message : String(e)}`));
     return { status: 200, body: { ok: true, synced: r.synced, ...(r.syncError ? { syncError: r.syncError } : {}), ...(linked.unlinked.length ? { unlinked: linked.unlinked } : {}) } };
   } catch (e) {
     if (e instanceof SetupError) {

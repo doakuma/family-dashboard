@@ -1,6 +1,6 @@
 // 슬랙 봇 진입점 (Socket Mode). #가족 채널과 DM의 글을 대화 흐름(flow/conversation.ts)으로 넘긴다.
 // 설정은 ConfigProvider, 봇 토큰은 InstallationStore로만 받는다(process.env 직접 참조 없음 - 결정 0003).
-import { EnvConfigProvider, FsConnectCodeStore, FsWikiRepository } from "@hsh/core/node";
+import { EnvConfigProvider, FsConnectCodeStore, FsSetupNoticeStore, FsWikiRepository } from "@hsh/core/node";
 import { App, LogLevel, webApi } from "@slack/bolt";
 import { AttemptLimiter, ConnectHandler } from "./connect/handler";
 import { Conversation } from "./flow/conversation";
@@ -9,6 +9,8 @@ import { createLlmAdapter } from "./llm/client";
 import { EnvInstallationStore, authorizeWith } from "./slack/installation";
 import { ACTION_PATTERN, SlackUi, toActionInput, toConversationMessage } from "./slack/messenger";
 import { checkBotToken, type WhoAmI } from "./slack/startup";
+import { slackWelcomePoster } from "./welcome/slack";
+import { WelcomeWorker } from "./welcome/worker";
 
 const config = new EnvConfigProvider();
 const { botToken, appToken, familyChannel } = config.get("slack");
@@ -78,6 +80,19 @@ app.action(ACTION_PATTERN, async ({ ack, body, client }) => {
   const a = toActionInput(body);
   if (a) await conversationWith(client).handleAction(a);
 });
+
+// 세팅 완료 알림(대시보드가 상자에 넣음)을 확인해 #가족 채널에 환영 메시지를 한 번 올린다. 설정이 잘못돼도 봇의 나머지는 계속 돈다.
+try {
+  const welcome = new WelcomeWorker({
+    store: new FsSetupNoticeStore({ dir: config.get("stateDir") }),
+    readState: (id) => wiki.read(id),
+    post: slackWelcomePoster(new webApi.WebClient(botToken)),
+    channel: familyChannel,
+  });
+  welcome.start();
+} catch (e) {
+  console.warn(`[bot] 세팅 완료 환영 메시지 처리기를 시작하지 못했어요: ${e instanceof Error ? e.message : String(e)}`);
+}
 
 await app.start();
 console.log("[bot] Socket Mode로 연결했습니다.");

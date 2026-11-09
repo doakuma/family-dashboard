@@ -359,7 +359,7 @@ try {
   // ---- 위키 확인 ----
   const subjects = git("log", "--format=%s").split("\n");
   assert.equal(subjects.length - (headBefore ? 1 : 0), 1, "커밋 하나");
-  assert.equal(subjects[0], "[setup] 가족 세팅: 햇살네 (구성원 2명, 기념일 3건)");
+  assert.equal(subjects[0], "[setup] 세팅 완료: 햇살네 (구성원 2명, 기념일 3건)");
   const changed = git("show", "--name-only", "--format=", "HEAD").split("\n").sort();
   assert.deepEqual(changed, ["anniversaries.md", "config.md", "log.md", "members/haneul.md", "members/member-1.md"]);
   const config = readFileSync(join(wiki, "config.md"), "utf8");
@@ -403,10 +403,10 @@ try {
 
   // ---- 태블릿이 폴링으로 대시보드로 바뀜 ----
   if (!process.env.SKIP_TABLET_WAIT) {
-    await tablet.getByText("가족 세팅이 필요해요").waitFor({ state: "detached", timeout: 75_000 });
+    await tablet.getByText("가족 세팅이 필요해요").waitFor({ state: "detached", timeout: 15_000 });
     await tablet.getByText("햇살네").first().waitFor();
     if (saveShots) await tablet.screenshot({ path: join(shots, "setup-8-tablet-after.png") });
-    ok("태블릿이 1분 안에 대시보드로 전환");
+    ok("태블릿이 15초 안에 대시보드로 전환(세팅 화면은 5초 폴링)");
   }
 } finally {
   await browser.close();
