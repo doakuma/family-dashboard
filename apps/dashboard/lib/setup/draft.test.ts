@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { toConnectCodes } from "./build";
 import { DRAFT_KEY, MAX_MEMBERS, addAnniversary, addMember, clearDraft, initialDraft, loadDraft, removeAnniversary, removeMember, saveDraft, updateAnniversary, updateMember } from "./draft";
 
 describe("구성원 추가·id·색", () => {
@@ -110,5 +111,34 @@ describe("draft 저장 (sessionStorage)", () => {
     expect(() => clearDraft(throwing)).not.toThrow();
     expect(() => saveDraft(undefined, initialDraft())).not.toThrow();
     expect(loadDraft(undefined)).toBeUndefined();
+  });
+});
+
+describe("연결 코드(connectCode)", () => {
+  const withCode = () => {
+    const d = initialDraft();
+    const key = d.members[0]!.key;
+    return { d: { ...d, members: d.members.map((m) => ({ ...m, name: "엄마", connectCode: "482913" })) }, key };
+  };
+  it("이름·역할이 바뀌면 낡은 코드를 버리고, 같은 값·다른 필드 변경은 유지한다", () => {
+    const { d, key } = withCode();
+    expect(updateMember(d, key, { name: "엄마" }).members[0]?.connectCode).toBe("482913");
+    expect(updateMember(d, key, { birth: "1990-01-01" }).members[0]?.connectCode).toBe("482913");
+    expect(updateMember(d, key, { name: "어머니" }).members[0]?.connectCode).toBeUndefined();
+    expect(updateMember(d, key, { role: "child" }).members[0]?.connectCode).toBeUndefined();
+  });
+  it("sessionStorage에 저장·복원되고, 6자리가 아닌 값은 복원하지 않는다", () => {
+    const { d } = withCode();
+    const mem: Record<string, string> = {};
+    const storage = { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => void (mem[k] = v), removeItem: (k: string) => void delete mem[k] };
+    saveDraft(storage, d);
+    expect(loadDraft(storage)?.members[0]?.connectCode).toBe("482913");
+    storage.setItem(DRAFT_KEY, JSON.stringify({ ...d, members: [{ ...d.members[0], connectCode: "12" }] }));
+    expect(loadDraft(storage)).toBeUndefined();
+  });
+  it("toConnectCodes: 코드가 있는 구성원만, 슬랙 ID 없이", () => {
+    const { d } = withCode();
+    const two = addMember(d);
+    expect(toConnectCodes(two)).toEqual([{ memberId: d.members[0]!.id, memberKey: d.members[0]!.key, code: "482913" }]);
   });
 });

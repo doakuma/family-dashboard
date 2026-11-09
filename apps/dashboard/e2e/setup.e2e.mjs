@@ -4,9 +4,9 @@
 //   --shots                                          (docs/screens/setup-*.png 캡처 저장. 없으면 저장하지 않는다)
 // 빈 임시 위키(git init) + 임시 PIN으로 운영 모드 서버를 띄워: QR 토큰 -> PIN -> 6단계 -> 시작하기 -> 위키 커밋과 /api/state를 확인한다.
 // 단계별 캡처(390x844)는 docs/screens/setup-*.png.
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import assert from "node:assert/strict";
@@ -35,7 +35,8 @@ git("config", "user.email", "e2e@example.com");
 git("config", "user.name", "e2e");
 const hashLine = execFileSync("node", ["scripts/pin-hash.ts"], { cwd: root, input: `${PIN}\n`, stdio: ["pipe", "pipe", "ignore"] }).toString().trim();
 
-const env = { ...process.env, PORT: String(PORT), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: BASE, ADMIN_PIN_HASH: hashLine.slice("ADMIN_PIN_HASH=".length), NODE_ENV: undefined };
+const stateDir = mkdtempSync(join(tmpdir(), "hsh-setup-e2e-state-"));
+const env = { ...process.env, PORT: String(PORT), WIKI_REPO_PATH: wiki, HSH_STATE_DIR: stateDir, DASHBOARD_BASE_URL: BASE, ADMIN_PIN_HASH: hashLine.slice("ADMIN_PIN_HASH=".length), NODE_ENV: undefined };
 const server = spawn("node", ["server.ts"], { cwd: root, env, stdio: "ignore" });
 async function waitFor(url) {
   for (let i = 0; i < 100; i++) {
@@ -204,15 +205,74 @@ try {
   await phone.getByRole("button", { name: "다음" }).click();
   ok("2단계: 이름/id 검증, 색 자동 추천(coral, teal), 한글→member-N, id 충돌·비우면 자동, 가족 전체 고정, 포커스");
 
-  // ---- 3단계 ----
+  // ---- 3단계: 슬랙 연결 ----
   await phone.getByRole("heading", { name: "슬랙 연결" }).waitFor();
-  await phone.getByText(/슬랙 앱이 준비되면/).waitFor();
-  assert.equal(await phone.getByText("슬랙 앱 준비 후 연결").count(), 2);
-  assert.equal(await phone.locator("[aria-label*='연결 코드 ']").count(), 0, "코드는 발급하지 않는다(#19)");
-  await assertLayout(phone, "3단계");
+  await phone.getByText(/6자리 연결 코드를 받아/).waitFor();
+  assert.equal(await phone.locator("[aria-label*='연결 코드는 아직']").count(), 2, "처음에는 코드 자리만");
+  assert.equal(await phone.getByRole("button", { name: "건너뛰기" }).count(), 1, "아무것도 안 하면 건너뛰기");
+  await assertLayout(phone, "3단계(코드 받기 전)");
   await shot(phone, "3-slack");
-  await phone.getByRole("button", { name: "건너뛰기" }).click();
-  ok("3단계: 연결 코드 자리만(발급 없음), 건너뛰기");
+
+  // 코드 API 방어(세션이 있는 phoneCtx 기준): 출처 403, 형식 415, 큰 본문 413, 모양 422, 세션 없음 401
+  const connectApi = (ctx, path, data, headers = {}) => ctx.request.post(`${BASE}/api/setup/connect${path}`, { data, headers: { origin: BASE, ...headers }, maxRedirects: 0 });
+  for (const path of ["", "/status"]) {
+    assert.equal((await connectApi(phoneCtx, path, {}, { origin: "http://evil.example" })).status(), 403, `${path} 출처`);
+    assert.equal((await phoneCtx.request.post(`${BASE}/api/setup/connect${path}`, { form: { a: "b" }, headers: { origin: BASE } })).status(), 415, `${path} 형식`);
+    assert.equal((await phoneCtx.request.post(`${BASE}/api/setup/connect${path}`, { data: `{"x":"${"y".repeat(2000)}"}`, headers: { origin: BASE, "content-type": "application/json" } })).status(), 413, `${path} 큰 본문`);
+    assert.equal((await phoneCtx.request.post(`${BASE}/api/setup/connect${path}`, { data: Buffer.from("{broken"), headers: { origin: BASE, "content-type": "application/json" } })).status(), 400, `${path} 깨진 JSON`);
+    assert.equal((await connectApi(phoneCtx, path, { nope: 1 })).status(), 422, `${path} 모양`);
+    const anon = await browser.newContext();
+    assert.equal((await connectApi(anon, path, {})).status(), 401, `${path} 세션 없음`);
+    await anon.close();
+  }
+  assert.equal((await connectApi(phoneCtx, "", { memberKey: "mx", name: "x", role: "guardian", slackId: "UFORGED" })).status(), 422, "여분 필드 거부");
+  ok("코드 API: 출처 403, 형식 415, 큰 본문 413, 깨진 JSON 400, 모양 422, 세션 없음 401");
+
+  // 코드 받기 -> 표시 -> DM 안내
+  await phone.getByRole("button", { name: "엄마 연결 코드 받기" }).click();
+  const codeEl = phone.locator("[aria-label^='연결 코드 ']").first();
+  await codeEl.waitFor();
+  const momCode = (await codeEl.innerText()).trim();
+  assert.match(momCode, /^\d{6}$/);
+  await phone.getByText(`연결 ${momCode}`).waitFor();
+  await phone.getByRole("button", { name: "엄마 연결 코드 다시 받기" }).waitFor();
+  assert.equal(await phone.getByRole("button", { name: "건너뛰기" }).count(), 0, "코드를 받으면 '다음'");
+  await assertLayout(phone, "3단계(코드 표시)");
+  await shot(phone, "3-slack-code");
+  // 다시 받기: 새 코드, 이전 코드는 무효
+  await phone.getByRole("button", { name: "엄마 연결 코드 다시 받기" }).click();
+  await phone.waitForFunction((old) => document.querySelector("[aria-label^='연결 코드 ']")?.textContent?.trim() !== old, momCode);
+  const momCode2 = (await codeEl.innerText()).trim();
+  assert.notEqual(momCode2, momCode);
+  const statusOf = async (codes) => (await (await connectApi(phoneCtx, "/status", { codes })).json()).states;
+  assert.deepEqual(await statusOf([momCode, momCode2]), { [momCode]: "expired", [momCode2]: "pending" });
+
+  // 새로고침해도 코드가 남는다(draft)
+  await phone.reload();
+  await phone.getByRole("heading", { name: "슬랙 연결" }).waitFor();
+  assert.equal((await phone.locator("[aria-label^='연결 코드 ']").first().innerText()).trim(), momCode2);
+
+  // 봇이 DM을 받은 것처럼 사용 처리 -> 폴링으로 '연결됨'. 상태 응답에 슬랙 ID는 없다
+  const claim = (code, slackId) => {
+    const r = spawnSync("tsx", [join(root, "e2e/connect-claim.ts"), stateDir, code, slackId], { cwd: root, encoding: "utf8" });
+    if (r.status !== 0) throw new Error(`claim 도우미 실패(tsx 필요): ${r.stderr}`);
+    return JSON.parse(r.stdout.trim());
+  };
+  assert.deepEqual(claim(momCode, "UOLDONE1"), { ok: false, reason: "invalid" }, "무효가 된 이전 코드");
+  assert.deepEqual(claim(momCode2, "U0123ABC"), { ok: true });
+  assert.deepEqual(claim(momCode2, "U9999ZZZ"), { ok: false, reason: "invalid" }, "두 번째는 실패");
+  await phone.getByText(/✓ 연결됨/).waitFor({ timeout: 15_000 });
+  assert.match(await phone.locator("[role=status]").filter({ hasText: "연결됐어요" }).innerText(), /엄마 님이 슬랙에 연결됐어요/, "aria-live 알림");
+  assert.ok(!JSON.stringify(await statusOf([momCode2])).includes("U0123ABC"), "슬랙 ID는 브라우저로 나가지 않는다");
+  assert.ok(!(await phone.content()).includes("U0123ABC"));
+  assert.equal(await phone.getByRole("button", { name: "다음" }).count(), 1);
+  // 아이는 아무것도 안 하고(건너뛰고) 지나간다. 코드를 받기만 하고 DM을 안 보낸 구성원도 허용(완료 시 '연결 못 함'으로 안내)
+  await phone.getByRole("button", { name: "하늘 연결 코드 받기" }).click();
+  await phone.getByText("30분 안에 보내야 해요").waitFor();
+  await assertLayout(phone, "3단계(연결됨)");
+  await shot(phone, "3-slack-connected");
+  await phone.getByRole("button", { name: "다음" }).click();
+  ok("3단계: 코드 받기·다시 받기(이전 코드 무효)·새로고침 유지·claim -> 연결됨(aria-live)·슬랙 ID 비노출");
 
   // ---- 4단계 ----
   await phone.getByRole("heading", { name: "기념일", exact: true }).waitFor();
@@ -280,6 +340,8 @@ try {
   await phone.getByRole("button", { name: "시작하기" }).click();
   await phone.getByRole("heading", { name: "세팅 완료!" }).waitFor();
   await phone.getByText("태블릿이 1분 안에 바뀝니다").waitFor();
+  await phone.getByText(/슬랙에 연결된 1명/).waitFor();
+  await phone.getByText(/연결을 끝내지 못한 구성원: 하늘/).waitFor();
   await shot(phone, "7-done");
   ok("시작하기 -> 완료 화면");
 
@@ -299,6 +361,9 @@ try {
   for (const line of ["id: haneul", "name: 하늘", "role: child", "birth: 2020-08-15", "color: teal"]) assert.ok(kid.includes(line), line);
   assert.equal(readFileSync(join(wiki, "anniversaries.md"), "utf8"), "- 03-12 엄마 생일 @member-1\n- 08-15 하늘 생일 @haneul\n- 11-21 결혼기념일 @family\n");
   assert.ok(existsSync(join(wiki, "log.md")));
+  assert.match(mom, /^slack: U0123ABC$/m, "서버가 연결 기록의 슬랙 ID를 member 파일에 씀");
+  assert.ok(!kid.includes("slack:"), "연결을 끝내지 못한 구성원은 슬랙 ID 없음");
+  assert.deepEqual(existsSync(join(stateDir, "connect")) ? readdirSync(join(stateDir, "connect")) : [], [], "완료 후 setup 연결 코드는 모두 폐기");
   assert.equal(git("status", "--porcelain"), "");
   ok("위키: 커밋 하나, config/members/anniversaries/log 내용 확인, 작업 트리 깨끗");
 
@@ -317,6 +382,8 @@ try {
   await phoneCtx.addCookies([sessionCookie]);
   const again = await complete(phoneCtx, { setup: { config: { familyName: "다시", timezone: "Asia/Seoul", familyColor: "gray" }, members: [{ id: "x", name: "x", role: "guardian", color: "coral" }], anniversaries: [] } });
   assert.equal(again.status(), 409);
+  assert.equal((await connectApi(phoneCtx, "", { memberKey: "m9", name: "x", role: "guardian" })).status(), 409, "세팅이 끝난 뒤 코드 발급은 409");
+  assert.equal((await connectApi(phoneCtx, "/status", { codes: ["123456"] })).status(), 409, "세팅이 끝난 뒤 상태 조회도 409");
   assert.equal((await again.json()).code, "already_done");
   await phone.goto(`${BASE}/setup`);
   await phone.getByText("이미 세팅이 끝났어요").waitFor();

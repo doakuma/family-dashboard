@@ -32,6 +32,8 @@ export interface AppConfig {
   previewQuery: boolean;
   /** 위키 저장소 위치(FsWikiRepository 전용). 서비스 저장소에서는 쓰지 않는다 */
   wikiRepoPath?: string;
+  /** 프로세스 간에 주고받는 임시 상태(슬랙 연결 코드 등)를 두는 폴더. 위키 레포 안이 아니다. 없으면 홈 아래 기본 폴더 */
+  stateDir: string;
   /** 태블릿 QR·출처 확인의 기준 주소 */
   dashboardBaseUrl?: string;
   /** 관리자 PIN 해시(`pnpm pin:hash`). 없으면 아무도 /setup에 못 들어간다 */

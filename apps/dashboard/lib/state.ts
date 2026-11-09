@@ -1,6 +1,6 @@
 import "server-only";
 import { DEFAULT_SKIN, SetupError, eventsForMonthView, existingSetupContent, needsSetup, parseConfigFile, toPublicState, todayIn, type ApiState, type DashboardState, type SkinId, type WikiRepository } from "@hsh/core";
-import { FsWikiRepository } from "@hsh/core/node";
+import { FsConnectCodeStore, FsWikiRepository } from "@hsh/core/node";
 import { resolve } from "node:path";
 import { cache } from "react";
 import { config } from "./config";
@@ -35,6 +35,13 @@ export function getWikiWriter(): Pick<WikiRepository, "applySetup"> {
   const path = config.get("wikiRepoPath");
   if (!path) throw new SetupError("WIKI_REPO_PATH가 없어 위키에 쓸 수 없어요", "read_only");
   return (g[WRITER] = new FsWikiRepository({ root: path, author: "setup", familyId: config.get("familyId") }));
+}
+
+// 슬랙 연결 코드 저장소(상태 폴더 HSH_STATE_DIR, 위키 레포 밖). 봇 프로세스와 같은 폴더를 본다. 파일 기반이라 인스턴스가 여럿이어도 안전하지만 globalThis에 하나만 둔다.
+const CONNECT = Symbol.for("hsh.connect.store.v1");
+export function getConnectStore(): FsConnectCodeStore {
+  const g = globalThis as typeof globalThis & { [CONNECT]?: FsConnectCodeStore };
+  return (g[CONNECT] ??= new FsConnectCodeStore({ dir: config.get("stateDir") }));
 }
 
 /** /setup 화면이 필요한 것: 세팅이 필요한지, 지워질 이전 세팅 파일이 있는지, 쓸 수 있는 위키인지 */

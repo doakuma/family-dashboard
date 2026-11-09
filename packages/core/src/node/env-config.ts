@@ -1,6 +1,8 @@
 // ConfigProvider의 MVP 구현: 환경 변수(.env는 실행 전에 이미 process.env에 들어와 있다).
 // 호출할 때마다 읽는다(캐시 없음) - 시작 직후에 환경이 바뀌는 순서(server.ts의 loadEnvConfig 선로딩)에 영향받지 않게.
 import { DEFAULT_OLLAMA_KEEP_ALIVE, DEFAULT_OLLAMA_NUM_CTX, DEFAULT_OLLAMA_TIMEOUT_MS, type AppConfig, type ConfigProvider, type LlmConfig, type OllamaKeepAlive } from "../config";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { DEFAULT_FAMILY_ID, asFamilyId } from "../types";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -62,6 +64,7 @@ export class EnvConfigProvider implements ConfigProvider {
       previewQuery: () => env.NODE_ENV !== "production" || env.HSH_PREVIEW_QUERY === "1",
       port: () => Number(blank(env.PORT) ?? 3000),
       wikiRepoPath: () => env.WIKI_REPO_PATH || undefined,
+      stateDir: () => blank(env.HSH_STATE_DIR) ?? join(homedir(), ".homesweethome", "state"),
       dashboardBaseUrl: () => env.DASHBOARD_BASE_URL,
       adminPinHash: () => env.ADMIN_PIN_HASH,
       llm: () => llmFromEnv(env),

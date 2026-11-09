@@ -3,7 +3,7 @@ import { setupSchema } from "@hsh/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clearDraft, initialDraft, loadDraft, saveDraft, STEP_COUNT, type Draft } from "@/lib/setup/draft";
 import { parseCompleteResponse } from "@/lib/setup/response";
-import { serverIssuesToErrors, toSetupInput } from "@/lib/setup/build";
+import { serverIssuesToErrors, toConnectCodes, toSetupInput } from "@/lib/setup/build";
 import { firstErrorStep, stepOfField, validateStep, type Errors } from "@/lib/setup/validate";
 import { StepFrame } from "./StepFrame";
 import { AnniversaryStep } from "./steps/AnniversaryStep";
@@ -38,7 +38,8 @@ function sessionStore(): Storage | undefined {
   }
 }
 
-type Phase = { kind: "edit" } | { kind: "saving" } | { kind: "done"; synced: boolean; syncError?: string };
+/** done: linked = 슬랙 연결을 시도한 구성원 수 - 끝내지 못한 구성원, unlinked = 코드를 받았지만 연결이 끝나지 않은 구성원 이름 */
+type Phase = { kind: "edit" } | { kind: "saving" } | { kind: "done"; synced: boolean; syncError?: string; linked: number; unlinked: string[] };
 
 /** 6단계 마법사 본체. 입력은 클라이언트 상태(+sessionStorage)로 들고 있다가 마지막에 한 번 서버로 보낸다. */
 export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
@@ -118,7 +119,7 @@ export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
       res = await fetch("/api/setup/complete", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ setup: input, overwrite: needsOverwrite && draft.overwrite }),
+        body: JSON.stringify({ setup: input, overwrite: needsOverwrite && draft.overwrite, connectCodes: toConnectCodes(draft) }),
         credentials: "same-origin",
       });
     } catch {
@@ -134,7 +135,10 @@ export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
     }
     if (res.ok && body?.ok) {
       clearDraft(sessionStore());
-      setPhase({ kind: "done", synced: body.synced, syncError: body.syncError });
+      const sent = toConnectCodes(draft);
+      const unlinkedIds = new Set(body.unlinked ?? []);
+      const unlinked = draft.members.filter((m) => unlinkedIds.has(m.id.trim())).map((m) => m.name.trim());
+      setPhase({ kind: "done", synced: body.synced, syncError: body.syncError, linked: sent.length - unlinkedIds.size, unlinked });
       return;
     }
     setPhase({ kind: "edit" });
@@ -166,7 +170,9 @@ export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
           </h1>
           <p>태블릿이 1분 안에 바뀝니다. 이 화면은 닫아도 돼요.</p>
           {phase.syncError && <p className={s.note}>위키는 이 노트북에 저장됐고, GitHub에 올리는 데 실패했어요. 다음 저장 때 다시 시도해요.</p>}
-          <p className={s.itemSub}>슬랙 연결은 앱이 준비되면 안내해 드릴게요.</p>
+          {phase.linked > 0 && <p className={s.itemSub}>슬랙에 연결된 {phase.linked}명은 지금부터 슬랙으로 말할 수 있어요.</p>}
+          {phase.unlinked.length > 0 && <p className={s.note}>연결을 끝내지 못한 구성원: {phase.unlinked.join(", ")}. 나중에 설정에서 다시 연결할 수 있어요.</p>}
+          {phase.linked === 0 && phase.unlinked.length === 0 && <p className={s.itemSub}>슬랙 연결은 나중에 설정에서 할 수 있어요.</p>}
         </main>
       </div>
     );
@@ -187,7 +193,7 @@ export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
       focusTick={focusTick}
       onBack={step > 1 ? () => go(step - 1) : undefined}
       onNext={step === STEP_COUNT ? () => void submit() : next}
-      nextLabel={step === 3 ? "건너뛰기" : step === 5 && calendarEmpty ? "건너뛰기" : step === STEP_COUNT ? "시작하기" : "다음"}
+      nextLabel={step === 3 ? (draft.members.some((m) => m.connectCode) ? "다음" : "건너뛰기") : step === 5 && calendarEmpty ? "건너뛰기" : step === STEP_COUNT ? "시작하기" : "다음"}
       busy={saving}
     >
       {step === 1 && <HomeStep {...props} />}

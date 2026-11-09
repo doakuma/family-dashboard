@@ -58,3 +58,13 @@ describe("EnvConfigProvider", () => {
     expect(() => new EnvConfigProvider({ HSH_FAMILY_ID: "Bad Id" }).get("familyId")).toThrow();
   });
 });
+
+describe("stateDir (HSH_STATE_DIR)", () => {
+  it("환경 변수가 있으면 그 값, 없으면 홈 아래 기본 폴더(위키 경로와 무관)", () => {
+    expect(new EnvConfigProvider({ HSH_STATE_DIR: "/var/hsh" }).get("stateDir")).toBe("/var/hsh");
+    const d = new EnvConfigProvider({ WIKI_REPO_PATH: "/w" }).get("stateDir");
+    expect(d).toMatch(/\.homesweethome[\\/]state$/);
+    expect(d.startsWith("/w")).toBe(false);
+    expect(new EnvConfigProvider({ HSH_STATE_DIR: "  " }).get("stateDir")).toMatch(/\.homesweethome/);
+  });
+});

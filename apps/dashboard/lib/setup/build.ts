@@ -46,6 +46,11 @@ export function toMembers(d: Draft): Member[] {
   }));
 }
 
+/** 서버에 보낼 연결 코드. 슬랙 ID는 클라이언트가 모른다 - 서버가 코드로 찾는다 */
+export function toConnectCodes(d: Draft): { memberId: string; memberKey: string; code: string }[] {
+  return d.members.flatMap((m) => (m.connectCode ? [{ memberId: m.id.trim(), memberKey: m.key, code: m.connectCode }] : []));
+}
+
 export function toSetupInput(d: Draft): SetupInput {
   const region =
     d.regionMode === "list"

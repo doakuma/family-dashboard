@@ -1,7 +1,8 @@
 // 슬랙 봇 진입점 (Socket Mode). #가족 채널과 DM의 글을 대화 흐름(flow/conversation.ts)으로 넘긴다.
 // 설정은 ConfigProvider, 봇 토큰은 InstallationStore로만 받는다(process.env 직접 참조 없음 - 결정 0003).
-import { EnvConfigProvider, FsWikiRepository } from "@hsh/core/node";
+import { EnvConfigProvider, FsConnectCodeStore, FsWikiRepository } from "@hsh/core/node";
 import { App, LogLevel, webApi } from "@slack/bolt";
+import { AttemptLimiter, ConnectHandler } from "./connect/handler";
 import { Conversation } from "./flow/conversation";
 import { PendingStore } from "./flow/pending";
 import { createLlmAdapter } from "./llm/client";
@@ -55,6 +56,11 @@ const app = new App({
 /** 이벤트의 client(토큰이 들어 있음)로 말하는 대화 흐름 */
 const conversationWith = (client: webApi.WebClient) => new Conversation({ wiki, llm, familyId, pending, ui: new SlackUi(async () => client) });
 
+// 슬랙 연결 코드(`연결 482913`)는 대화 흐름(LLM)보다 먼저 가로챈다. 코드를 LLM에 보내지 않고, 채널에 올라온 코드는 여기서 지운다
+const connectLimiter = new AttemptLimiter(Date.now);
+const connectStore = new FsConnectCodeStore({ dir: config.get("stateDir") });
+const connectWith = (client: webApi.WebClient) => new ConnectHandler({ store: connectStore, ui: new SlackUi(async () => client), limiter: connectLimiter });
+
 app.message(/^ping$/, async ({ say }) => {
   await say("pong 🏠");
 });
@@ -62,6 +68,7 @@ app.message(/^ping$/, async ({ say }) => {
 app.message(async ({ message, client, context }) => {
   const m = toConversationMessage(message, { familyChannel, botUserId: context.botUserId });
   if (!m || m.text === "ping") return;
+  if (await connectWith(client).tryHandle(m)) return;
   await conversationWith(client).handleMessage(m);
 });
 

@@ -20,6 +20,8 @@ export interface MemberDraft {
   id: string;
   /** 사용자가 id를 직접 고쳤는가 (true면 이름이 바뀌어도 id를 덮어쓰지 않는다) */
   idEdited: boolean;
+  /** 3단계에서 받은 슬랙 연결 코드(6자리). 새로고침에도 유지된다. 이름·역할이 바뀌면 지워진다(코드에 그 이름이 들어 있어서) */
+  connectCode?: string;
 }
 
 export interface AnnivDraft {
@@ -101,9 +103,13 @@ export function removeMember(d: Draft, key: string): Draft {
 }
 
 export function updateMember(d: Draft, key: string, patch: Partial<Omit<MemberDraft, "key" | "idEdited">>): Draft {
+  const target = d.members.find((m) => m.key === key);
+  // 이름·역할이 바뀌면 이미 받은 코드는 낡은 이름으로 발급된 것이라 버린다(다시 받게 한다)
+  const staleCode = target && target.connectCode !== undefined && (("name" in patch && patch.name !== target.name) || ("role" in patch && patch.role !== target.role));
   const members = d.members.map((m) => {
     if (m.key !== key) return m;
     const next = { ...m, ...patch };
+    if (staleCode) delete next.connectCode;
     if ("id" in patch) {
       // 비우면 다시 자동 생성으로
       const empty = (patch.id ?? "").trim() === "";
@@ -148,7 +154,7 @@ const draftSchema = z.object({
   manual: z.object({ label: str(200), nx: str(10), ny: str(10), landId: str(20), taId: str(20) }),
   timezone: str(60),
   members: z
-    .array(z.object({ key: str(10), name: str(200), role: z.enum(["guardian", "child"]), birth: str(10), color: str(30), id: str(60), idEdited: z.boolean() }))
+    .array(z.object({ key: str(10), name: str(200), role: z.enum(["guardian", "child"]), birth: str(10), color: str(30), id: str(60), idEdited: z.boolean(), connectCode: z.string().regex(/^\d{6}$/).optional() }))
     .min(1)
     .max(MAX_MEMBERS),
   anniversaries: z.array(z.object({ key: str(10), title: str(200), month: str(2), day: str(2), member: str(60) })).max(60),

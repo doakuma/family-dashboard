@@ -222,7 +222,7 @@
       "status": "in_progress",
       "passes": false,
       "review": null,
-      "note": "잡음: 2026-11-09 (목 진행 큐 2번, 예약 대화)"
+      "note": "잡음: 2026-11-09 (목 진행 큐 2번, 예약 대화). 목 완료 대기(리뷰 전). 필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, HSH_STATE_DIR(선택), 슬랙 앱 im:history·message.im·App Home Messages 탭"
     },
     {
       "id": 20,

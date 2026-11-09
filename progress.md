@@ -239,3 +239,12 @@
 - 리뷰(1차 통과, 중간 3·낮음 5) 반영: 슬랙 글 형식 풀기(`fromSlackText`: 엔티티 &amp;·&lt;·&gt; 원래 글자로, 봇 멘션만 떼고 다른 멘션은 `@U…` → 흐름이 구성원 이름으로, 채널·링크는 보이는 글자로), DM 고치기는 본문·스레드 어디에 답해도 이어짐(문구도 "이 대화에"), 만료는 마지막 상태 변화부터, 고르는 중 취소 시 카드 덮어쓰기 막음(상태는 모두 transition으로), 일부 넣은 뒤 취소하면 넣은 개수 표시, ping은 `/^ping$/`만, file_share·thread_broadcast 글도 들음, 알림용 대체 글도 이스케이프. pnpm check 808 테스트.
 - 실연결 안내 추가: DM을 받으려면 슬랙 앱 App Home의 Messages 탭을 켠다. 스펙 "인터페이스" 절(MessengerAdapter ↔ ConversationUi)은 오너 결정 대기.
 - 2차 재리뷰 통과(b41d7f3). #9 review=pass, passes=false(목 완료·실연결 대기). [낮음] 3건은 features #9 note.
+
+## 2026-11-09 · #19 슬랙 연결 코드 (목 진행)
+- 오너 결정(11-09)에 따라 슬랙 토큰 없이 목으로 구현. 결정 기록 `docs/decisions/0007-slack-connect-code.md`. 마법사(대시보드)와 봇이 다른 프로세스라 core에 포트 `ConnectCodeStore`(+코드 형식·`연결 <6자리>` 파싱·코드 생성), core/node에 `FsConnectCodeStore`(HSH_STATE_DIR, 기본 `~/.homesweethome/state`, 위키 밖). 임시 파일 + `link`로 배타 생성해 claim이 두 프로세스·두 번 DM에도 한 번만 성공. 코드 30분(연결된 뒤 24시간), 재발급하면 이전 코드 무효, 같은 슬랙 계정은 한 구성원에만.
+- 대시보드: `POST /api/setup/connect`(발급)·`/status`(pending|connected|expired, 슬랙 ID 비노출), complete에 `connectCodes` 추가(서버가 연결 기록에서 slackId를 채움, 클라이언트 slackId는 422 거부, 성공 후 setup 코드 폐기, 연결 못 끝낸 구성원은 막지 않고 `unlinked`로 알림). 공통 관문 `lib/setup/guard.ts`. 3단계 SlackStep: 코드 받기·다시 받기·3초 폴링(3단계가 보일 때만)·연결됨(aria-live)·아이 건너뛰기·draft 유지.
+- 봇: `apps/bot/src/connect/handler.ts`가 대화 흐름(LLM)보다 먼저 가로챔. DM만 연결, 채널 코드는 무효화 + 본인에게만 안내, 틀림·만료·사용됨은 같은 문구, 사용자별 5회 실패 15분 잠금(메모리), 다른 구성원으로 이미 연결된 계정은 이름을 알려 거부.
+- 검증: pnpm check 통과(896 테스트, 이전 808), `setup.e2e.mjs`에 연결 한 바퀴(코드 받기·다시 받기·새로고침 유지·FsConnectCodeStore로 claim 흉내(tsx 필요)·연결됨 aria-live·완료 후 member 파일 `slack:`·코드 폐기·409) 추가해 build 후 실행 통과(SKIP_TABLET_WAIT=1). auth e2e도 통과.
+- 실연결에 필요한 값: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, 슬랙 앱 봇 스코프 `im:history`, 이벤트 `message.im`, App Home의 Messages 탭 켜기, 새 `HSH_STATE_DIR`(선택, 대시보드·봇이 같은 값이어야 함. PM2 두 프로세스가 같은 사용자로 돌면 기본값 그대로 같음). `.env.example`은 권한상 못 열어 HSH_STATE_DIR 추가 못 함.
+- 오너 확인 필요: (1) 연결을 끝내지 못한 구성원은 완료를 막지 않고 알림만 (2) 연결된 코드 24시간 유지·코드 30분 (3) 같은 슬랙 계정 중복 연결 거부 (4) 잠금이 봇 메모리라 재시작하면 풀림 (5) 클라이언트 slackId는 제거가 아니라 422 거부 (6) 스펙 "환경" 절에 HSH_STATE_DIR 한 줄.
+- 남은 문제: 실제 슬랙 DM·채널 ephemeral 동작은 #3 토큰 뒤 확인. #20(환영 메시지)·#22(재연결)는 하지 않음. e2e의 claim 흉내는 전역 tsx가 필요(pnpm check에는 포함되지 않음). #19는 passes=false, review=null.
