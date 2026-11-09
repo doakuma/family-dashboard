@@ -1,6 +1,8 @@
 // 노트북에 clone된 family-wiki를 다루는 WikiRepository 구현 (Node 전용).
 import { execFile, execFileSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { link, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { WikiRepository, WriteResult } from "../ports";
@@ -27,7 +29,32 @@ export interface FsWikiOptions {
   warn?: (message: string) => void;
   now?: () => Date;
   random?: () => number;
+  /** 프로세스 간 쓰기 잠금을 기다리는 최대 시간(ms). 기본 30초. 넘으면 WikiLockError */
+  lockWaitMs?: number;
+  /** 이 시간보다 오래된 잠금은 죽은 프로세스가 남긴 것으로 보고 치운다(ms). 기본 5분 */
+  lockStaleMs?: number;
+  /** 잠금 재시도 간격(ms). 기본 50 */
+  lockRetryMs?: number;
 }
+
+/** 다른 프로세스(대시보드·봇)가 쓰는 중이라 제때 쓰기 잠금을 얻지 못했다 */
+export class WikiLockError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WikiLockError";
+  }
+}
+
+const LOCK_NAME = "hsh-write.lock";
+const isErr = (e: unknown, ...codes: string[]) => codes.includes((e as NodeJS.ErrnoException | undefined)?.code ?? "");
+const pidAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return !isErr(e, "ESRCH");
+  }
+};
 
 /**
  * apply 결과. 포트 결과(WriteResult)에 이 구현의 정보를 더한다.
@@ -178,9 +205,78 @@ export class FsWikiRepository implements WikiRepository {
   }
 
   private enqueue<T>(job: () => Promise<T>): Promise<T> {
-    const run = this.queue.then(job);
+    // 프로세스 안은 큐로, 프로세스 사이(대시보드·봇이 같은 위키 폴더에 씀)는 파일 잠금으로 한 번에 하나만 쓴다
+    const run = this.queue.then(() => this.withLock(job));
     this.queue = run.catch(() => undefined);
     return run;
+  }
+
+  /**
+   * 프로세스 간 배타 잠금(.git/hsh-write.lock). 임시 파일에 {pid, token, at}을 쓰고 link(2)로 만들어 배타 생성한다(0007과 같은 방식).
+   * 기다리다 상한을 넘으면 WikiLockError. 오래됐거나 주인 프로세스가 없는 잠금은 치운다. 풀 때는 내 token일 때만 지운다.
+   */
+  private async withLock<T>(job: () => Promise<T>): Promise<T> {
+    const lock = this.gitPath(LOCK_NAME);
+    const token = randomBytes(8).toString("hex");
+    const wait = this.opts.lockWaitMs ?? 30_000;
+    const stale = this.opts.lockStaleMs ?? 300_000;
+    const retry = this.opts.lockRetryMs ?? 50;
+    const until = Date.now() + wait;
+    for (;;) {
+      if (await this.tryLock(lock, token)) break;
+      await this.clearStale(lock, stale);
+      if (Date.now() >= until) throw new WikiLockError(`다른 프로세스가 위키에 쓰는 중이라 ${Math.round(wait / 1000)}초 기다렸지만 잠금을 얻지 못했어요. 잠시 뒤 다시 해 주세요 (${lock})`);
+      await new Promise((r) => setTimeout(r, retry));
+    }
+    try {
+      return await job();
+    } finally {
+      const cur = await this.readLock(lock);
+      if (cur?.token === token) await unlink(lock).catch(() => {});
+    }
+  }
+
+  private async tryLock(lock: string, token: string): Promise<boolean> {
+    const tmp = `${lock}.${process.pid}.${token}.tmp`;
+    await writeFile(tmp, JSON.stringify({ pid: process.pid, token, at: Date.now() }), { flag: "wx", mode: 0o600 });
+    try {
+      try {
+        await link(tmp, lock);
+      } catch (e) {
+        // Windows(NTFS)에서 백신·인덱서가 잠시 잡으면 EPERM/EBUSY: 한 번 다시
+        if (!isErr(e, "EPERM", "EBUSY")) throw e;
+        await new Promise((r) => setTimeout(r, 50));
+        await link(tmp, lock);
+      }
+      return true;
+    } catch (e) {
+      if (isErr(e, "EEXIST", "EPERM", "EBUSY")) return false;
+      throw e;
+    } finally {
+      await unlink(tmp).catch(() => {});
+    }
+  }
+
+  private async readLock(lock: string): Promise<{ pid?: number; token?: string; at?: number } | undefined> {
+    try {
+      const v: unknown = JSON.parse(await readFile(lock, "utf8"));
+      return typeof v === "object" && v !== null ? (v as { pid?: number; token?: string; at?: number }) : {};
+    } catch (e) {
+      return isErr(e, "ENOENT") ? undefined : {}; // 깨진 내용은 주인을 모르는 잠금
+    }
+  }
+
+  /** 시각이 오래됐거나(주인을 알 수 없는 깨진 잠금 포함) 같은 기계의 주인 프로세스가 없으면 치운다. 지우기 직전에 다시 읽어 같은 잠금일 때만 */
+  private async clearStale(lock: string, staleMs: number): Promise<void> {
+    const first = await this.readLock(lock);
+    if (!first) return;
+    const old = typeof first.at !== "number" || Date.now() - first.at > staleMs;
+    const dead = typeof first.pid === "number" && !pidAlive(first.pid);
+    if (!old && !dead) return;
+    const again = await this.readLock(lock);
+    if (again?.token !== first.token) return;
+    (this.opts.warn ?? console.warn)(`[wiki] 오래된 쓰기 잠금을 치웠어요(pid ${first.pid ?? "?"})`);
+    await unlink(lock).catch(() => {});
   }
 
   private async applyNow(change: Change, by: string): Promise<ApplyOutcome> {

@@ -27,7 +27,7 @@ export interface WikiRepository {
    * 세팅 뒤 설정 변경(/settings, 슬랙 색 변경 고정 명령): 구성원 추가·색·슬랙 연결, 지역. 하나의 저장 단위(파일 + 변경 기록 한 줄).
    * `Change`가 아니라 LLM이 만들 수 없는 내부 메서드다(결정 0010). 세팅이 끝난 위키에서만 쓸 수 있다.
    * 실패하면 원래대로 되돌린다. 거부 사유는 `SettingsError`(invalid·not_found·conflict·read_only·needs_setup).
-   * opts.author는 변경 기록·커밋 작성자(예: `settings`, `slack:U0123`).
+   * opts.author는 변경 기록·커밋 작성자(예: `settings`, `slack:엄마`).
    */
   applySettings(familyId: FamilyId, change: SettingsChange, opts?: { author?: string }): Promise<WriteResult>;
 }

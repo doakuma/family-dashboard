@@ -188,3 +188,16 @@ describe("settings 범위 코드 (#22)", () => {
     expect(CONNECT_TEXT.connectedSettings("하늘")).not.toContain("세팅을 마치면");
   });
 });
+
+describe("settings 범위 실패 문구", () => {
+  it("이미 연결·다른 구성원에 연결된 계정 안내가 '설정 화면'을 가리킨다(setup은 '세팅 화면')", async () => {
+    for (const [scope, word] of [["settings", "설정 화면"], ["setup", "세팅 화면"]] as const) {
+      const a = fakeUi();
+      await new ConnectHandler({ store: fakeStore({ ok: false, reason: "slack_taken", name: "엄마", scope }).store, ui: a.ui }).tryHandle(say("연결 482913"));
+      expect(a.texts()[0]).toContain(word);
+      const b = fakeUi();
+      await new ConnectHandler({ store: fakeStore({ ok: false, reason: "already_yours", name: "엄마", scope }).store, ui: b.ui }).tryHandle(say("연결 482913"));
+      expect(b.texts()[0]).toContain(word);
+    }
+  });
+});

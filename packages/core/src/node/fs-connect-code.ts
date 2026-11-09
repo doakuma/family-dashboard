@@ -203,12 +203,12 @@ export class FsConnectCodeStore implements ConnectCodeStore {
     if (!isConnectCode(code) || !/^[A-Za-z0-9]+$/.test(slackId)) return invalid;
     const e = await this.load(code);
     if (!e.record || !this.alive(e)) return invalid;
-    if (e.claim) return e.claim.slackId === slackId ? { ok: false, reason: "already_yours", name: e.record.name } : invalid;
+    if (e.claim) return e.claim.slackId === slackId ? { ok: false, reason: "already_yours", name: e.record.name, scope: e.record.scope } : invalid;
 
     // 같은 슬랙 계정이 같은 세팅에서 이미 다른 구성원으로 연결됐는가 (동시에 두 코드를 보내는 경우는 마법사 완료가 한 번 더 막는다)
     for (const other of await this.sweep()) {
       if (other.code === code || !other.claim || other.record.scope !== e.record.scope) continue;
-      if (other.claim.slackId === slackId && other.record.memberKey !== e.record.memberKey) return { ok: false, reason: "slack_taken", name: other.record.name };
+      if (other.claim.slackId === slackId && other.record.memberKey !== e.record.memberKey) return { ok: false, reason: "slack_taken", name: other.record.name, scope: other.record.scope };
     }
     const claim: Claim = { slackId, claimedAt: this.now().toISOString() };
     // 배타 생성: 두 프로세스·두 번 DM이 겹쳐도 한 번만 성공한다

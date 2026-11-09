@@ -50,14 +50,14 @@ describe("FsWikiRepository.applySettings", () => {
     seed();
     const repo = new FsWikiRepository({ root, now });
     const before = git(root, "rev-list", "--count", "HEAD");
-    const r = await repo.applySettings(FID, { kind: "member.color", payload: { id: "haneul", color: "green" } }, { author: "slack:U0MOM" });
+    const r = await repo.applySettings(FID, { kind: "member.color", payload: { id: "haneul", color: "green" } }, { author: "slack:엄마" });
 
     expect(Number(git(root, "rev-list", "--count", "HEAD")) - Number(before)).toBe(1);
     expect(git(root, "show", "--name-only", "--format=", "HEAD").split("\n").sort()).toEqual(["log.md", "members/haneul.md"]);
     expect(git(root, "log", "-1", "--format=%s")).toBe("[settings] 하늘 색: 파랑 → 초록");
-    expect(git(root, "log", "-1", "--format=%an")).toBe("slack:U0MOM");
+    expect(git(root, "log", "-1", "--format=%an")).toBe("slack:엄마");
     expect(readFileSync(join(root, "members/haneul.md"), "utf8")).toBe(HANEUL.replace("color: blue", "color: green"));
-    expect(readFileSync(join(root, "log.md"), "utf8")).toContain("- 2026-11-09 20:00 [settings] 하늘 색: 파랑 → 초록 (by slack:U0MOM) #haneul");
+    expect(readFileSync(join(root, "log.md"), "utf8")).toContain("- 2026-11-09 20:00 [settings] 하늘 색: 파랑 → 초록 (by slack:엄마) #haneul");
     expect(r).toMatchObject({ version: git(root, "rev-parse", "HEAD"), synced: true, summary: "하늘 색: 파랑 → 초록" });
     expect(git(remote, "rev-parse", "main")).toBe(r.version);
     expect(git(root, "status", "--porcelain")).toBe("");

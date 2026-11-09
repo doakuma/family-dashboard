@@ -2,28 +2,14 @@
 // LLM을 거치지 않는다(코드가 문장 모양을 직접 인식). 보호자만. 쓰기는 WikiRepository.applySettings 하나.
 // 자리: ConnectHandler 다음, Conversation(LLM)보다 먼저. 모양이 안 맞거나 대상 구성원이 없으면 가로채지 않고(false) 기존 흐름으로 넘긴다.
 // 슬랙과 무관하다: 응답 창구는 ConversationUi 포트.
-import { COLOR_LIST_TEXT, SettingsError, canWrite, colorLabel, permissionFor, type FamilyId, type Member, type Permission, type WikiRepository } from "@hsh/core";
+import { COLOR_LIST_TEXT, SettingsError, canWrite, colorLabel, euro, iyeyo, permissionFor, type FamilyId, type Member, type Permission, type WikiRepository } from "@hsh/core";
 import { TEXT as FLOW_TEXT } from "../flow/conversation";
 import { textCard, type ActionInput, type Card, type CardButton, type ConversationMessage, type ConversationUi, type Thread } from "../flow/ui";
 import { parseColorCommand } from "./parse";
 import { SettingsPendingStore, isSettingsPendingId, type SettingsPending } from "./pending";
 import { findMembers } from "./resolve";
 
-export { isSettingsPendingId };
-
-/** 받침이 없거나 ㄹ이면 "로", 아니면 "으로" */
-export function euro(word: string): string {
-  const last = word.charCodeAt(word.length - 1) - 0xac00;
-  if (last < 0 || last > 11171) return "(으)로";
-  const jong = last % 28;
-  return jong === 0 || jong === 8 ? "로" : "으로";
-}
-/** 받침이 있으면 "이에요", 없으면 "예요" */
-export function iyeyo(word: string): string {
-  const last = word.charCodeAt(word.length - 1) - 0xac00;
-  if (last < 0 || last > 11171) return "(이)에요";
-  return last % 28 === 0 ? "예요" : "이에요";
-}
+export { euro, iyeyo, isSettingsPendingId };
 
 export const SETTINGS_TEXT = {
   childNoSettings: "아이 계정은 설정을 바꿀 수 없어요. 보호자에게 부탁해 주세요.",

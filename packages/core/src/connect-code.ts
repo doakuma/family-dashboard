@@ -37,9 +37,9 @@ export type ClaimFailure =
   /** 없는 코드·만료·이미 다른 계정이 씀 - 구분해서 알려 주지 않는다(존재 여부를 흘리지 않음) */
   | { ok: false; reason: "invalid" }
   /** 이 슬랙 계정이 같은 세팅에서 이미 다른 구성원으로 연결됨 */
-  | { ok: false; reason: "slack_taken"; name: string }
+  | { ok: false; reason: "slack_taken"; name: string; scope?: ConnectScope }
   /** 같은 계정이 같은 코드를 다시 보냄 */
-  | { ok: false; reason: "already_yours"; name: string };
+  | { ok: false; reason: "already_yours"; name: string; scope?: ConnectScope };
 export type ClaimResult = { ok: true; record: ConnectCodeRecord } | ClaimFailure;
 
 /** 연결된 코드 한 건(마법사 완료가 읽는다). slackId는 서버끼리만 주고받고 브라우저로 내보내지 않는다 */

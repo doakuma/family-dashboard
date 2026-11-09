@@ -4,7 +4,7 @@ import { settingsChangeSchema } from "../schema";
 import type { SettingsChange } from "../types";
 import type { WikiFiles } from "./apply";
 import { parseConfigFile, parseMemberFile } from "./format";
-import { updateFrontmatterValues } from "./frontmatter";
+import { parseFrontmatter, updateFrontmatterValues } from "./frontmatter";
 import { SettingsError, buildSettingsFiles } from "./settings";
 
 const filesOf = (m: Record<string, string>): WikiFiles => ({
@@ -170,6 +170,11 @@ describe("updateFrontmatterValues", () => {
     expect(updateFrontmatterValues("본문만", { a: "1" })).toBeNull();
     expect(() => updateFrontmatterValues("---\na: 1\n---\n", { a: "x\ny" })).toThrow();
     expect(() => updateFrontmatterValues("---\na: 1\n---\n", { a: '"q"' })).toThrow();
+  });
+  it("같은 키가 여러 줄이면 읽을 때 쓰이는 마지막 줄을 고친다", () => {
+    const r = updateFrontmatterValues("---\ncolor: blue\nid: a\ncolor: pink\n---\n", { color: "green" });
+    expect(r).toBe("---\ncolor: blue\nid: a\ncolor: green\n---\n");
+    expect(parseFrontmatter(r ?? "")?.data.color).toBe("green");
   });
   it("값이 같으면 글이 그대로", () => {
     const t = "---\ncolor: blue\n---\n";

@@ -23,7 +23,7 @@ export function useSettingsAction(onView: (v: SettingsViewData) => void) {
       const r = await postSettings(req);
       if (r.ok) {
         if (r.body.view) onView(r.body.view);
-        const sync = r.body.synced === false ? " (이 노트북에는 저장됐고 GitHub에 올리는 건 실패했어요. 다음 저장 때 다시 시도해요.)" : "";
+        const sync = r.body.syncError ? " (이 노트북에는 저장됐고 GitHub에 올리는 건 실패했어요. 다음 저장 때 다시 시도해요.)" : "";
         const stale = r.body.saved && !r.body.view ? " 화면을 새로고침하면 최신 상태가 보여요." : "";
         setMessage({ kind: "ok", text: `${okText(r.body)}${sync}${stale}` });
       } else setMessage({ kind: "error", text: r.message });

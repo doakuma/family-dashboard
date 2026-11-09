@@ -52,10 +52,12 @@ export function updateFrontmatterValues(text: string, updates: Record<string, st
   for (const [key, raw] of Object.entries(updates)) {
     const value = raw === undefined ? undefined : String(raw);
     if (value !== undefined) assertSafe(key, value);
-    const at = lines.findIndex((l) => {
+    // parseFrontmatter는 같은 키가 여러 번이면 마지막 값을 쓰므로 마지막 줄을 고친다
+    let at = -1;
+    lines.forEach((l, idx) => {
       const t = l.trim();
       const i = t.indexOf(":");
-      return !t.startsWith("#") && i > 0 && t.slice(0, i).trim() === key;
+      if (!t.startsWith("#") && i > 0 && t.slice(0, i).trim() === key) at = idx;
     });
     if (value === undefined || value === "") {
       if (at >= 0) lines.splice(at, 1);

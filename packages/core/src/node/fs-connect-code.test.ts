@@ -101,7 +101,7 @@ describe("claim", () => {
     const s = make();
     const r = await s.issue(sky);
     await s.claim(r.code, "U1");
-    expect(await s.claim(r.code, "U1")).toEqual({ ok: false, reason: "already_yours", name: "하늘" });
+    expect(await s.claim(r.code, "U1")).toEqual({ ok: false, reason: "already_yours", name: "하늘", scope: "setup" });
     expect(await s.claim(r.code, "U2")).toEqual({ ok: false, reason: "invalid" });
     expect((await s.claimed(r.code))?.slackId).toBe("U1");
   });
@@ -149,7 +149,7 @@ describe("claim", () => {
     const a = await s.issue(sky);
     const b = await s.issue(mom);
     await s.claim(a.code, "U1");
-    expect(await s.claim(b.code, "U1")).toEqual({ ok: false, reason: "slack_taken", name: "하늘" });
+    expect(await s.claim(b.code, "U1")).toEqual({ ok: false, reason: "slack_taken", name: "하늘", scope: "setup" });
     expect((await s.states([b.code]))[b.code]).toBe("pending"); // 코드는 소모되지 않는다
     expect((await s.claim(b.code, "U2")).ok).toBe(true);
   });

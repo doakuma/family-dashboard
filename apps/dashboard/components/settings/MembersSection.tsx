@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { PICKABLE_COLORS, COLOR_LABELS, colorLabel, type MemberRole } from "@hsh/core";
+import { PICKABLE_COLORS, COLOR_LABELS, colorLabel, euro, type MemberRole } from "@hsh/core";
 import { Button } from "@/components/ui/form/Button";
 import { ChoiceGroup, SwatchGroup, TextField } from "@/components/ui/form/Field";
 import { MEMBER_COLORS, colorOf } from "@/lib/palette";
@@ -79,7 +79,7 @@ export function MembersSection({ view, onView }: Props) {
 
   const submitColor = async (id: string, memberName: string) => {
     if (pick === "") return;
-    const r = await act.run({ kind: "member.color", id, color: pick }, () => `${memberName} 님의 색을 ${colorLabel(pick)}(으)로 바꿨어요.`);
+    const r = await act.run({ kind: "member.color", id, color: pick }, () => `${memberName} 님의 색을 ${colorLabel(pick)}${euro(colorLabel(pick))} 바꿨어요.`);
     if (r?.ok) {
       setEditing(undefined);
       // 눌렀던 버튼이 사라지므로 같은 구성원의 '색 바꾸기' 버튼으로 포커스를 돌려준다

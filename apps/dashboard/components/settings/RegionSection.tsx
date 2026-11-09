@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/form/Button";
 import { SelectField } from "@/components/ui/form/Field";
-import { findRegion } from "@hsh/core";
+import { euro, findRegion } from "@hsh/core";
 import type { SettingsViewData } from "@/lib/settings/client";
 import { RegionOptions } from "../setup/RegionOptions";
 import s from "../setup/setup.module.css";
@@ -31,7 +31,7 @@ export function RegionSection({ view, onView }: Props) {
     }
     if (unchanged) return;
     setError(undefined);
-    const r = await act.run({ kind: "region", regionKey: chosen.key }, () => `지역을 ${chosen.label}(으)로 바꿨어요. 날씨는 곧 새 지역 기준으로 바뀌어요.`);
+    const r = await act.run({ kind: "region", regionKey: chosen.key }, () => `지역을 ${chosen.label}${euro(chosen.label)} 바꿨어요. 날씨는 곧 새 지역 기준으로 바뀌어요.`);
     if (r && !r.ok) setError(r.issues[0]?.message);
   };
 

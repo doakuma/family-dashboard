@@ -44,3 +44,17 @@ export function parseColorName(raw: string): PickableColor | undefined {
 
 /** 사용자에게 보여 줄 색 목록 문구 */
 export const COLOR_LIST_TEXT = PICKABLE_COLORS.map((c) => COLOR_LABELS[c]).join(" · ");
+
+/** 받침이 없거나 ㄹ이면 "로", 아니면 "으로" (한글이 아니면 "(으)로") */
+export function euro(word: string): string {
+  const c = word.charCodeAt(word.length - 1) - 0xac00;
+  if (c < 0 || c > 11171) return "(으)로";
+  const jong = c % 28;
+  return jong === 0 || jong === 8 ? "로" : "으로";
+}
+/** 받침이 있으면 "이에요", 없으면 "예요" (한글이 아니면 "(이)에요") */
+export function iyeyo(word: string): string {
+  const c = word.charCodeAt(word.length - 1) - 0xac00;
+  if (c < 0 || c > 11171) return "(이)에요";
+  return c % 28 === 0 ? "예요" : "이에요";
+}

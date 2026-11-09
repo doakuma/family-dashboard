@@ -1,8 +1,11 @@
 // 슬랙 연결 코드 처리기(#19). 슬랙과 무관하다: 저장소와 응답 창구를 포트로 받는다(대화 흐름 ConversationUi의 post·whisper를 그대로 쓴다).
 // 규칙: DM에서만 연결한다. 채널에 올라온 코드는 처리하지 않고 지운다. 틀림·만료·이미 사용은 같은 문구로(존재 여부를 흘리지 않는다).
 // 슬랙 사용자별로 연속 실패 5회면 15분 잠근다(메모리).
-import { parseConnectMessage, type ConnectCodeStore } from "@hsh/core";
+import { parseConnectMessage, type ConnectCodeStore, type ConnectScope } from "@hsh/core";
 import { textCard, type ConversationMessage, type ConversationUi } from "../flow/ui";
+
+/** 안내 문구가 가리킬 화면: 세팅 마법사(setup) / 설정(settings) */
+const screenOf = (scope: ConnectScope) => (scope === "settings" ? "설정" : "세팅");
 
 export const CONNECT_TEXT = {
   /** 틀림·만료·이미 사용 모두 이 문구 하나 */
@@ -13,8 +16,8 @@ export const CONNECT_TEXT = {
   connected: (name: string) => `'${name}'(으)로 연결했어요. 세팅을 마치면 이 슬랙 계정으로 쓸 수 있어요.`,
   /** 세팅 뒤 /settings에서 받은 코드(범위 settings): 화면에서 '연결 반영'을 눌러야 위키에 저장된다 */
   connectedSettings: (name: string) => `'${name}'(으)로 확인했어요. 설정 화면에서 '연결 반영'을 눌러야 저장돼요.`,
-  alreadyYours: (name: string) => `이미 '${name}'(으)로 연결돼 있어요. 세팅 화면에서 '연결됨'을 확인해 주세요.`,
-  slackTaken: (name: string) => `이 슬랙 계정은 이미 '${name}'(으)로 연결돼 있어요. 한 계정은 한 구성원에만 연결할 수 있어요. 잘못 연결했다면 세팅 화면에서 '${name}' 구성원의 코드를 다시 받으면 풀려요.`,
+  alreadyYours: (name: string, scope: ConnectScope = "setup") => `이미 '${name}'(으)로 연결돼 있어요. ${screenOf(scope)} 화면에서 '연결됨'을 확인해 주세요.`,
+  slackTaken: (name: string, scope: ConnectScope = "setup") => `이 슬랙 계정은 이미 '${name}'(으)로 연결돼 있어요. 한 계정은 한 구성원에만 연결할 수 있어요. 잘못 연결했다면 ${screenOf(scope)} 화면에서 '${name}' 구성원의 코드를 다시 받으면 풀려요.`,
 } as const;
 
 const assertNever = (x: never): never => {
@@ -108,10 +111,10 @@ export class ConnectHandler {
       }
       switch (r.reason) {
         case "slack_taken":
-          await this.reply(msg, CONNECT_TEXT.slackTaken(r.name));
+          await this.reply(msg, CONNECT_TEXT.slackTaken(r.name, r.scope));
           break;
         case "already_yours":
-          await this.reply(msg, CONNECT_TEXT.alreadyYours(r.name));
+          await this.reply(msg, CONNECT_TEXT.alreadyYours(r.name, r.scope));
           break;
         case "invalid":
           this.limiter.fail(userId);
