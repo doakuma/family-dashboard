@@ -215,7 +215,7 @@ try {
 
   // 코드 API 방어(세션이 있는 phoneCtx 기준): 출처 403, 형식 415, 큰 본문 413, 모양 422, 세션 없음 401
   const connectApi = (ctx, path, data, headers = {}) => ctx.request.post(`${BASE}/api/setup/connect${path}`, { data, headers: { origin: BASE, ...headers }, maxRedirects: 0 });
-  for (const path of ["", "/status"]) {
+  for (const path of ["", "/status", "/revoke"]) {
     assert.equal((await connectApi(phoneCtx, path, {}, { origin: "http://evil.example" })).status(), 403, `${path} 출처`);
     assert.equal((await phoneCtx.request.post(`${BASE}/api/setup/connect${path}`, { form: { a: "b" }, headers: { origin: BASE } })).status(), 415, `${path} 형식`);
     assert.equal((await phoneCtx.request.post(`${BASE}/api/setup/connect${path}`, { data: `{"x":"${"y".repeat(2000)}"}`, headers: { origin: BASE, "content-type": "application/json" } })).status(), 413, `${path} 큰 본문`);
@@ -235,6 +235,8 @@ try {
   const momCode = (await codeEl.innerText()).trim();
   assert.match(momCode, /^\d{6}$/);
   await phone.getByText(`연결 ${momCode}`).waitFor();
+  const focusedLabel = () => phone.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "");
+  assert.equal(await focusedLabel(), "엄마 연결 코드 다시 받기", "코드를 받은 뒤에도 포커스가 같은 버튼에 남는다(글자만 바뀜)");
   await phone.getByRole("button", { name: "엄마 연결 코드 다시 받기" }).waitFor();
   assert.equal(await phone.getByRole("button", { name: "건너뛰기" }).count(), 0, "코드를 받으면 '다음'");
   await assertLayout(phone, "3단계(코드 표시)");
@@ -266,6 +268,15 @@ try {
   assert.ok(!JSON.stringify(await statusOf([momCode2])).includes("U0123ABC"), "슬랙 ID는 브라우저로 나가지 않는다");
   assert.ok(!(await phone.content()).includes("U0123ABC"));
   assert.equal(await phone.getByRole("button", { name: "다음" }).count(), 1);
+  // 연결됨 줄에도 '연결 풀고 다시 받기': 새 코드, 이전 연결은 풀려서 같은 슬랙 계정이 다시 연결할 수 있다
+  await phone.getByRole("button", { name: "엄마 연결 풀고 코드 다시 받기" }).click();
+  await phone.getByRole("button", { name: "엄마 연결 코드 다시 받기" }).waitFor();
+  assert.equal(await focusedLabel(), "엄마 연결 코드 다시 받기", "연결됨 줄에서 눌러도 포커스가 같은 버튼에 남는다");
+  const momCode3 = (await codeEl.innerText()).trim();
+  assert.notEqual(momCode3, momCode2);
+  assert.deepEqual(await statusOf([momCode2, momCode3]), { [momCode2]: "expired", [momCode3]: "pending" });
+  assert.deepEqual(claim(momCode3, "U0123ABC"), { ok: true }, "풀린 계정은 다시 연결할 수 있다");
+  await phone.getByText(/✓ 연결됨/).waitFor({ timeout: 15_000 });
   // 아이는 아무것도 안 하고(건너뛰고) 지나간다. 코드를 받기만 하고 DM을 안 보낸 구성원도 허용(완료 시 '연결 못 함'으로 안내)
   await phone.getByRole("button", { name: "하늘 연결 코드 받기" }).click();
   await phone.getByText("30분 안에 보내야 해요").waitFor();

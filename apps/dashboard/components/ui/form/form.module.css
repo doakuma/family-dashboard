@@ -155,7 +155,8 @@
   border-color: var(--muted);
   font-weight: 500;
 }
-.button[disabled] {
+.button[disabled],
+.button[aria-disabled="true"] {
   color: var(--muted);
   background: transparent;
   border: 2px dashed var(--muted);

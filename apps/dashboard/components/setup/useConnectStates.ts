@@ -32,12 +32,16 @@ export function useConnectStates(members: readonly { connectCode?: string }[]): 
     const ctl = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
+    let inFlight = false; // visibilitychange 등으로 poll이 겹쳐 돌아 타이머 줄이 둘이 되는 것을 막는다
 
     const poll = async () => {
       const want = pollableCodes(membersRef.current, statesRef.current);
-      if (stopped || want.length === 0) return;
+      if (stopped || inFlight || want.length === 0) return;
       if (typeof document !== "undefined" && document.hidden) return; // 보일 때 visibilitychange로 다시 시작한다
-      const r = await fetchConnectStates(want, fetch, ctl.signal);
+      inFlight = true;
+      const r = await fetchConnectStates(want, fetch, ctl.signal).finally(() => {
+        inFlight = false;
+      });
       if (stopped) return;
       if (r.ok) {
         setProblem(undefined);
@@ -50,7 +54,7 @@ export function useConnectStates(members: readonly { connectCode?: string }[]): 
       timer = setTimeout(() => void poll(), POLL_MS);
     };
     const onVisible = () => {
-      if (!document.hidden && !stopped) {
+      if (!document.hidden && !stopped && !inFlight) {
         clearTimeout(timer);
         void poll();
       }

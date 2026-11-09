@@ -184,6 +184,7 @@ describe("검증 통과 = 서버 스키마 통과", () => {
     expect(stepOfField("member.m1.name")).toBe(2);
     expect(stepOfField("anniv.a3.title")).toBe(4);
     expect(stepOfField("calendarId")).toBe(5);
+    expect(stepOfField("connect.m1")).toBe(3);
     expect(stepOfField("overwrite")).toBe(6);
     expect(stepOfField("form")).toBe(6);
     expect(firstErrorStep({ calendarId: "x", "member.m1.id": "y" })).toBe(2);
@@ -192,6 +193,15 @@ describe("검증 통과 = 서버 스키마 통과", () => {
 });
 
 describe("toSetupInput / 서버 오류 경로 매핑 / 미리보기", () => {
+  it("connectCodes.N 오류는 그 구성원의 3단계 줄(connect.<key>)로, 범위를 벗어나면 form", () => {
+    const d = good();
+    const withCodes: Draft = { ...d, members: d.members.map((m, i) => (i === 1 ? { ...m, connectCode: "482913" } : m)) };
+    const key = withCodes.members[1]!.key;
+    const errs = serverIssuesToErrors(withCodes, [{ path: "connectCodes.0.memberKey", message: "x" }, { path: "connectCodes.5.code", message: "y" }]);
+    expect(errs).toEqual({ [`connect.${key}`]: "x", form: "y" });
+    expect(firstErrorStep(errs)).toBe(3);
+  });
+
   it("기념일은 생일 자동 + 직접 추가를 MM-DD로 합친다 (월·일 한 자리는 0 채움)", () => {
     const d = updateAnniversary(good(), good().anniversaries[0]!.key, { month: "3", day: "5" });
     expect(toSetupInput(d).anniversaries.map((a) => a.monthDay)).toEqual(["03-12", "08-15", "03-05"]);

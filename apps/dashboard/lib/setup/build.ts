@@ -109,6 +109,10 @@ export function serverIssuesToErrors(d: Draft, issues: readonly SetupIssue[]): E
       else put("members", message);
     } else if (p[0] === "members") {
       put("members", message);
+    } else if (p[0] === "connectCodes" && p[1] !== undefined) {
+      // 서버가 본 connectCodes[i]는 화면이 보낸 toConnectCodes(d)[i]: 그 구성원의 3단계 줄에 보여 준다
+      const sent = toConnectCodes(d)[Number(p[1])];
+      put(sent ? `connect.${sent.memberKey}` : "form", message);
     } else if (p[0] === "anniversaries" && p[1] !== undefined) {
       const i = Number(p[1]);
       if (i < birthdayCount) {

@@ -67,4 +67,13 @@ describe("stateDir (HSH_STATE_DIR)", () => {
     expect(d.startsWith("/w")).toBe(false);
     expect(new EnvConfigProvider({ HSH_STATE_DIR: "  " }).get("stateDir")).toMatch(/\.homesweethome/);
   });
+
+  it("상대 경로와 위키 레포 안의 경로는 거부한다", () => {
+    expect(() => new EnvConfigProvider({ HSH_STATE_DIR: "state" }).get("stateDir")).toThrow(/절대 경로/);
+    expect(() => new EnvConfigProvider({ HSH_STATE_DIR: "./state" }).get("stateDir")).toThrow(/절대 경로/);
+    expect(() => new EnvConfigProvider({ HSH_STATE_DIR: "/w/state", WIKI_REPO_PATH: "/w" }).get("stateDir")).toThrow(/WIKI_REPO_PATH\) 안/);
+    expect(() => new EnvConfigProvider({ HSH_STATE_DIR: "/w", WIKI_REPO_PATH: "/w/" }).get("stateDir")).toThrow(/WIKI_REPO_PATH\) 안/);
+    expect(new EnvConfigProvider({ HSH_STATE_DIR: "/w2/state", WIKI_REPO_PATH: "/w" }).get("stateDir")).toBe("/w2/state");
+    expect(new EnvConfigProvider({ HSH_STATE_DIR: "/state", WIKI_REPO_PATH: "/w" }).get("stateDir")).toBe("/state");
+  });
 });

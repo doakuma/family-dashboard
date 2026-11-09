@@ -50,3 +50,15 @@ export async function fetchConnectStates(codes: readonly string[], f: Fetch = fe
   if (ok?.success) return { ok: true, states: ok.data.states };
   return { ok: false, status: r?.status, message: connectErrorMessage(r?.status) };
 }
+
+/** 버린 코드를 서버에서도 푼다. 실패해도(네트워크·세션) 마법사는 계속된다: 코드는 만료되거나 다시 받으면 풀린다 */
+export async function revokeConnectCode(code: string, f: Fetch = fetch): Promise<boolean> {
+  const r = await post("/api/setup/connect/revoke", { code }, f);
+  return r?.status === 200;
+}
+
+/** 이전 draft에 있던 코드 중 다음 draft에 더는 없는 것(구성원 삭제·이름·역할 변경·다시 받기로 바뀐 코드) */
+export function droppedCodes(before: readonly { connectCode?: string }[], after: readonly { connectCode?: string }[]): string[] {
+  const keep = new Set(after.flatMap((m) => (m.connectCode ? [m.connectCode] : [])));
+  return before.flatMap((m) => (m.connectCode && !keep.has(m.connectCode) ? [m.connectCode] : []));
+}

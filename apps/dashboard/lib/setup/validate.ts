@@ -130,6 +130,7 @@ export function validateStep(d: Draft, step: number, now: Date = new Date()): Er
 /** 오류 필드가 속한 단계 */
 export function stepOfField(field: string): number {
   if (field.startsWith("member")) return 2;
+  if (field.startsWith("connect")) return 3; // 슬랙 연결 단계
   if (field.startsWith("anniv")) return 4;
   if (field === "calendarId") return 5;
   if (field === "form" || field === "overwrite") return 6;

@@ -4,7 +4,7 @@
 // 쓰기: 임시 파일에 다 쓴 뒤 link(2)로 최종 이름을 만든다. rename과 같이 내용이 반쯤 쓰인 파일이 보이지 않고,
 //       rename과 달리 이미 있으면 EEXIST로 실패해서 "배타 생성"이 된다(사용 처리·코드 중복 방지가 프로세스 사이에서도 한 번만 성공).
 import { randomInt } from "node:crypto";
-import { link, mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
+import { link, mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import {
@@ -42,21 +42,29 @@ export interface FsConnectCodeStoreOptions {
   now?: () => Date;
   /** [0, max) 정수. 기본 crypto.randomInt */
   random?: (max: number) => number;
+  /** 정리하다 지우지 못한 파일 같은 비치명적 문제를 남길 곳(기본 console.warn) */
+  warn?: (message: string) => void;
 }
 
+/** 임시 파일이 이 시간보다 오래되면 죽은 프로세스가 남긴 것으로 보고 지운다 */
+const STALE_TMP_MS = 60_000;
+
 const isNotFound = (e: unknown) => (e as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
+const isBusy = (e: unknown) => ["EPERM", "EBUSY"].includes((e as NodeJS.ErrnoException | undefined)?.code ?? "");
 const isExists = (e: unknown) => (e as NodeJS.ErrnoException | undefined)?.code === "EEXIST";
 
 export class FsConnectCodeStore implements ConnectCodeStore {
   private readonly dir: string;
   private readonly now: () => Date;
   private readonly random: (max: number) => number;
+  private readonly warn: (message: string) => void;
   private seq = 0;
 
   constructor(opts: FsConnectCodeStoreOptions) {
     this.dir = join(opts.dir, "connect");
     this.now = opts.now ?? (() => new Date());
     this.random = opts.random ?? ((max) => randomInt(max));
+    this.warn = opts.warn ?? ((m) => console.warn(`[connect] ${m}`));
   }
 
   private recordPath = (code: string) => join(this.dir, `${code}.json`);
@@ -68,7 +76,14 @@ export class FsConnectCodeStore implements ConnectCodeStore {
     const tmp = join(this.dir, `.tmp-${process.pid}-${Date.now()}-${this.seq++}-${randomInt(1e9)}`);
     await writeFile(tmp, JSON.stringify(data), { flag: "wx", mode: 0o600 });
     try {
-      await link(tmp, path);
+      // Windows(NTFS)에서는 백신·인덱서가 파일을 잠시 잡아 EPERM/EBUSY가 날 수 있어 한 번 다시 시도한다
+      try {
+        await link(tmp, path);
+      } catch (e) {
+        if (!isBusy(e)) throw e;
+        await new Promise((r) => setTimeout(r, 50));
+        await link(tmp, path);
+      }
       return true;
     } catch (e) {
       if (isExists(e)) return false;
@@ -127,11 +142,31 @@ export class FsConnectCodeStore implements ConnectCodeStore {
   private async sweep(): Promise<{ code: string; record: ConnectCodeRecord; claim?: Claim }[]> {
     const live: { code: string; record: ConnectCodeRecord; claim?: Claim }[] = [];
     for (const code of await this.codesOnDisk()) {
-      const e = await this.load(code);
-      if (e.record && this.alive(e)) live.push({ code, record: e.record, claim: e.claim });
-      else await this.remove(code);
+      // 한 코드를 읽거나 지우지 못해도(Windows 파일 잠금, 깨진 항목 등) 로그만 남기고 건너뛴다: 발급·claim을 막지 않는다
+      try {
+        const e = await this.load(code);
+        if (e.record && this.alive(e)) live.push({ code, record: e.record, claim: e.claim });
+        else await this.remove(code);
+      } catch (err) {
+        this.warn(`연결 코드 ${code} 정리를 건너뛰었어요: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
+    await this.sweepTmp();
     return live;
+  }
+
+  /** 죽은 프로세스가 남긴 오래된 임시 파일 정리 */
+  private async sweepTmp(): Promise<void> {
+    try {
+      for (const n of await readdir(this.dir)) {
+        if (!n.startsWith(".tmp-")) continue;
+        const path = join(this.dir, n);
+        const st = await stat(path).catch(() => undefined);
+        if (st && Date.now() - st.mtimeMs > STALE_TMP_MS) await unlink(path).catch(() => {});
+      }
+    } catch (e) {
+      if (!isNotFound(e)) this.warn(`임시 파일 정리 실패: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   async issue(input: IssueInput): Promise<ConnectCodeRecord> {
@@ -177,11 +212,19 @@ export class FsConnectCodeStore implements ConnectCodeStore {
     const claim: Claim = { slackId, claimedAt: this.now().toISOString() };
     // 배타 생성: 두 프로세스·두 번 DM이 겹쳐도 한 번만 성공한다
     if (!(await this.createExclusive(this.claimPath(code), claim))) return invalid;
+    // 그 사이 재발급·revoke로 기록이 사라졌으면 연결은 없던 일(짝 없는 연결 기록은 지운다)
+    const after = await this.readJson(this.recordPath(code), recordSchema);
+    if (!after || after.issuedAt !== e.record.issuedAt) {
+      await unlink(this.claimPath(code)).catch(() => {});
+      return invalid;
+    }
     return { ok: true, record: e.record };
   }
 
-  async revoke(code: string): Promise<void> {
-    if (isConnectCode(code)) await this.remove(code);
+  async revoke(code: string, opts?: { unclaimedOnly?: boolean }): Promise<void> {
+    if (!isConnectCode(code)) return;
+    if (opts?.unclaimedOnly && (await this.readJson(this.claimPath(code), claimSchema))) return;
+    await this.remove(code);
   }
 
   async states(codes: readonly string[]): Promise<Record<string, ConnectCodeState>> {

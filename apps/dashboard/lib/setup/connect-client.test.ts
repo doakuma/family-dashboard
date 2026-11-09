@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { connectErrorMessage, fetchConnectStates, requestConnectCode } from "./connect-client";
+import { connectErrorMessage, droppedCodes, fetchConnectStates, requestConnectCode, revokeConnectCode } from "./connect-client";
 
 const reply = (status: number, body: unknown) => vi.fn(async () => new Response(typeof body === "string" ? body : JSON.stringify(body), { status }));
 
@@ -37,5 +37,21 @@ describe("fetchConnectStates", () => {
     expect((await fetchConnectStates(["1"], reply(200, { ok: true, states: { a: "weird" } }))).ok).toBe(false);
     expect(await fetchConnectStates(["1"], reply(401, { ok: false }))).toMatchObject({ ok: false, status: 401 });
     expect(await fetchConnectStates(["1"], vi.fn().mockRejectedValue(new Error("x")))).toMatchObject({ ok: false, status: undefined });
+  });
+});
+
+describe("revokeConnectCode · droppedCodes", () => {
+  it("폐기 요청은 코드만 보내고 성공 여부를 돌려준다(네트워크 오류도 던지지 않음)", async () => {
+    const f = reply(200, { ok: true });
+    expect(await revokeConnectCode("482913", f)).toBe(true);
+    expect((f.mock.calls[0] as unknown as [string])[0]).toBe("/api/setup/connect/revoke");
+    expect(JSON.parse((f.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)).toEqual({ code: "482913" });
+    expect(await revokeConnectCode("482913", reply(401, { ok: false }))).toBe(false);
+    expect(await revokeConnectCode("482913", vi.fn().mockRejectedValue(new Error("x")))).toBe(false);
+  });
+  it("droppedCodes: 지운 구성원·바뀐 코드·버려진 코드만", () => {
+    expect(droppedCodes([{ connectCode: "111111" }, { connectCode: "222222" }, {}], [{ connectCode: "111111" }])).toEqual(["222222"]);
+    expect(droppedCodes([{ connectCode: "111111" }], [{ connectCode: "333333" }])).toEqual(["111111"]);
+    expect(droppedCodes([{}], [{}])).toEqual([]);
   });
 });

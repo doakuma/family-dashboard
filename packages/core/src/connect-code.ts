@@ -72,8 +72,11 @@ export interface ConnectCodeStore {
   issue(input: IssueInput): Promise<ConnectCodeRecord>;
   /** 슬랙 DM으로 받은 코드를 쓴다. 한 번만 성공한다 */
   claim(code: string, slackId: string): Promise<ClaimResult>;
-  /** 채널에 새어 나간 코드 같은 것을 못 쓰게 지운다(없어도 오류 아님) */
-  revoke(code: string): Promise<void>;
+  /**
+   * 코드를 못 쓰게 지운다(없어도 오류 아님). unclaimedOnly면 아직 연결 전인 코드만 지운다:
+   * 채널에 새어 나간 코드를 무효화할 때, 이미 연결된 코드(과거에 본인이 쓴 것)는 건드리지 않게.
+   */
+  revoke(code: string, opts?: { unclaimedOnly?: boolean }): Promise<void>;
   /** 코드별 상태. 없는 코드는 expired로 답한다(존재 여부를 구분하지 않음). slackId는 주지 않는다 */
   states(codes: readonly string[]): Promise<Record<string, ConnectCodeState>>;
   /** 연결이 끝난 코드. 아직 연결 전이거나 없거나 만료면 undefined */

@@ -2,7 +2,7 @@
 // 호출할 때마다 읽는다(캐시 없음) - 시작 직후에 환경이 바뀌는 순서(server.ts의 loadEnvConfig 선로딩)에 영향받지 않게.
 import { DEFAULT_OLLAMA_KEEP_ALIVE, DEFAULT_OLLAMA_NUM_CTX, DEFAULT_OLLAMA_TIMEOUT_MS, type AppConfig, type ConfigProvider, type LlmConfig, type OllamaKeepAlive } from "../config";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { DEFAULT_FAMILY_ID, asFamilyId } from "../types";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -28,6 +28,22 @@ export function parseKeepAlive(v: string | undefined): OllamaKeepAlive {
     return Number.isSafeInteger(n) ? n : DEFAULT_OLLAMA_KEEP_ALIVE;
   }
   return /^-?(\d+(\.\d+)?(ms|s|m|h))+$/.test(s) ? s : DEFAULT_OLLAMA_KEEP_ALIVE;
+}
+
+/**
+ * 상태 폴더(HSH_STATE_DIR). 상대 경로는 실행 위치에 따라 대시보드와 봇이 다른 폴더를 보게 되므로 거부하고,
+ * 위키 레포 안은 임시 코드·슬랙 ID가 위키에 커밋될 수 있어 거부한다. 없으면 홈 아래 기본 폴더.
+ */
+export function stateDirFromEnv(env: Env): string {
+  const dir = blank(env.HSH_STATE_DIR);
+  if (!dir) return join(homedir(), ".homesweethome", "state");
+  if (!isAbsolute(dir)) throw new Error(`HSH_STATE_DIR은 절대 경로여야 해요: ${dir}`);
+  const wiki = blank(env.WIKI_REPO_PATH);
+  if (wiki && isAbsolute(wiki)) {
+    const rel = relative(resolve(wiki), resolve(dir));
+    if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) throw new Error("HSH_STATE_DIR은 위키 레포(WIKI_REPO_PATH) 안에 둘 수 없어요");
+  }
+  return dir;
 }
 
 function llmFromEnv(env: Env): LlmConfig {
@@ -64,7 +80,7 @@ export class EnvConfigProvider implements ConfigProvider {
       previewQuery: () => env.NODE_ENV !== "production" || env.HSH_PREVIEW_QUERY === "1",
       port: () => Number(blank(env.PORT) ?? 3000),
       wikiRepoPath: () => env.WIKI_REPO_PATH || undefined,
-      stateDir: () => blank(env.HSH_STATE_DIR) ?? join(homedir(), ".homesweethome", "state"),
+      stateDir: () => stateDirFromEnv(env),
       dashboardBaseUrl: () => env.DASHBOARD_BASE_URL,
       adminPinHash: () => env.ADMIN_PIN_HASH,
       llm: () => llmFromEnv(env),

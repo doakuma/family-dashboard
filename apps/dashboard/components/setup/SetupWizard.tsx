@@ -2,6 +2,7 @@
 import { setupSchema } from "@hsh/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clearDraft, initialDraft, loadDraft, saveDraft, STEP_COUNT, type Draft } from "@/lib/setup/draft";
+import { droppedCodes, revokeConnectCode } from "@/lib/setup/connect-client";
 import { parseCompleteResponse } from "@/lib/setup/response";
 import { serverIssuesToErrors, toConnectCodes, toSetupInput } from "@/lib/setup/build";
 import { firstErrorStep, stepOfField, validateStep, type Errors } from "@/lib/setup/validate";
@@ -51,6 +52,8 @@ export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
   const [needsOverwrite, setNeedsOverwrite] = useState(hasExisting);
   const [hydrated, setHydrated] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
 
   // 새로고침 대비: 마운트 후 저장된 입력을 복원한다(서버 HTML과 첫 렌더를 같게 두려고 effect에서).
   useEffect(() => {
@@ -74,6 +77,9 @@ export function SetupWizard({ hasExisting, writable }: SetupWizardProps) {
   /** 입력을 바꾸면, 이미 표시된 오류만 다시 계산해서 고친 것은 바로 지운다(새 오류는 '다음'을 눌러야 나온다). */
   const change = useCallback(
     (next: Draft) => {
+      // 구성원 삭제·이름·역할 변경·다시 받기로 버려진 코드는 서버의 연결 기록도 푼다(안 그러면 그 슬랙 계정이 막힌다 - 0007). 실패해도 계속 진행.
+      for (const code of droppedCodes(draftRef.current.members, next.members)) void revokeConnectCode(code);
+      draftRef.current = next;
       setDraft(next);
       setMessage(undefined);
       setErrors((prev) => {

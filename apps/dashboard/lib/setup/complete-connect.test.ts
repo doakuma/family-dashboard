@@ -127,3 +127,14 @@ describe("runSetup + 연결 코드", () => {
     expect((await store.states([sky.code]))[sky.code]).toBe("expired");
   });
 });
+
+describe("연결 기록을 읽지 못할 때", () => {
+  it("그 구성원만 unlinked로 두고 세팅은 성공한다(JSON 응답 유지)", async () => {
+    const log = vi.fn();
+    const broken = { claimed: async () => Promise.reject(new Error("EIO")), clearScope: async () => {} };
+    const r = await runSetup({ setup: setup(), connectCodes: [{ memberId: "mom", memberKey: "m1", code: "123456" }] }, repo, DEFAULT_FAMILY_ID, log, quiet, broken as unknown as FsConnectCodeStore);
+    expect(r).toEqual({ status: 200, body: { ok: true, synced: false, unlinked: ["mom"] } });
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("EIO"));
+    expect(memberFile("mom")).not.toMatch(/slack:/);
+  });
+});

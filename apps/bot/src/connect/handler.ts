@@ -12,8 +12,12 @@ export const CONNECT_TEXT = {
   failed: "지금은 연결하지 못했어요. 잠시 뒤에 다시 보내 주세요.",
   connected: (name: string) => `'${name}'(으)로 연결했어요. 세팅을 마치면 이 슬랙 계정으로 쓸 수 있어요.`,
   alreadyYours: (name: string) => `이미 '${name}'(으)로 연결돼 있어요. 세팅 화면에서 '연결됨'을 확인해 주세요.`,
-  slackTaken: (name: string) => `이 슬랙 계정은 이미 '${name}'(으)로 연결돼 있어요. 한 계정은 한 구성원에만 연결할 수 있어요.`,
+  slackTaken: (name: string) => `이 슬랙 계정은 이미 '${name}'(으)로 연결돼 있어요. 한 계정은 한 구성원에만 연결할 수 있어요. 잘못 연결했다면 세팅 화면에서 '${name}' 구성원의 코드를 다시 받으면 풀려요.`,
 } as const;
+
+const assertNever = (x: never): never => {
+  throw new Error(`처리하지 않은 연결 결과: ${JSON.stringify(x)}`);
+};
 
 export const MAX_FAILURES = 5;
 export const LOCK_MS = 15 * 60_000;
@@ -84,7 +88,8 @@ export class ConnectHandler {
     try {
       if (!thread.isDirect) {
         // 채널에 올라온 코드는 이미 여러 사람이 본다: 처리하지 않고 지운다. 보낸 사람에게만 알린다
-        await this.deps.store.revoke(code);
+        // 아직 연결 전인 코드만 지운다: 이미 연결된 코드를 채널에 다시 올려도 기존 연결은 그대로
+        await this.deps.store.revoke(code, { unclaimedOnly: true });
         await this.deps.ui.whisper(thread, userId, CONNECT_TEXT.channel);
         return true;
       }
@@ -97,14 +102,21 @@ export class ConnectHandler {
       if (r.ok) {
         this.limiter.succeed(userId);
         await this.reply(msg, CONNECT_TEXT.connected(r.record.name));
-      } else if (r.reason === "slack_taken") {
-        await this.reply(msg, CONNECT_TEXT.slackTaken(r.name));
-      } else if (r.reason === "already_yours") {
-        await this.reply(msg, CONNECT_TEXT.alreadyYours(r.name));
-      } else {
-        this.limiter.fail(userId);
-        const nowLocked = this.limiter.lockedFor(userId) > 0;
-        await this.reply(msg, nowLocked ? CONNECT_TEXT.locked : CONNECT_TEXT.invalid);
+        return true;
+      }
+      switch (r.reason) {
+        case "slack_taken":
+          await this.reply(msg, CONNECT_TEXT.slackTaken(r.name));
+          break;
+        case "already_yours":
+          await this.reply(msg, CONNECT_TEXT.alreadyYours(r.name));
+          break;
+        case "invalid":
+          this.limiter.fail(userId);
+          await this.reply(msg, this.limiter.lockedFor(userId) > 0 ? CONNECT_TEXT.locked : CONNECT_TEXT.invalid);
+          break;
+        default:
+          return assertNever(r);
       }
     } catch (e) {
       this.log(`연결 코드 처리 실패: ${e instanceof Error ? e.message : String(e)}`);

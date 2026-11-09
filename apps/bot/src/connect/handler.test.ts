@@ -63,7 +63,7 @@ describe("ConnectHandler (가짜 저장소·가짜 응답)", () => {
     const u = fakeUi();
     expect(await new ConnectHandler({ store, ui: u.ui }).tryHandle(say("연결 482913 이거 맞아?", "U7", channel))).toBe(true);
     expect(claim).not.toHaveBeenCalled();
-    expect(revoke).toHaveBeenCalledWith("482913");
+    expect(revoke).toHaveBeenCalledWith("482913", { unclaimedOnly: true });
     expect(u.posted).toEqual([]); // 채널에 공개 답글을 달지 않는다
     expect(u.whispers).toEqual([{ thread: channel, userId: "U7", text: CONNECT_TEXT.channel }]);
     expect(CONNECT_TEXT.channel).toContain("코드는 봇 DM으로 보내 주세요");
@@ -169,7 +169,11 @@ describe("실제 파일 저장소와 한 바퀴 (임시 폴더)", () => {
     expect((await store.claimed(a.code))?.slackId).toBe("U1");
     await h.tryHandle(say(`연결 ${b.code}`, "U1")); // 같은 계정이 다른 구성원
     expect(u.texts().at(-1)).toBe(CONNECT_TEXT.slackTaken("하늘"));
+    expect(CONNECT_TEXT.slackTaken("하늘")).toContain("코드를 다시 받으면 풀려요");
     await h.tryHandle(say(`연결 ${b.code}`, "U3", channel));
     expect(await store.states([b.code])).toEqual({ [b.code]: "expired" });
+    // 이미 연결된 코드를 채널에 올려도 기존 연결은 그대로(연결 전 코드만 무효화한다)
+    await h.tryHandle(say(`연결 ${a.code}`, "U3", channel));
+    expect((await store.claimed(a.code))?.slackId).toBe("U1");
   });
 });

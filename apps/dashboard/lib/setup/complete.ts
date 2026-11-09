@@ -46,7 +46,7 @@ export async function runSetup(
     const issues = parsed.error.issues.map((i) => ({ path: i.path.join("."), message: i.message }));
     return { status: 422, body: { ok: false, code: "invalid", message: "입력한 내용을 다시 확인해 주세요", issues } };
   }
-  const linked = await linkSlack(parsed.data.members, codes.data, connect);
+  const linked = await linkSlack(parsed.data.members, codes.data, connect, log);
   if (!linked.ok) return invalid(linked.issues);
   try {
     const r = await repo.applySetup(familyId, { ...parsed.data, members: linked.members }, { overwrite: raw.overwrite === true });
@@ -80,7 +80,7 @@ type Linked = { ok: true; members: Member[]; unlinked: string[] } | { ok: false;
  * - 연결이 안 끝난 코드(아직 DM 전·만료·없는 코드)는 건너뛴다: 그 구성원은 슬랙 ID 없이 만들어지고 unlinked로 알린다(나중에 설정에서 연결 - #22).
  * - 거부(422): 없는 구성원 id, 같은 구성원·같은 코드 중복, 코드가 다른 구성원(memberKey)의 것, 한 슬랙 계정이 두 구성원에.
  */
-async function linkSlack(members: Member[], codes: Codes, connect?: ConnectResolver): Promise<Linked> {
+async function linkSlack(members: Member[], codes: Codes, connect: ConnectResolver | undefined, log: (m: string) => void): Promise<Linked> {
   const issues: SetupIssue[] = [];
   const slackOf = new Map<string, string>();
   const unlinked: string[] = [];
@@ -97,7 +97,15 @@ async function linkSlack(members: Member[], codes: Codes, connect?: ConnectResol
       continue;
     }
     usedCodes.add(c.code);
-    const got = await connect?.claimed(c.code);
+    let got: Awaited<ReturnType<ConnectResolver["claimed"]>>;
+    try {
+      got = await connect?.claimed(c.code);
+    } catch (e) {
+      // 저장소를 읽지 못하면 그 구성원만 연결 못 한 것으로 두고 세팅은 계속한다(JSON 응답 유지)
+      log(`[setup] 연결 기록 읽기 실패: ${e instanceof Error ? e.message : String(e)}`);
+      unlinked.push(c.memberId);
+      continue;
+    }
     if (!got || got.record.scope !== "setup") {
       unlinked.push(c.memberId);
       continue;
