@@ -283,3 +283,11 @@
 - 검증: pnpm check 통과(1213 테스트). 오류·경고에 키/URL이 섞이지 않는 테스트 5종 포함. 실제 기상청 호출 안 함.
 - 필요한 환경 변수: `KMA_SERVICE_KEY`(공공데이터포털 '일반 인증키(Decoding)'). `.env.example`은 오너가 추가. 남은 문제: 실연결 확인 6건은 0011 끝 절. #12는 passes=false, review=null.
 - #12 리뷰 1차 반영: 오늘 TMN/TMX가 응답에 없으면 02시 발표분을 (지역, 날짜)당 하루 한 번 받아 보충, 캐시를 stale-while-revalidate로(TTL 뒤에도 6시간 이내 값은 즉시 + 뒤 갱신), 부분 성공 TTL 5분, LRU, 지역 한 번만 읽기(`weekFor`), 날씨 싱글턴 globalThis, 테스트 보강(단기 우선·지연 fetch 합치기). `@hsh/core/weather-fixtures` 시험용 export 추가. 상세 0011.
+
+## 2026-11-10 · #11 구글 캘린더 단방향 복사 (목 진행)
+- 오너 규칙에 따라 서비스 계정·캘린더·네트워크 없이 주입한 fetch 목(`@hsh/core/google-mock`)으로 구현. 결정 기록 `docs/decisions/0012-google-calendar-sync.md`. core `calendar/`(순수: Event -> 구글 본문 `toGoogleEvent`, `planCalendarSync`, 매핑 zod, `CalendarReconciler`, `CalendarSyncError`), core/node(`GoogleCalendarSync implements CalendarSync`: 서비스 계정 JWT RS256 + 토큰 캐시·401 재발급·10초 제한·3회 백오프·오류 10종 분류, `FsCalendarMappingStore`, 결정적 구글 이벤트 id), 봇 `calendar/`(`startCalendarSync`, `withCalendarKick`).
+- 흐름: 슬랙 apply **성공 뒤** 동기화를 깨우되 기다리지 않음(실패해도 위키 쓰기·대화는 성공) + 시작 15초 뒤·5분마다 reconcile(위키 직접 수정·pull도 따라감). 해시가 같으면 호출 없음, 한 바퀴 최대 40건, 처음엔 30일보다 옛 일정 제외, 대량 삭제·events 읽기 경고 시 삭제 보류, 동시 실행은 합침, 연속 3건 실패·인증·권한·한도 오류면 그 바퀴 중단.
+- 검증: pnpm check 통과(1296 테스트, 이전 1213 -> +83). 목 시험: 생성·수정·삭제(404/410 성공)·되살리기·경합(409)·토큰 캐시·만료·401 재발급·오류 분류·재시도·시간 초과·동시 합치기·키/토큰/이메일/캘린더 id 비노출·위키 쓰기 성공 + 캘린더 503이어도 apply 성공 후 따라잡기·위키 작업 트리 깨끗(`git status` 빔). 실제 구글 호출 없음.
+- 필요한 환경 변수: `GOOGLE_SERVICE_ACCOUNT_JSON`(서비스 계정 키 파일 경로, 없으면 복사 꺼짐), `GOOGLE_CALENDAR_ID`(선택: config.md `calendarId`가 없을 때 대체), 기존 `HSH_STATE_DIR`. `.env*`는 읽지 않음. `.env.example`은 오너가 추가.
+- 오너 확인 필요: (1) **매핑을 위키 `.sync/calendar.json`이 아니라 상태 폴더 `<HSH_STATE_DIR>/calendar-sync/`에 둠**(스펙과 다름. 근거 0012: 작업 트리 오염·커밋 소음·결정적 id라 잃어도 중복 없음) (2) 구글 이벤트 id를 클라이언트가 정하는 결정적 id로(매핑은 해시 캐시) (3) 5분 주기 동기화 추가 (4) 30일 전까지만·40건씩 (5) 대량 삭제 보류 (6) calendarId 우선순위 config.md > 환경 변수 (7) 설명에 구성원 이름 포함 (8) 알림은 캘린더 기본 알림에 맡김.
+- 남은 문제: 실연결 확인 6건은 0012 끝 절(특히 취소된 id를 PUT으로 되살리는 동작). 고아 복사본 정리·복사 상태 화면 표시 없음. #11은 passes=false, review=null.

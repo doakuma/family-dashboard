@@ -84,6 +84,7 @@ export class EnvConfigProvider implements ConfigProvider {
       dashboardBaseUrl: () => env.DASHBOARD_BASE_URL,
       adminPinHash: () => env.ADMIN_PIN_HASH,
       kmaServiceKey: () => blank(env.KMA_SERVICE_KEY),
+      googleCalendar: () => ({ serviceAccountPath: blank(env.GOOGLE_SERVICE_ACCOUNT_JSON), calendarId: blank(env.GOOGLE_CALENDAR_ID) }),
       llm: () => llmFromEnv(env),
       slack: () => ({ botToken: env.SLACK_BOT_TOKEN || undefined, appToken: env.SLACK_APP_TOKEN || undefined, familyChannel: env.SLACK_FAMILY_CHANNEL || undefined }),
     };

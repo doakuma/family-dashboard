@@ -22,6 +22,13 @@ export interface SlackConfig {
   familyChannel?: string;
 }
 
+export interface GoogleCalendarConfig {
+  /** 서비스 계정 JSON 파일 경로(GOOGLE_SERVICE_ACCOUNT_JSON). 없으면 구글 캘린더 복사는 꺼진다. 파일 내용은 비밀값이라 로그·응답에 싣지 않는다 */
+  serviceAccountPath?: string;
+  /** 대체 캘린더 id(GOOGLE_CALENDAR_ID). config.md의 calendarId가 우선이고, 이 값은 그게 없을 때만 쓴다 */
+  calendarId?: string;
+}
+
 export interface AppConfig {
   /** MVP는 값 하나. 서비스에서는 요청·설치마다 정해진다 */
   familyId: FamilyId;
@@ -40,6 +47,8 @@ export interface AppConfig {
   adminPinHash?: string;
   /** 기상청 API 인증키(공공데이터포털 '일반 인증키(Decoding)', KMA_SERVICE_KEY). 없으면 예시 날씨. 비밀값이라 로그·응답에 싣지 않는다 */
   kmaServiceKey?: string;
+  /** 구글 캘린더 복사(#11). 둘 다 서버 전용 값이고 공개 상태·화면으로 내보내지 않는다 */
+  googleCalendar: GoogleCalendarConfig;
   /** 잘못된 설정이면 읽을 때 던진다(LLM을 쓰지 않는 앱이 죽지 않게 이 키를 읽을 때만) */
   llm: LlmConfig;
   slack: SlackConfig;

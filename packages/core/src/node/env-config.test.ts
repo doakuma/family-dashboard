@@ -19,6 +19,12 @@ describe("EnvConfigProvider", () => {
     expect(new EnvConfigProvider({ KMA_SERVICE_KEY: " ab+c/d== " }).get("kmaServiceKey")).toBe("ab+c/d==");
   });
 
+  it("구글 캘린더: GOOGLE_SERVICE_ACCOUNT_JSON(키 파일 경로)·GOOGLE_CALENDAR_ID, 없거나 공백이면 undefined(복사 꺼짐)", () => {
+    expect(new EnvConfigProvider({}).get("googleCalendar")).toEqual({ serviceAccountPath: undefined, calendarId: undefined });
+    expect(new EnvConfigProvider({ GOOGLE_SERVICE_ACCOUNT_JSON: " ", GOOGLE_CALENDAR_ID: "" }).get("googleCalendar")).toEqual({ serviceAccountPath: undefined, calendarId: undefined });
+    expect(new EnvConfigProvider({ GOOGLE_SERVICE_ACCOUNT_JSON: " /s/gcal.json ", GOOGLE_CALENDAR_ID: "a@b.co" }).get("googleCalendar")).toEqual({ serviceAccountPath: "/s/gcal.json", calendarId: "a@b.co" });
+  });
+
   it("Ollama 호출 설정: OLLAMA_TIMEOUT_MS·OLLAMA_NUM_CTX·OLLAMA_KEEP_ALIVE, 잘못된 값은 기본값", () => {
     const llm = (env: Record<string, string>) => new EnvConfigProvider(env).get("llm");
     expect(llm({ OLLAMA_TIMEOUT_MS: "240000", OLLAMA_NUM_CTX: "4096", OLLAMA_KEEP_ALIVE: "1h" })).toMatchObject({ timeoutMs: 240000, numCtx: 4096, keepAlive: "1h" });

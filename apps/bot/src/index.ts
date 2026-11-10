@@ -2,6 +2,8 @@
 // 설정은 ConfigProvider, 봇 토큰은 InstallationStore로만 받는다(process.env 직접 참조 없음 - 결정 0003).
 import { EnvConfigProvider, FsConnectCodeStore, FsSetupNoticeStore, FsWikiRepository } from "@hsh/core/node";
 import { App, LogLevel, webApi } from "@slack/bolt";
+import { startCalendarSync } from "./calendar/setup";
+import { withCalendarKick } from "./calendar/hook";
 import { AttemptLimiter, ConnectHandler } from "./connect/handler";
 import { Conversation } from "./flow/conversation";
 import { PendingStore } from "./flow/pending";
@@ -40,7 +42,10 @@ if (!check.ok) {
 }
 
 const familyId = config.get("familyId");
-const wiki = new FsWikiRepository({ root: wikiRoot, familyId, author: "slack" });
+const fsWiki = new FsWikiRepository({ root: wikiRoot, familyId, author: "slack" });
+// 구글 캘린더 복사(위키 -> 구글 단방향, 결정 0012). 설정이 없으면 꺼짐. 일정이 저장되면 깨우고, 실패해도 위키 쓰기·대화는 성공으로 둔다
+let calendarKick: () => void = () => {};
+const wiki = withCalendarKick(fsWiki, () => calendarKick());
 const llm = createLlmAdapter(config.get("llm"));
 // 확인 버튼을 기다리는 요청은 이벤트마다 만드는 Conversation이 함께 쓴다
 const pending = new PendingStore();
@@ -90,6 +95,14 @@ app.action(ACTION_PATTERN, async ({ ack, body, client }) => {
   if (isSettingsPendingId(a.pendingId)) await settingsWith(client).handleAction(a);
   else await conversationWith(client).handleAction(a);
 });
+
+// 캘린더 동기화는 봇 시작을 막거나 죽이지 않는다
+try {
+  const calendar = await startCalendarSync({ config, wiki: fsWiki, familyId });
+  if (calendar) calendarKick = calendar.kick;
+} catch (e) {
+  console.warn(`[bot] 구글 캘린더 복사를 시작하지 못했어요: ${e instanceof Error ? e.message : "알 수 없는 오류"}`);
+}
 
 // 세팅 완료 알림(대시보드가 상자에 넣음)을 확인해 #가족 채널에 환영 메시지를 한 번 올린다. 설정이 잘못돼도 봇의 나머지는 계속 돈다.
 try {
