@@ -343,7 +343,8 @@
       "deps": [
         28
       ],
-      "status": "todo",
+      "status": "in_progress",
+      "note": "잡음: 2026-11-10 01:06 UTC (예약 대화, 목 큐 8번). 구조·로더·none만, 그림·디자인 없음.",
       "passes": false,
       "review": null
     },
