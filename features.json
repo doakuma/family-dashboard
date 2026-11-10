@@ -344,9 +344,9 @@
         28
       ],
       "status": "in_progress",
-      "note": "잡음: 2026-11-10 01:06 UTC (예약 대화, 목 큐 8번). 구조·로더·none만, 그림·디자인 없음. 구현: characters/(contract·index·none), data-character 축(서버 렌더+useCharacter), state.character 해석값, ?character= 미리보기(previewQuery만), 결정 0013. 리뷰 대기. 그림·자리는 오너 결정.",
+      "note": "잡음: 2026-11-10 01:06 UTC (예약 대화, 목 큐 8번). 구조·로더·none만, 그림·디자인 없음. 구현: characters/(contract·index·none), data-character 축(서버 렌더+useCharacter), state.character 해석값, ?character= 미리보기(previewQuery만), 결정 0013. 리뷰 1차 통과(9b06386, 높음·중간 없음). 구조 완료, 캐릭터 결정 대기(그림·자리·출처 필드·접근성·SVG 렌더 방식, 0013 오너 확인). 남은 낮음: 조합 테스트는 형식적(캐릭터 생기면 skin e2e 조합 캡처), 레이아웃 폴백 단위 테스트 없음, SVG 내용 검사 없음.",
       "passes": false,
-      "review": null
+      "review": "pass"
     },
     {
       "id": 30,

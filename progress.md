@@ -299,3 +299,4 @@
 - 전환 축: 레이아웃이 `<html data-character>`를 서버에서 config로 렌더(`getCharacterForLayout`, skin과 같은 한 번 읽기·실패 시 none), `useCharacter`가 폴링 `state.character`로 갱신. `toPublicState`의 character를 none 고정에서 해석된 값으로. `?character=` 미리보기는 previewQuery일 때만.
 - 테스트(`characters/characters.test.ts` 등): 폴더=id=CHARACTER_IDS, 스키마·original, 에셋 존재, 캐릭터 폴더에 CSS·`--*` 없음, 스킨×캐릭터 조합, 스키마 거절 사례.
 - 남은 문제: 캐릭터 그림·자리는 오너 결정 대기, 조합 e2e 캡처는 캐릭터가 생길 때. #29 passes=false, review=null. 할 일 문서 갱신 필요: #29 → in_progress(구조 구현 완료, 리뷰 대기).
+- #29 리뷰 1차 통과(9b06386, 높음·중간 없음). review=pass, passes=false(구조만 완료, 캐릭터 그림·자리 오너 결정 대기). 낮음 4건은 features #29 note·0013. pnpm check 1326 테스트.
