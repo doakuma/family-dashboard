@@ -31,7 +31,8 @@ export interface MockGoogle {
   liveCount: () => number;
 }
 
-export function createMockGoogle(opts: { publicKey?: KeyObject; expiresIn?: number } = {}): MockGoogle {
+/** resurrect:false면 취소된 이벤트를 PUT으로 되살리지 못하는 구글을 흉내 낸다(404) */
+export function createMockGoogle(opts: { publicKey?: KeyObject; expiresIn?: number; resurrect?: boolean } = {}): MockGoogle {
   const calls: MockCall[] = [];
   const events = new Map<string, Record<string, unknown>>();
   let valid = new Set<string>();
@@ -86,6 +87,7 @@ export function createMockGoogle(opts: { publicKey?: KeyObject; expiresIn?: numb
     const bodyId = (call.body as { id?: string } | undefined)?.id;
     const key = (eid: string) => `${cal}/${eid}`;
 
+    if (init.method === "GET" && !id) return json(200, { items: [] });
     if (init.method === "POST" && !id) {
       if (!bodyId) return apiError(400, "invalid");
       if (events.has(key(bodyId))) return apiError(409, "duplicate");
@@ -93,7 +95,8 @@ export function createMockGoogle(opts: { publicKey?: KeyObject; expiresIn?: numb
       return json(200, events.get(key(bodyId)));
     }
     if (init.method === "PUT" && id) {
-      if (!events.has(key(id))) return apiError(404, "notFound");
+      const cur = events.get(key(id));
+      if (!cur || (cur.status === "cancelled" && opts.resurrect === false)) return apiError(404, "notFound");
       events.set(key(id), { ...(call.body as object), status: "confirmed" });
       return json(200, events.get(key(id)));
     }

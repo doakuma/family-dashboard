@@ -70,9 +70,32 @@ describe("planCalendarSync", () => {
     expect(planCalendarSync({ ...base, events: [], mapping: map([ev("evt-1")]) }).removes).toHaveLength(1);
   });
 
-  it("allowRemovals:false면 삭제하지 않는다", () => {
-    const p = planCalendarSync({ ...base, events: [], mapping: map([ev("evt-1")]), allowRemovals: false });
-    expect(p.removes).toEqual([]);
-    expect(p.heldRemovals).toBe(1);
+  it("위키 원문에 아직 #evt-… 로 남아 있는 일정(깨진 줄)은 그 건만 삭제하지 않는다", () => {
+    const keep = ev("evt-keep");
+    const broken = ev("evt-broken");
+    const gone = ev("evt-gone");
+    const p = planCalendarSync({ ...base, events: [keep], mapping: map([keep], [broken], [gone]), stillMentioned: new Set(["evt-broken"]) });
+    expect(p.removes.map((r) => r.wikiId)).toEqual(["evt-gone"]);
+    expect(p.mentionedHeld).toBe(1);
+    // 절반 규칙의 보류와는 따로 센다
+    expect(p.heldRemovals).toBe(0);
+  });
+
+  it("보류된 대량 삭제는 heldIds로 알리고, forceRemovals면 진행한다", () => {
+    const gone = Array.from({ length: MASS_REMOVE_MIN }, (_, i) => ev(`evt-g${i}`));
+    const m = map(...gone.map((g): [Event] => [g]));
+    const held = planCalendarSync({ ...base, events: [], mapping: m });
+    expect(held.heldIds).toEqual(gone.map((g) => g.id).sort());
+    expect(held.removes).toEqual([]);
+    const forced = planCalendarSync({ ...base, events: [], mapping: m, forceRemovals: true });
+    expect(forced.removes).toHaveLength(MASS_REMOVE_MIN);
+    expect(forced.heldIds).toEqual([]);
+  });
+
+  it("지난 바퀴에 영구 실패한 일정은 뒤로 미뤄 다른 일정이 먼저 나간다", () => {
+    const a = ev("evt-a", "2026-11-10");
+    const b = ev("evt-b", "2026-11-11");
+    const p = planCalendarSync({ ...base, events: [a, b], mapping: emptyMapping("fp"), maxOps: 1, deprioritize: new Set(["evt-a"]) });
+    expect(p.upserts.map((u) => u.event.id)).toEqual(["evt-b"]);
   });
 });

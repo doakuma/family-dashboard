@@ -21,8 +21,9 @@ const B32HEX = "0123456789abcdefghijklmnopqrstuv";
  * 구글 이벤트 id(클라이언트 지정): 가족 id + 위키 일정 id의 sha256 앞 20바이트를 base32hex(소문자 0-9a-v)로 32자.
  * 구글 규칙(5~1024자, a-v와 0-9)에 맞고, 같은 일정은 항상 같은 id라 기록을 잃어도 중복되지 않는다.
  */
-export function googleEventId(familyId: FamilyId, wikiId: string): string {
-  const bytes = createHash("sha256").update(`${familyId}\n${wikiId}`).digest().subarray(0, 20);
+export function googleEventId(familyId: FamilyId, wikiId: string, gen = 0): string {
+  // 세대 0은 접미사 없음(기존 id와 같음). 지운 id를 되살리지 못할 때만 세대를 올려 새 id를 만든다
+  const bytes = createHash("sha256").update(`${familyId}\n${wikiId}${gen ? `\n${gen}` : ""}`).digest().subarray(0, 20);
   let out = "";
   let bits = 0;
   let acc = 0;
@@ -114,7 +115,7 @@ export class GoogleCalendarSync implements CalendarSync {
 
   /** 새로 만들거나(없으면) 고친다. 구글에서 지워진 일정이면 다시 만든다 */
   async upsert(e: Event): Promise<void> {
-    const gid = googleEventId(this.o.familyId, e.id);
+    const gid = this.gid(e.id);
     const body = { ...toGoogleEvent(e, this.o.runtime.context), id: gid };
     const item = `/events/${gid}`;
     try {
@@ -126,16 +127,41 @@ export class GoogleCalendarSync implements CalendarSync {
     try {
       await this.call("POST", "/events", body);
     } catch (err) {
+      if (err instanceof CalendarSyncError && err.kind === "not_found") throw this.calendarMissing(err);
       // 이미 있다(지웠다 취소 상태로 남은 같은 id이거나 동시에 만들어짐): 고치기로 되살린다
       if (!(err instanceof CalendarSyncError) || err.kind !== "conflict") throw err;
-      await this.call("PUT", item, body);
+      try {
+        await this.call("PUT", item, body);
+      } catch (err2) {
+        // 되살리지도 못한다: 호출한 쪽이 세대를 올려 새 id로 다시 시도한다
+        if (err2 instanceof CalendarSyncError && err2.kind === "not_found") throw new CalendarSyncError("conflict", "지운 같은 일정 id를 되살리지 못했어요", err2.status, err2.reason);
+        throw err2;
+      }
     }
+  }
+
+  /** 캘린더에 접근할 수 있는지(events.list 한 건). 404는 "캘린더 없음/공유 안 됨"이므로 forbidden으로 바꿔 던진다 */
+  async checkAccess(): Promise<void> {
+    try {
+      await this.call("GET", "/events?maxResults=1");
+    } catch (err) {
+      if (err instanceof CalendarSyncError && err.kind === "not_found") throw this.calendarMissing(err);
+      throw err;
+    }
+  }
+
+  private calendarMissing(e: CalendarSyncError): CalendarSyncError {
+    return new CalendarSyncError("forbidden", "캘린더를 찾지 못했어요(캘린더 id가 맞는지, 서비스 계정 이메일에 '일정 변경' 권한으로 공유했는지 확인해 주세요)", e.status, e.reason);
+  }
+
+  private gid(wikiId: string): string {
+    return googleEventId(this.o.familyId, wikiId, this.o.runtime.generations?.[wikiId] ?? 0);
   }
 
   /** 위키 일정 id로 지운다. 이미 없으면(404·410) 성공으로 본다 */
   async remove(id: string): Promise<void> {
     try {
-      await this.call("DELETE", `/events/${googleEventId(this.o.familyId, id)}`);
+      await this.call("DELETE", `/events/${this.gid(id)}`);
     } catch (err) {
       if (err instanceof CalendarSyncError && err.kind === "not_found") return;
       throw err;

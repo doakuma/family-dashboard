@@ -1,6 +1,6 @@
 import { DEFAULT_FAMILY_ID, type Change, type WikiRepository } from "@hsh/core";
 import { describe, expect, it, vi } from "vitest";
-import { withCalendarKick } from "./hook";
+import { CALENDAR_CHANGE_KINDS, withCalendarKick } from "./hook";
 
 const fake = (over: Partial<WikiRepository> = {}): WikiRepository => ({
   read: vi.fn(async () => { throw new Error("unused"); }),
@@ -24,6 +24,12 @@ describe("withCalendarKick", () => {
       await w.apply(DEFAULT_FAMILY_ID, { kind, payload: { id: "evt-1" } });
     }
     expect(kick).toHaveBeenCalledTimes(3);
+  });
+
+  it("복사 대상 종류는 명시 목록이다: 일정 종류 전부, 나머지는 제외", () => {
+    expect([...CALENDAR_CHANGE_KINDS].sort()).toEqual(["event.add", "event.remove", "event.update"]);
+    const all: Change["kind"][] = ["event.add", "event.update", "event.remove", "task.add", "task.done", "anniversary.add"];
+    expect(all.filter((k) => CALENDAR_CHANGE_KINDS.includes(k))).toEqual(["event.add", "event.update", "event.remove"]);
   });
 
   it("위키 쓰기가 실패하면 깨우지 않고 오류를 그대로 전한다", async () => {

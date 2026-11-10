@@ -124,7 +124,7 @@
       "status": "in_progress",
       "passes": false,
       "review": null,
-      "note": "2026-11-10 목 구현 완료(실제 구글 호출 없음, 리뷰 대기). 결정 기록 docs/decisions/0012-google-calendar-sync.md. 환경 변수: GOOGLE_SERVICE_ACCOUNT_JSON(서비스 계정 키 파일 경로, 없으면 꺼짐), GOOGLE_CALENDAR_ID(선택, config.md calendarId 우선), HSH_STATE_DIR(기존). 오너 확인 필요: 매핑을 위키 .sync/calendar.json 대신 상태 폴더에 둠(스펙과 다름), 클라이언트 지정 결정적 구글 id, 5분 주기 동기화, 30일 전·40건 상한, 대량 삭제 보류. 실연결 확인 6건은 0012 끝 절."
+      "note": "2026-11-10 목 구현 완료(실제 구글 호출 없음, 리뷰 대기). 결정 기록 docs/decisions/0012-google-calendar-sync.md. 환경 변수: GOOGLE_SERVICE_ACCOUNT_JSON(서비스 계정 키 파일 경로, 없으면 꺼짐), GOOGLE_CALENDAR_ID(선택, config.md calendarId 우선), HSH_STATE_DIR(기존). 오너 확인 필요: 매핑을 위키 .sync/calendar.json 대신 상태 폴더에 둠(스펙과 다름), 클라이언트 지정 결정적 구글 id, 5분 주기 동기화, 30일 전·40건 상한, 대량 삭제 보류. 실연결 확인 6건은 0012 끝 절. | 리뷰 1차 반영 완료(중간 4건, 낮음 대부분). 못 한 낮음: 없음(전부 반영), 남은 약점은 0012 '못 한 것'(고아 복사본 정리·복사 상태 표시). 코드가 바뀌어 review는 pending 취급, 오너 확인 항목에 대량 삭제 15분 자동 해제 추가."
     },
     {
       "id": 12,

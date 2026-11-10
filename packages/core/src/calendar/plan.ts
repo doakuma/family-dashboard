@@ -14,8 +14,15 @@ export interface PlanInput {
   lookbackDays?: number;
   /** 한 번에 하는 일의 상한. 넘는 것은 다음 실행으로. 기본 40 */
   maxOps?: number;
-  /** false면 삭제는 하지 않는다(위키 읽기에 문제가 있을 때) */
-  allowRemovals?: boolean;
+  /**
+   * 위키 일정 목록에는 없지만 위키 events 원문에는 아직 `#evt-…`로 남아 있는 id(형식이 깨져 읽히지 않는 줄 등).
+   * 지워진 것이 아니므로 이 건들만 삭제하지 않는다.
+   */
+  stillMentioned?: ReadonlySet<string>;
+  /** 지난 바퀴에 영구 실패한 일정(뒤로 미뤄 다른 일정이 막히지 않게) */
+  deprioritize?: ReadonlySet<string>;
+  /** true면 대량 삭제 보류를 건너뛴다(같은 삭제가 오래 이어져 사람이 지운 것으로 확인된 경우) */
+  forceRemovals?: boolean;
 }
 
 export interface PlannedUpsert {
@@ -38,6 +45,10 @@ export interface CalendarPlan {
   deferred: number;
   /** 대량 삭제가 의심돼 이번에는 삭제하지 않은 수(위키 읽기가 일부 빠졌을 가능성) */
   heldRemovals: number;
+  /** 그 보류된 위키 일정 id들(같은 집합이 오래 이어지는지 보려고) */
+  heldIds: string[];
+  /** 원문에 아직 남아 있어 삭제하지 않은 수 */
+  mentionedHeld: number;
 }
 
 export const DEFAULT_LOOKBACK_DAYS = 30;
@@ -56,10 +67,16 @@ export function planCalendarSync(input: PlanInput): CalendarPlan {
     .map(([wikiId, v]) => ({ wikiId, googleId: v.googleId }))
     .sort((a, b) => a.wikiId.localeCompare(b.wikiId));
 
+  const before = removes.length;
+  removes = removes.filter((r) => !input.stillMentioned?.has(r.wikiId));
+  const mentionedHeld = before - removes.length;
+
   let heldRemovals = 0;
+  let heldIds: string[] = [];
   const mapped = Object.keys(mapping.entries).length;
-  if (input.allowRemovals === false || (removes.length >= MASS_REMOVE_MIN && removes.length * 2 > mapped)) {
+  if (!input.forceRemovals && removes.length >= MASS_REMOVE_MIN && removes.length * 2 > mapped) {
     heldRemovals = removes.length;
+    heldIds = removes.map((r) => r.wikiId);
     removes = [];
   }
 
@@ -75,10 +92,11 @@ export function planCalendarSync(input: PlanInput): CalendarPlan {
     }
     upserts.push({ event, googleId: d.googleId, hash: d.hash, kind: prev ? "update" : "add" });
   }
-  upserts.sort((a, b) => a.event.date.localeCompare(b.event.date) || a.event.id.localeCompare(b.event.id));
+  const late = (id: string) => (input.deprioritize?.has(id) ? 1 : 0);
+  upserts.sort((a, b) => late(a.event.id) - late(b.event.id) || a.event.date.localeCompare(b.event.date) || a.event.id.localeCompare(b.event.id));
 
   const total = removes.length + upserts.length;
   const keepRemoves = removes.slice(0, maxOps);
   const keepUpserts = upserts.slice(0, Math.max(0, maxOps - keepRemoves.length));
-  return { upserts: keepUpserts, removes: keepRemoves, unchanged, deferred: total - keepRemoves.length - keepUpserts.length, heldRemovals };
+  return { upserts: keepUpserts, removes: keepRemoves, unchanged, deferred: total - keepRemoves.length - keepUpserts.length, heldRemovals, heldIds, mentionedHeld };
 }

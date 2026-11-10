@@ -87,6 +87,7 @@ describe("연결 통합: 위키 쓰기 + 캘린더 복사 (임시 위키 복사�
     const handle = await startCalendarSync({
       config,
       wiki: fsWiki,
+      files: fsWiki.files,
       familyId: DEFAULT_FAMILY_ID,
       fetch: google.fetch,
       sleep: async () => {},
@@ -162,6 +163,46 @@ describe("연결 통합: 위키 쓰기 + 캘린더 복사 (임시 위키 복사�
     expect(t.google.liveCount()).toBeGreaterThan(5);
     // 로그 어디에도 키·캘린더 id가 없다
     for (const line of [...t.logs, ...t.warns]) expect(line).not.toMatch(/BEGIN PRIVATE KEY|gserviceaccount|group\.calendar\.google|mock-token/);
+  });
+
+  it("깨진 줄로 읽히지 않게 된 일정은 위키에 `#evt-…`가 남아 있으므로 구글에서 지우지 않는다(실제 파서 동작)", async () => {
+    const t = await harness();
+    await t.handle.reconciler.run();
+    const before = t.google.liveCount();
+    const file = join(t.wikiRoot, "events/2026-11.md");
+    const text = readFileSync(file, "utf8");
+    // 마지막 일정 줄의 시각을 망가뜨려 파서가 줄을 버리게 한다(id 토큰은 그대로)
+    const lines = text.trimEnd().split("\n");
+    const last = lines.length - 1;
+    const id = /#(evt-[A-Za-z0-9]+)/.exec(lines[last]!)![1]!;
+    lines[last] = lines[last]!.replace(/\d{2}:\d{2}/, "25:99");
+    writeFileSync(file, `${lines.join("\n")}\n`);
+    const wikiNow = await new FsWikiRepository({ root: t.wikiRoot, push: false }).read(DEFAULT_FAMILY_ID);
+    expect(wikiNow.events.some((e) => e.id === id)).toBe(false); // 파서가 버림(경고도 없음)
+    const r = await t.handle.reconciler.run();
+    expect(r.removed).toBe(0);
+    expect(t.google.liveCount()).toBe(before);
+    expect(t.warns.join()).toContain("형식이 깨진");
+    // 줄을 정말 지우면 지워진다
+    writeFileSync(file, `${lines.slice(0, last).join("\n")}\n`);
+    expect((await t.handle.reconciler.run()).removed).toBe(1);
+  });
+
+  it("캘린더 공유가 풀려 404가 오면 아무것도 지우지 않고 멈춘다(고아 복사본·기록 손실 없음)", async () => {
+    const t = await harness();
+    await t.handle.reconciler.run();
+    const before = t.google.liveCount();
+    const file = join(t.wikiRoot, "events/2026-11.md");
+    const lines = readFileSync(file, "utf8").trimEnd().split("\n");
+    writeFileSync(file, `${lines.slice(0, -1).join("\n")}\n`);
+    t.google.setFault((c) => (c.path !== "/token" ? { status: 404, body: { error: { errors: [{ reason: "notFound" }] } } } : undefined));
+    const r = await t.handle.reconciler.run();
+    expect(r.status).toBe("aborted");
+    expect(r.removed).toBe(0);
+    expect(t.warns.join()).toContain("일정 변경");
+    t.google.setFault(undefined);
+    expect((await t.handle.reconciler.run()).removed).toBe(1);
+    expect(t.google.liveCount()).toBe(before - 1);
   });
 
   it("봇이 다시 시작돼도 기록 덕분에 중복 없이 이어진다(같은 구글 id)", async () => {

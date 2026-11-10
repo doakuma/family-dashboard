@@ -1,6 +1,6 @@
 // 구글 캘린더 동기화 연결(결정 0012): 설정이 없으면 꺼짐(아무 것도 안 함). 있으면 CalendarReconciler를 만들고
 // 시작 직후 한 번 + 주기적으로 돌린다. 슬랙에서 일정을 쓴 직후에는 hook.ts가 kick()으로 깨운다.
-import { CALENDAR_ID_RE, CalendarReconciler, type CalendarRuntime, type ConfigProvider, type FamilyId, type WikiRepository } from "@hsh/core";
+import { CALENDAR_ID_RE, CalendarReconciler, type CalendarRuntime, type ConfigProvider, type FamilyId, type WikiFiles, type WikiRepository } from "@hsh/core";
 import { FsCalendarMappingStore, GoogleCalendarSync, googleEventId, loadServiceAccountKey, sha256Hex, type GoogleFetch } from "@hsh/core/node";
 
 export const CALENDAR_INTERVAL_MS = 5 * 60_000;
@@ -16,6 +16,8 @@ export interface CalendarSyncHandle {
 export interface StartCalendarSyncDeps {
   config: ConfigProvider;
   wiki: Pick<WikiRepository, "read">;
+  /** 위키 파일 읽기(events 원문에 일정 id가 남아 있는지 보려고). 없으면 그 검사를 하지 않는다 */
+  files?: WikiFiles;
   familyId: FamilyId;
   fetch?: GoogleFetch;
   log?: (message: string) => void;
@@ -57,6 +59,7 @@ export async function startCalendarSync(deps: StartCalendarSyncDeps): Promise<Ca
     store: new FsCalendarMappingStore({ dir: deps.config.get("stateDir"), familyId: deps.familyId }),
     runtime,
     fallbackCalendarId: fallback,
+    mentionsEventId: deps.files ? eventIdMentioned(deps.files) : undefined,
     hash: sha256Hex,
     googleId: googleEventId,
     now: deps.now,
@@ -77,5 +80,13 @@ export async function startCalendarSync(deps: StartCalendarSyncDeps): Promise<Ca
       clearTimeout(first);
       clearInterval(timer);
     },
+  };
+}
+
+/** events/*.md 원문에 `#evt-…` 토큰이 아직 있는지(형식이 깨져 읽히지 않는 줄도 찾는다) */
+export function eventIdMentioned(files: WikiFiles): (wikiId: string) => boolean {
+  return (id) => {
+    const re = new RegExp(`#${id}(?![A-Za-z0-9])`);
+    return files.list("events").some((n) => /^\d{4}-\d{2}\.md$/.test(n) && re.test(files.read(`events/${n}`) ?? ""));
   };
 }

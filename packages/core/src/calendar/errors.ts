@@ -41,3 +41,6 @@ export class CalendarSyncError extends Error {
     return RETRYABLE_KINDS.includes(this.kind);
   }
 }
+
+/** 그 일정 하나만의 영구 오류(다시 해도 같음). 연속 실패 수에는 세지 않고, 다음 바퀴에서는 뒤로 미룬다 */
+export const PERMANENT_ITEM_KINDS: readonly CalendarErrorKind[] = ["http", "not_found", "conflict"];

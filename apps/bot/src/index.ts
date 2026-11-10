@@ -98,7 +98,7 @@ app.action(ACTION_PATTERN, async ({ ack, body, client }) => {
 
 // 캘린더 동기화는 봇 시작을 막거나 죽이지 않는다
 try {
-  const calendar = await startCalendarSync({ config, wiki: fsWiki, familyId });
+  const calendar = await startCalendarSync({ config, wiki: fsWiki, files: fsWiki.files, familyId });
   if (calendar) calendarKick = calendar.kick;
 } catch (e) {
   console.warn(`[bot] 구글 캘린더 복사를 시작하지 못했어요: ${e instanceof Error ? e.message : "알 수 없는 오류"}`);

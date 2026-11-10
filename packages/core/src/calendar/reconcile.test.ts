@@ -22,7 +22,7 @@ function memStore(initial?: CalendarMapping) {
   return { store, get: () => m, writes };
 }
 
-function setup(o: { events?: Event[]; calendarId?: string | null; fallback?: string; warnings?: string[]; initial?: CalendarMapping; sync?: Partial<CalendarSync> } = {}) {
+function setup(o: { events?: Event[]; calendarId?: string | null; fallback?: string; warnings?: string[]; initial?: CalendarMapping; sync?: Partial<CalendarSync> & { checkAccess?: () => Promise<void> }; mentions?: (id: string) => boolean; holdReleaseMs?: number; now?: () => Date } = {}) {
   const state = { events: o.events ?? [], warnings: o.warnings ?? [], members: [{ id: "haneul", name: "하늘", role: "child", color: "blue" }], config: o.calendarId === null ? undefined : { familyName: "x", timezone: "Asia/Seoul", familyColor: "blue", calendarId: o.calendarId ?? "fam@group.calendar.google.com" } } as unknown as WikiState;
   const sync = { upsert: vi.fn(async () => {}), remove: vi.fn(async () => {}), ...o.sync };
   const mem = memStore(o.initial);
@@ -38,8 +38,11 @@ function setup(o: { events?: Event[]; calendarId?: string | null; fallback?: str
     runtime,
     fallbackCalendarId: o.fallback,
     hash: (s) => `h${s.length}:${s.slice(-12)}`,
-    googleId: (_f, id) => `g${id.replace(/\W/g, "")}`.toLowerCase().replace(/[^a-v0-9]/g, "a").padEnd(5, "0"),
-    now: () => NOW,
+    googleId: (_f, id, gen) => `g${id.replace(/\W/g, "")}${gen}`.toLowerCase().replace(/[^a-v0-9]/g, "a").padEnd(5, "0"),
+    mentionsEventId: o.mentions,
+    holdReleaseMs: o.holdReleaseMs,
+    retryDelayMs: 5,
+    now: o.now ?? (() => NOW),
     log: (m) => logs.push(m),
     warn: (m) => warns.push(m),
   });
@@ -168,17 +171,137 @@ describe("CalendarReconciler", () => {
     expect(t.warns.join()).toContain("깨져");
   });
 
-  it("위키 events 파일에 읽기 경고가 있으면 삭제하지 않는다", async () => {
-    const t = setup({ events: [ev("evt-a")] });
+  it("위키 원문에 일정 id가 아직 남아 있으면(깨진 줄) 그 일정만 삭제하지 않는다", async () => {
+    const t = setup({ events: [ev("evt-a"), ev("evt-b")], mentions: (id) => id === "evt-a" });
+    await t.r.run();
+    t.state.events.length = 0; // 읽기에서 둘 다 빠짐: a는 원문에 남아 있음(깨진 줄), b는 정말 지워짐
+    const r = await t.r.run();
+    expect(r.removed).toBe(1);
+    expect(t.sync.remove).toHaveBeenCalledWith("evt-b");
+    expect(t.sync.remove).not.toHaveBeenCalledWith("evt-a");
+    expect(Object.keys(t.mem.get()!.entries)).toEqual(["evt-a"]);
+    expect(t.warns.join()).toContain("형식이 깨진");
+  });
+
+  it("events 읽기 경고(share 관련 등)만으로는 삭제를 막지 않는다", async () => {
+    const t = setup({ events: [ev("evt-a")], warnings: ["events/2026-11.md: share 값이 올바르지 않아 없는 것으로 읽었어요"] });
     await t.r.run();
     t.state.events.length = 0;
-    t.state.warnings.push("events/2026-11.md: 줄 형식 오류");
-    const r = await t.r.run();
-    expect(r.removed).toBe(0);
-    expect(r.heldRemovals).toBe(1);
-    expect(t.sync.remove).not.toHaveBeenCalled();
-    t.state.warnings.length = 0;
     expect((await t.r.run()).removed).toBe(1);
+  });
+
+  it("대량 삭제는 보류하다가 같은 집합이 15분 이어지면 진행한다", async () => {
+    let at = NOW.getTime();
+    const events = Array.from({ length: 6 }, (_, i) => ev(`evt-${i}`));
+    const t = setup({ events, now: () => new Date(at) });
+    await t.r.run();
+    t.state.events.length = 0;
+    const r1 = await t.r.run();
+    expect(r1).toMatchObject({ removed: 0, heldRemovals: 6 });
+    at += 14 * 60_000;
+    expect((await t.r.run()).removed).toBe(0);
+    at += 60_000;
+    expect((await t.r.run()).removed).toBe(6);
+    expect(t.warns.join()).toContain("사람이 지운 것으로");
+  });
+
+  it("보류 중 삭제 집합이 바뀌면 시간을 다시 센다", async () => {
+    let at = NOW.getTime();
+    const events = Array.from({ length: 8 }, (_, i) => ev(`evt-${i}`));
+    const t = setup({ events, now: () => new Date(at) });
+    await t.r.run();
+    const all = [...t.state.events];
+    t.state.events.length = 0;
+    await t.r.run();
+    at += 14 * 60_000;
+    t.state.events.push(all[0]!); // 집합이 달라짐
+    await t.r.run();
+    at += 14 * 60_000;
+    expect((await t.r.run()).removed).toBe(0);
+  });
+
+  it("할 일이 있는 바퀴에서만 캘린더 접근을 확인하고, 404(공유 풀림)면 지우지 않고 멈춘다", async () => {
+    const checkAccess = vi.fn(async () => {});
+    const t = setup({ events: [ev("evt-a")], sync: { checkAccess } });
+    await t.r.run();
+    expect(checkAccess).toHaveBeenCalledTimes(1);
+    await t.r.run(); // 바뀐 것 없음: 구글 호출 없음
+    expect(checkAccess).toHaveBeenCalledTimes(1);
+
+    t.state.events.length = 0;
+    checkAccess.mockRejectedValueOnce(new CalendarSyncError("forbidden", "캘린더를 찾지 못했어요", 404));
+    const r = await t.r.run();
+    expect(r.status).toBe("aborted");
+    expect(t.sync.remove).not.toHaveBeenCalled();
+    expect(Object.keys(t.mem.get()!.entries)).toEqual(["evt-a"]); // 기록 유지: 공유가 돌아오면 지운다
+    expect(t.warns.join()).toContain("일정 변경");
+    expect((await t.r.run()).removed).toBe(1);
+  });
+
+  it("영구 실패(400 등) 건이 앞에 있어도 뒤 일정은 계속 나가고, 다음 바퀴에는 뒤로 밀린다", async () => {
+    const bad = vi.fn(async (e: Event) => { if (e.id === "evt-a" || e.id === "evt-b" || e.id === "evt-c") throw new CalendarSyncError("http", "x", 400); });
+    const t = setup({ events: ["a", "b", "c", "d", "e"].map((x) => ev(`evt-${x}`)), sync: { upsert: bad } });
+    const r = await t.r.run();
+    expect(r).toMatchObject({ status: "ok", failed: 3, added: 2 });
+    expect(Object.keys(t.mem.get()!.entries).sort()).toEqual(["evt-d", "evt-e"]);
+    // 다음 바퀴: 날짜가 더 늦은 새 일정이 실패 건보다 먼저 나간다
+    bad.mockClear();
+    t.state.events.push(ev("evt-f", { date: "2026-11-30" }));
+    await t.r.run();
+    expect(bad.mock.calls.map((c) => c[0].id)).toEqual(["evt-f", "evt-a", "evt-b", "evt-c"]);
+  });
+
+  it("지운 id를 되살리지 못해 conflict가 나면 세대를 올려 새 id로 만들고 기록한다", async () => {
+    let first = true;
+    const t = setup({ events: [ev("evt-a")], sync: { upsert: vi.fn(async () => { if (first) { first = false; throw new CalendarSyncError("conflict", "x", 404); } }) } });
+    const r = await t.r.run();
+    expect(r).toMatchObject({ added: 1, failed: 0 });
+    expect(t.sync.upsert).toHaveBeenCalledTimes(2);
+    expect(t.mem.get()!.entries["evt-a"]).toMatchObject({ gen: 1, googleId: expect.stringContaining("a1") });
+    expect(t.runtime.generations).toEqual({ "evt-a": 1 });
+    // 다음 바퀴: 같은 내용이면 호출 없음
+    await t.r.run();
+    expect(t.sync.upsert).toHaveBeenCalledTimes(2);
+  });
+
+  it("세대를 올린 재시도도 실패하면 기록은 그대로(세대 되돌림)", async () => {
+    const t = setup({ events: [ev("evt-a")], sync: { upsert: vi.fn(async () => { throw new CalendarSyncError("conflict", "x"); }) } });
+    const r = await t.r.run();
+    expect(r.failed).toBe(1);
+    expect(t.mem.get()).toBeUndefined();
+    expect(t.runtime.generations).toEqual({});
+  });
+
+  it("config.md를 못 읽었거나 calendarId 값이 깨졌으면 환경 변수 캘린더로 바꿔 올리지 않고 건너뛴다", async () => {
+    const t = setup({ events: [ev("evt-a")], fallback: "env@x.com", warnings: ['config.md: calendarId: "a b" 값이 올바르지 않아 없는 것으로 읽었어요'] });
+    t.state.config!.calendarId = undefined;
+    expect((await t.r.run()).status).toBe("read_failed");
+    expect(t.sync.upsert).not.toHaveBeenCalled();
+    const u = setup({ events: [ev("evt-a")], fallback: "env@x.com", calendarId: null, warnings: ["config.md: 프론트매터(---)가 없어 config로 읽지 못했어요"] });
+    expect((await u.r.run()).status).toBe("read_failed");
+    // config.md가 아예 없으면(경고 없음) 환경 변수 값을 쓴다
+    const v = setup({ events: [ev("evt-a")], fallback: "env@x.com", calendarId: null });
+    expect((await v.r.run()).added).toBe(1);
+  });
+
+  it("config의 calendarId도 메일 주소 모양이 아니면 쓰지 않는다", async () => {
+    const t = setup({ events: [ev("evt-a")], calendarId: "bad id/../x" });
+    expect((await t.r.run()).status).toBe("disabled");
+    expect(t.sync.upsert).not.toHaveBeenCalled();
+  });
+
+  it("중단된 바퀴 중에 온 요청은 잠시 뒤 한 번 다시 돈다(버려지지 않음)", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let n = 0;
+    const t = setup({ events: [ev("evt-a")], sync: { upsert: vi.fn(async () => { n++; if (n === 1) { await gate; throw new CalendarSyncError("rate_limit", "x"); } }) } });
+    const p = t.r.run();
+    await vi.waitFor(() => expect(n).toBe(1));
+    void t.r.run(); // 도는 중 요청
+    release();
+    expect((await p).status).toBe("aborted");
+    await vi.waitFor(() => expect(t.mem.get()?.entries["evt-a"]).toBeDefined());
+    t.r.dispose();
   });
 
   it("삭제 도중 이미 없던(성공 취급) 일정도 기록에서 빠진다", async () => {
@@ -219,9 +342,13 @@ describe("CalendarReconciler", () => {
     expect(Object.keys(t.mem.get()!.entries).sort()).toEqual(["evt-a", "evt-b"]);
   });
 
-  it("옛 기록(mapping 있음)에서 기록에 없던 사라진 일정도 지운다", async () => {
-    const m: CalendarMapping = { ...emptyMapping("x"), entries: {} };
+  it("이미 복사해 둔 기록(같은 캘린더)이 있으면 위키에서 사라진 일정만 지운다", async () => {
+    const fp = `h${"calendar:fam@group.calendar.google.com".length}:${"calendar:fam@group.calendar.google.com".slice(-12)}`.slice(0, 16);
+    const m: CalendarMapping = { ...emptyMapping(fp), entries: { "evt-old": { googleId: "abcde12345", hash: "x", at: "2026-11-01T00:00:00Z" } } };
     const t = setup({ events: [], initial: m });
-    expect((await t.r.run()).status).toBe("ok");
+    const r = await t.r.run();
+    expect(r).toMatchObject({ status: "ok", removed: 1, added: 0 });
+    expect(t.sync.remove).toHaveBeenCalledWith("evt-old");
+    expect(t.mem.get()!.entries).toEqual({});
   });
 });

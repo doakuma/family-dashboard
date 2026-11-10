@@ -117,6 +117,39 @@ describe("GoogleCalendarSync (목 fetch)", () => {
     expect(g.liveCount()).toBe(1);
   });
 
+  it("취소된 id를 PUT으로 되살리지 못하는 구글: conflict로 알리고, 세대를 올리면 새 id로 만든다", async () => {
+    g = createMockGoogle({ publicKey, resurrect: false });
+    const rt = runtime();
+    const s = make({ runtime: rt });
+    await s.upsert(ev());
+    await s.remove("evt-a1");
+    await expect(s.upsert(ev())).rejects.toMatchObject({ kind: "conflict" });
+    rt.generations = { "evt-a1": 1 };
+    await s.upsert(ev());
+    expect(g.liveCount()).toBe(1);
+    expect(g.events.has(`${CAL}/${googleEventId(DEFAULT_FAMILY_ID, "evt-a1", 1)}`)).toBe(true);
+    // 세대가 올라간 id를 지운다
+    await s.remove("evt-a1");
+    expect(g.liveCount()).toBe(0);
+  });
+
+  it("checkAccess: 접근되면 통과, 404(공유 안 됨·캘린더 없음)는 forbidden, 403·401도 오류", async () => {
+    await expect(make().checkAccess()).resolves.toBeUndefined();
+    expect(g.calls.at(-1)).toMatchObject({ method: "GET", path: `/calendars/${CAL}/events` });
+    g.setFault((c) => (c.path !== "/token" ? { status: 404, body: { error: { message: CAL, errors: [{ reason: "notFound" }] } } } : undefined));
+    const e = await make().checkAccess().catch((x: CalendarSyncError) => x);
+    expect(e).toMatchObject({ kind: "forbidden", status: 404 });
+    expect((e as Error).message).toContain("일정 변경");
+    expect((e as Error).message).not.toContain(CAL);
+    g.setFault((c) => (c.path !== "/token" ? { status: 403, body: { error: { errors: [{ reason: "forbidden" }] } } } : undefined));
+    await expect(make().checkAccess()).rejects.toMatchObject({ kind: "forbidden" });
+  });
+
+  it("새로 만들 때 POST까지 404면(캘린더가 없음) not_found가 아니라 forbidden으로 멈추게 한다", async () => {
+    g.setFault((c) => (c.path !== "/token" ? { status: 404, body: { error: { errors: [{ reason: "notFound" }] } } } : undefined));
+    await expect(make().upsert(ev())).rejects.toMatchObject({ kind: "forbidden" });
+  });
+
   it("구글에서 사람이 지운 복사본(없음)을 수정하려 하면 새로 만든다", async () => {
     const s = make();
     await s.upsert(ev());
@@ -227,11 +260,11 @@ describe("GoogleCalendarSync (목 fetch)", () => {
       expect(stored()).toBeDefined();
     });
 
-    it("400은 http(재시도 안 함), 404 캘린더 없음은 upsert에서 POST도 404면 not_found", async () => {
+    it("400은 http(재시도 안 함), 404 캘린더 없음은 upsert에서 POST도 404면 forbidden(공유 안내)", async () => {
       reply(400, "invalid");
       expect(await kindOf(() => make().upsert(ev()))).toMatchObject({ kind: "http", retryable: false });
       reply(404, "notFound");
-      expect((await kindOf(() => make().upsert(ev()))).kind).toBe("not_found");
+      expect((await kindOf(() => make().upsert(ev()))).kind).toBe("forbidden");
     });
 
     it("네트워크 오류는 network로 재시도하고 URL·캘린더 id를 오류에 싣지 않는다", async () => {

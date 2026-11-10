@@ -12,6 +12,8 @@ export const calendarMappingSchema = z.object({
     z.string().regex(/^evt-[A-Za-z0-9]+$/),
     z.object({
       googleId: z.string().regex(/^[a-v0-9]{5,1024}$/),
+      /** 구글 id 세대(없으면 0). 지운 같은 id를 되살리지 못할 때 올려서 새 id로 만든다 */
+      gen: z.number().int().min(0).max(1000).optional(),
       /** 마지막으로 올린 본문의 해시 */
       hash: z.string().min(1).max(128),
       /** 올린 시각(ISO) */
