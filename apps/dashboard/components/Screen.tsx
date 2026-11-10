@@ -1,10 +1,11 @@
 "use client";
-import type { ApiState, SkinId } from "@hsh/core";
+import type { ApiState, CharacterId, SkinId } from "@hsh/core";
 import { todayIn } from "@hsh/core";
 import { useDashboardState } from "@/hooks/useDashboardState";
 import { useDashboardView } from "@/hooks/useDashboardView";
 import { useKioskGuards } from "@/hooks/useKioskGuards";
 import { useNow } from "@/hooks/useNow";
+import { useCharacter } from "@/hooks/useCharacter";
 import { useSkin } from "@/hooks/useSkin";
 import { useSetupQr, type SetupQrView } from "@/hooks/useSetupQr";
 import { monthStatus } from "@/lib/view";
@@ -19,18 +20,21 @@ export interface ScreenProps {
   mode?: "day" | "night";
   /** 개발용 미리보기(?skin=<id>): 있으면 위키의 skin 대신 쓴다 */
   skinPreview?: SkinId;
+  /** 개발용 미리보기(?character=<id>): 있으면 위키의 character 대신 쓴다 */
+  characterPreview?: CharacterId;
 }
 
 /**
  * 태블릿이 한 번 열어 두면 계속 쓰는 화면. /api/state를 폴링해서
  * 세팅이 끝나면(needsSetup=false) 대시보드로, 위키가 비면 다시 세팅 화면으로 바꾼다.
  */
-export function Screen({ initial, initialQr, at, mode, skinPreview }: ScreenProps) {
+export function Screen({ initial, initialQr, at, mode, skinPreview, characterPreview }: ScreenProps) {
   // 보기 상태(보는 달·시트·마지막 터치)는 폴링 결과와 따로 여기서 갖는다 -> 1분 폴링이 와도 유지, 120초 조용하면 초기화.
   const today = todayIn(useNow(at, initial.updatedAt));
   const { view, month, handlers } = useDashboardView(today.slice(0, 7));
   const { state, offline, loadedMonth } = useDashboardState(initial, { month, at });
   useSkin(skinPreview ?? state.skin);
+  useCharacter(characterPreview ?? state.character);
   useKioskGuards();
   const qr = useSetupQr(initialQr, state.needsSetup);
   return (

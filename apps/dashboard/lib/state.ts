@@ -1,5 +1,5 @@
 import "server-only";
-import { DEFAULT_SKIN, SetupError, eventsForMonthView, existingSetupContent, needsSetup, parseConfigFile, toPublicState, todayIn, type ApiState, type DashboardState, type SkinId, type WikiRepository, type WikiState } from "@hsh/core";
+import { DEFAULT_CHARACTER, DEFAULT_SKIN, SetupError, eventsForMonthView, existingSetupContent, needsSetup, parseConfigFile, toPublicState, todayIn, type ApiState, type DashboardState, type CharacterId, type SkinId, type WikiRepository, type WikiState } from "@hsh/core";
 import { FsConnectCodeStore, FsSetupNoticeStore, FsWikiRepository } from "@hsh/core/node";
 import { resolve } from "node:path";
 import { cache } from "react";
@@ -86,18 +86,21 @@ export async function getSetupContext() {
 }
 
 /**
- * 레이아웃(generateViewport와 RootLayout)이 첫 HTML에 data-skin을 넣으려고 config의 skin만 읽는다(위키 전체를 읽지 않는다).
- * 실패(위키 경로 없음·읽기 오류)하면 default - /setup·오류 화면이 위키 읽기에 묶이지 않게.
+ * 레이아웃(generateViewport와 RootLayout)이 첫 HTML에 data-skin·data-character를 넣으려고 config만 읽는다(위키 전체를 읽지 않는다).
+ * 실패(위키 경로 없음·읽기 오류)하면 default/none - /setup·오류 화면이 위키 읽기에 묶이지 않게.
  * 요청 단위로 캐시(react cache)해서 한 요청에서 두 번 읽지 않는다. 요청이 끝나면 버려져 폴링 뒤 변경은 다음 요청에 반영된다.
  */
-export const getSkinForLayout = cache((): SkinId => {
+const getLayoutLook = cache((): { skin: SkinId; character: CharacterId } => {
   try {
     const text = getWiki().files.read("config.md");
-    return (text ? parseConfigFile(text, () => {})?.skin : undefined) ?? DEFAULT_SKIN;
+    const parsed = text ? parseConfigFile(text, () => {}) : undefined;
+    return { skin: parsed?.skin ?? DEFAULT_SKIN, character: parsed?.character ?? DEFAULT_CHARACTER };
   } catch {
-    return DEFAULT_SKIN;
+    return { skin: DEFAULT_SKIN, character: DEFAULT_CHARACTER };
   }
 });
+export const getSkinForLayout = (): SkinId => getLayoutLook().skin;
+export const getCharacterForLayout = (): CharacterId => getLayoutLook().character;
 
 let lastWarnings = "";
 /** 위키 읽기 경고를 서버 로그에 남긴다. 폴링마다 반복되지 않게 내용이 바뀔 때만. */

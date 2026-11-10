@@ -30,10 +30,12 @@ describe("toPublicState", () => {
     expect(JSON.stringify({ ...pub, skin: undefined })).not.toContain(`"${DEFAULT_FAMILY_ID}"`);
   });
 
-  it("skin은 공개하고(태블릿 전환용) character는 none 고정, config 원문은 없다", () => {
+  it("skin·character는 해석된 값을 공개하고(태블릿 전환용), config 원문은 없다", () => {
     expect(pub.skin).toBe("default");
     expect(pub.character).toBe("none");
     expect(toPublicState({ ...state, skin: "paper", character: "none" }, "2026-11-03").skin).toBe("paper");
+    // 고정값이 아니라 state에서 오는지(CHARACTER_IDS에 id가 늘어도 그대로 전달)
+    expect(toPublicState({ ...state, character: "future" as never }, "2026-11-03").character).toBe("future");
   });
 
   it("주소·slackId·calendarId·역할·생일 원문이 JSON 어디에도 없다", () => {

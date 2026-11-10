@@ -8,7 +8,7 @@ import { timeIn } from "@hsh/core";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { SKIN_MANIFESTS } from "../skins";
-import { getSkinForLayout } from "@/lib/state";
+import { getCharacterForLayout, getSkinForLayout } from "@/lib/state";
 import { PATH_HEADER } from "@/lib/auth/peer";
 import { displayOf, isNight } from "@/lib/view";
 
@@ -38,7 +38,7 @@ async function initialDisplay(): Promise<{ mode: "day" | "night"; tone: "normal"
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const { mode, tone } = await initialDisplay();
   return (
-    <html lang="ko" data-skin={getSkinForLayout()} data-mode={mode} data-tone={tone}>
+    <html lang="ko" data-skin={getSkinForLayout()} data-character={getCharacterForLayout()} data-mode={mode} data-tone={tone}>
       <body>{children}</body>
     </html>
   );

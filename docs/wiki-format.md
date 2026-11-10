@@ -69,7 +69,7 @@ setupCompletedAt: 2026-10-20T20:00:00+09:00
 `timezone` 기본 `Asia/Seoul`, `familyColor` 기본 `gray`. `kmaNx/Ny`는 정수. `calendarId`는 공백 없는 문자열(선택).
 `setupCompletedAt`은 ISO 8601(시간대 포함).
 `skin`(선택, 기본 `default`): 화면 스킨 id. 지금은 `default`·`paper`(임시 검증용)이고 폴더 `apps/dashboard/skins/<id>/`와 같다. 태블릿은 다음 폴링 때 새로고침 없이 바꾼다.
-`character`(선택, 기본 `none`): 캐릭터 층. 지금은 `none`뿐(#29). 둘 다 없으면 없는 그대로 두고(다시 쓸 때 줄이 생기지 않는다), **값이 있는데 모르는 값이면** 각각 `default`/`none`으로 읽고 `warnings`에 남긴다.
+`character`(선택, 기본 `none`): 캐릭터 층(스킨과 별도 축, `<html data-character>`). 지금은 `none`뿐이고 폴더 `apps/dashboard/characters/<id>/`와 같다(추가 절차는 `docs/decisions/0013-character-layer.md`). `/api/state`의 `character`는 이 값을 해석한 것(없으면 `none`). 둘 다 없으면 없는 그대로 두고(다시 쓸 때 줄이 생기지 않는다), **값이 있는데 모르는 값이면** 각각 `default`/`none`으로 읽고 `warnings`에 남긴다.
 구성원 `color`는 이름(coral 등)만 위키에 있고 실제 색값은 스킨의 색 슬롯 8개(`--member-<name>`)가 정한다.
 
 세팅 필요 판정(`needsSetup`): config가 없거나 구성원이 0명. `setupCompletedAt`은 판정에 쓰지 않으므로 값이 깨져도 QR 세팅 화면으로 바뀌지 않는다.

@@ -293,3 +293,9 @@
 - 남은 문제: 실연결 확인 6건은 0012 끝 절(특히 취소된 id를 PUT으로 되살리는 동작). 고아 복사본 정리·복사 상태 화면 표시 없음. #11은 passes=false, review=null.
 - #11 리뷰 1차 반영(중간 4·낮음): (1) 할 일이 있는 바퀴 처음에 캘린더 접근 확인(`checkAccess`=events.list 1건), 404/403이면 `forbidden`+공유 힌트로 지우기 전에 멈춤(404를 "이미 지워짐"으로 오해해 고아 복사본·기록 손실 방지) (2) events 읽기 경고 기준 삭제 보류를 없애고, 사라진 id가 events 원문에 `#evt-…`로 남아 있으면 그 건만 삭제 보류(실제 파서 동작 시험) (3) 영구 건별 오류(http·not_found·conflict)는 연속 실패에 안 세고 뒤로 미룸, 취소된 id를 못 되살리면 매핑 `gen` 세대 접미사로 새 id, 끝나는 틈·중단된 바퀴 중 온 요청은 버리지 않고 60초 뒤 재시도 (4) 같은 대량 삭제 집합이 15분 이어지면 자동 진행. 낮음: config.md 읽기 실패·calendarId 깨짐이면 그 바퀴 건너뜀, config calendarId도 형식 검사, hook은 명시적 종류 목록, 빈 시험 교체, 0012에 "log.md 단계 생략"·자정 넘는 일정 추가. pnpm check 1314 테스트 통과. review는 pending 유지.
 - 2차 재리뷰 통과(8bb8e70). #11 review=pass, passes=false(목 완료·실연결 대기). 남은 [낮음]은 features #11 note.
+
+## 2026-11-10 · #29 캐릭터 층 구조·로더·none
+- 결정 기록 `docs/decisions/0013-character-layer.md`. `apps/dashboard/characters/`(`contract.ts` zod 매니페스트: `original: true` 필수, 에셋은 폴더 안 상대 경로 svg/png/webp만, `index.ts`: `getCharacter(id)`는 none이면 null, `none/manifest.json`). 그림·컴포넌트·자리·새 캐릭터 id 없음, DOM·CSS 배치 변경 없음.
+- 전환 축: 레이아웃이 `<html data-character>`를 서버에서 config로 렌더(`getCharacterForLayout`, skin과 같은 한 번 읽기·실패 시 none), `useCharacter`가 폴링 `state.character`로 갱신. `toPublicState`의 character를 none 고정에서 해석된 값으로. `?character=` 미리보기는 previewQuery일 때만.
+- 테스트(`characters/characters.test.ts` 등): 폴더=id=CHARACTER_IDS, 스키마·original, 에셋 존재, 캐릭터 폴더에 CSS·`--*` 없음, 스킨×캐릭터 조합, 스키마 거절 사례.
+- 남은 문제: 캐릭터 그림·자리는 오너 결정 대기, 조합 e2e 캡처는 캐릭터가 생길 때. #29 passes=false, review=null. 할 일 문서 갱신 필요: #29 → in_progress(구조 구현 완료, 리뷰 대기).
