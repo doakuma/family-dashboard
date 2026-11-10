@@ -121,9 +121,10 @@
       "deps": [
         7
       ],
-      "status": "todo",
+      "status": "in_progress",
       "passes": false,
-      "review": null
+      "review": null,
+      "note": "잡음: 2026-11-10 00:31 UTC (예약 대화, 목 진행)"
     },
     {
       "id": 12,
