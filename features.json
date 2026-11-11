@@ -99,7 +99,7 @@
       "status": "in_progress",
       "passes": false,
       "review": "pass",
-      "note": "목 완료, 실연결 확인 대기(필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL(채널 id), WIKI_REPO_PATH; 슬랙 앱 Interactivity·App Home Messages 탭). 리뷰 통과(b41d7f3, 2차). 오너 결정 필요: 스펙 인터페이스 절 MessengerAdapter ↔ 봇 내부 ConversationUi(passes 전 스펙 갱신), progress.md의 고치기·요청자만 누르기 등 6건. [낮음] DM 고치기 대기가 24시간이라 잊으면 다음 글이 합쳐짐(10~30분 권장) / W… 멘션은 이름으로 안 바뀜 / 이름 빈 <#C123|>는 #만 남음. 잡음: 2026-11-09 13:50 KST | 실연결 확인(2026-11-11 21:48, 오너 슬랙): #새끼줄 '내일 오후 3시 치과' -> 스레드 확인 카드(넣기·고치기·취소) -> [넣기] -> '✅ 넣었어요' -> 대시보드 11/12 칸에 반영. 위키 커밋(git log) 확인은 오너 대기. passes는 오너 반영 대기(스펙 인터페이스 절 갱신 포함) | 위키 커밋 확인(2026-11-11): 15db58e '[event.add] 일정 추가: 2026-11-12 15:00 치과'."
+      "note": "목 완료, 실연결 확인 대기(필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL(채널 id), WIKI_REPO_PATH; 슬랙 앱 Interactivity·App Home Messages 탭). 리뷰 통과(b41d7f3, 2차). 오너 결정 필요: 스펙 인터페이스 절 MessengerAdapter ↔ 봇 내부 ConversationUi(passes 전 스펙 갱신), progress.md의 고치기·요청자만 누르기 등 6건. [낮음] DM 고치기 대기가 24시간이라 잊으면 다음 글이 합쳐짐(10~30분 권장) / W… 멘션은 이름으로 안 바뀜 / 이름 빈 <#C123|>는 #만 남음. 잡음: 2026-11-09 13:50 KST | 실연결 확인(2026-11-11 21:48, 오너 슬랙): #새끼줄 '내일 오후 3시 치과' -> 스레드 확인 카드(넣기·고치기·취소) -> [넣기] -> '✅ 넣었어요' -> 대시보드 11/12 칸에 반영. 위키 커밋(git log) 확인은 오너 대기. passes는 오너 반영 대기(스펙 인터페이스 절 갱신 포함) | 위키 커밋 확인(2026-11-11): 15db58e '[event.add] 일정 추가: 2026-11-12 15:00 치과'. | 고치기 결함 수정(2026-11-11 22:35, 9a0b21e): '친구 기성이 만날거야'에서 고쳐도 '기성'이 제목에 안 들어감. 원인은 의도 추출 프롬프트가 구성원이 아닌 사람 이름을 title에서 금지한 것. 규칙을 바꾸고 시험 추가, 오너 재시험 확인(22:33). hsh-reviewer 검토 전. 스펙에 title 사람 이름 금지 문구가 있는지 확인 필요."
     },
     {
       "id": 10,
