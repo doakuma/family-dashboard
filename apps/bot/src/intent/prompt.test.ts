@@ -54,6 +54,12 @@ describe("프롬프트: 자산 지도와 날짜 판단 기준", () => {
       expect(p, s).toContain(s);
     }
   });
+  it("구성원이 아닌 사람의 이름은 제목에 넣게 한다", () => {
+    expect(p).toContain("구성원이 아닌 사람(친구·이웃 등)의 이름이 나오면 그 이름을 title에 넣는다");
+    expect(p).toContain("기성이 만남");
+    expect(p).toContain("자산 지도의 구성원 이름은 title에 넣지 않는다");
+    expect(p).not.toContain("날짜·시간·사람 이름은 title에 넣지 않는다");
+  });
   it("예시에 지어낸 날짜를 쓰지 않고 풀이표를 가리킨다", () => {
     expect(p).not.toMatch(/예\(오늘/);
   });

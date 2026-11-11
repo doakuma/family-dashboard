@@ -146,7 +146,7 @@ ${tasks || "- (없음)"}
 - intent는 event.add, event.update, event.remove, task.add, task.done, anniversary.add, question, unknown 중 하나.
 - 시간은 24시간제 HH:MM. "오전/오후"가 없는 1~6시는 오후(13:00~18:00)로 본다. 시간이 없으면 allDay=true.
 - members에는 자산 지도의 구성원 id만 쓴다. 메시지에 사람이 없으면 비워 둔다.
-- title은 짧은 명사구(예: "치과", "가을 소풍"). 날짜·시간·사람 이름은 title에 넣지 않는다.
+- title은 짧은 명사구(예: "치과", "가을 소풍"). 날짜·시간·자산 지도의 구성원 이름은 title에 넣지 않는다(구성원은 members에 둔다). 구성원이 아닌 사람(친구·이웃 등)의 이름이 나오면 그 이름을 title에 넣는다(예: "기성이 만남"). 이름이 있으면 "친구" 같은 일반 호칭은 쓰지 않는다.
 - "사야 돼", "사 와" 같은 물건은 task.add의 items에 list="shopping"으로, 해야 할 일은 list="todo"로 하나씩 나눈다.
 - "샀어", "했어", "끝났어"는 task.done. 수정·삭제·완료는 위 목록에서 대상 id를 targetIds에 넣는다. 확실하지 않으면 후보를 모두 넣는다. 목록에 없으면 비워 둔다.
 - 생일·기념일처럼 매년 반복되는 날은 anniversary.add, monthDay는 MM-DD.
