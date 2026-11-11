@@ -389,6 +389,26 @@
       "passes": true,
       "review": "pass",
       "note": "familyId 브랜드 타입, WriteResult{version,synced,syncError?}, ConfigProvider(+EnvConfigProvider, 앱 process.env eslint 금지), LlmAdapter 코어 포트, 슬랙 InstallationStore(authorize 연결). 동작 변경 없음. git-crypt·금지 패턴 필터·DB 저장소·멀티 테넌트 동작은 하지 않음. 리뷰 통과. 후속: [중간] 봇 시작 시 토큰 검증(app.start 전 authorize/whoami, 실패 시 exit 1) — #9 전에. [낮음] whoami 부분값 캐시, installation.ts:26·env-config.ts:27 캐스팅, eslint process.env 우회 패턴, applySetup 가족 불일치 테스트. 후속 처리(재리뷰 대기): 시작 시 auth.test 검증(checkBotToken; 토큰 오류는 exit 78 + PM2 stop_exit_codes, 일시 오류는 exit 1로 재시도), whoami 부분값 캐시 금지·예외 시 재시도 테스트, 캐스팅 제거, eslint process.env 우회 차단, applySetup 가족 불일치 테스트. 후속(낮음): 토큰 없음도 exit 78로, startup 주석을 WebClient 기본 재시도(약 30분)에 맞추기, eslint globalThis/네임스페이스 우회 기록."
+    },
+    {
+      "id": 33,
+      "title": "가족 구성원 이름 변경(/settings, 슬랙 명령)",
+      "area": "setup",
+      "deps": [22],
+      "status": "todo",
+      "passes": false,
+      "review": null,
+      "note": "2026-11-11 오너 요청. #22에서는 이름 변경을 뺐음(결정 0010). 위키의 기존 일정·할 일에 쓰인 이름 처리 방식을 먼저 정해야 함."
+    },
+    {
+      "id": 34,
+      "title": "가족명 수정(/settings)",
+      "area": "setup",
+      "deps": [22],
+      "status": "todo",
+      "passes": false,
+      "review": null,
+      "note": "2026-11-11 오너 요청. 마법사 1단계 '우리 집' 값을 config.md에서 고침."
     }
   ]
 }
