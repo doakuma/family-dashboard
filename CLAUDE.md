@@ -47,3 +47,4 @@ pnpm --filter @hsh/bot try "다음 주 화요일 3시 하늘 치과"   # 슬랙 
 pnpm check              # typecheck + lint + test
 pnpm build
 ```
+작업 보드 프로젝트: https://app.notion.com/p/4157911118d581d497a9ff466de13691
