@@ -99,7 +99,7 @@
       "status": "in_progress",
       "passes": false,
       "review": "pass",
-      "note": "목 완료, 실연결 확인 대기(필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL(채널 id), WIKI_REPO_PATH; 슬랙 앱 Interactivity·App Home Messages 탭). 리뷰 통과(b41d7f3, 2차). 오너 결정 필요: 스펙 인터페이스 절 MessengerAdapter ↔ 봇 내부 ConversationUi(passes 전 스펙 갱신), progress.md의 고치기·요청자만 누르기 등 6건. [낮음] DM 고치기 대기가 24시간이라 잊으면 다음 글이 합쳐짐(10~30분 권장) / W… 멘션은 이름으로 안 바뀜 / 이름 빈 <#C123|>는 #만 남음. 잡음: 2026-11-09 13:50 KST"
+      "note": "목 완료, 실연결 확인 대기(필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL(채널 id), WIKI_REPO_PATH; 슬랙 앱 Interactivity·App Home Messages 탭). 리뷰 통과(b41d7f3, 2차). 오너 결정 필요: 스펙 인터페이스 절 MessengerAdapter ↔ 봇 내부 ConversationUi(passes 전 스펙 갱신), progress.md의 고치기·요청자만 누르기 등 6건. [낮음] DM 고치기 대기가 24시간이라 잊으면 다음 글이 합쳐짐(10~30분 권장) / W… 멘션은 이름으로 안 바뀜 / 이름 빈 <#C123|>는 #만 남음. 잡음: 2026-11-09 13:50 KST | 실연결 확인(2026-11-11 21:48, 오너 슬랙): #새끼줄 '내일 오후 3시 치과' -> 스레드 확인 카드(넣기·고치기·취소) -> [넣기] -> '✅ 넣었어요' -> 대시보드 11/12 칸에 반영. 위키 커밋(git log) 확인은 오너 대기. passes는 오너 반영 대기(스펙 인터페이스 절 갱신 포함) | 위키 커밋 확인(2026-11-11): 15db58e '[event.add] 일정 추가: 2026-11-12 15:00 치과'."
     },
     {
       "id": 10,
@@ -224,7 +224,7 @@
       "status": "in_progress",
       "passes": false,
       "review": "pass",
-      "note": "잡음: 2026-11-09 (목 진행 큐 2번, 예약 대화). 목 완료, 실연결 확인 대기(리뷰 2차 통과 2c1be3d). 필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, HSH_STATE_DIR(선택), 슬랙 앱 im:history·message.im·App Home Messages 탭. 남은 낮음: mpim·message_changed 글의 코드 무효화, 봇 전체 rate limit, child_process(e2e claim 흉내) 테스트, 봇 시작 시 HSH_STATE_DIR 잘못되면 스택 대신 안내+exit(1)(index.ts:61), claim 재확인 직후 revoke 좁은 경쟁, 2단계 이름 수정 시 연결 풀림 안내 없음. 오너 확인: 미연결 구성원은 완료를 막지 않음(unlinked), 연결 기록 24시간, 한 계정 한 구성원, 잠금은 봇 메모리, 스펙 환경 절·.env.example에 HSH_STATE_DIR | 추가 낮음(#20 리뷰): fs-connect-code.test '같은 난수' 테스트가 병렬에서 간헐 실패(a의 random이 고정값이라 link 경쟁에 의존) — 테스트 수정 필요."
+      "note": "잡음: 2026-11-09 (목 진행 큐 2번, 예약 대화). 목 완료, 실연결 확인 대기(리뷰 2차 통과 2c1be3d). 필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, HSH_STATE_DIR(선택), 슬랙 앱 im:history·message.im·App Home Messages 탭. 남은 낮음: mpim·message_changed 글의 코드 무효화, 봇 전체 rate limit, child_process(e2e claim 흉내) 테스트, 봇 시작 시 HSH_STATE_DIR 잘못되면 스택 대신 안내+exit(1)(index.ts:61), claim 재확인 직후 revoke 좁은 경쟁, 2단계 이름 수정 시 연결 풀림 안내 없음. 오너 확인: 미연결 구성원은 완료를 막지 않음(unlinked), 연결 기록 24시간, 한 계정 한 구성원, 잠금은 봇 메모리, 스펙 환경 절·.env.example에 HSH_STATE_DIR | 추가 낮음(#20 리뷰): fs-connect-code.test '같은 난수' 테스트가 병렬에서 간헐 실패(a의 random이 고정값이라 link 경쟁에 의존) — 테스트 수정 필요. | 실연결 확인(2026-11-11): /settings(범위 settings)에서 받은 코드를 봇 DM에 보내 연결 -> '연결 반영' -> 위키 커밋 8ebb058 '[settings] 정순관 슬랙: 연결'(제목에 슬랙 ID 없음). 이후 카드에 연결된 구성원 이름이 표시됨. 미확인: 마법사 3단계(범위 setup) 연결 경로(이번엔 연결 없이 완료), 같은 계정 두 구성원·연결 풀기."
     },
     {
       "id": 20,
@@ -238,7 +238,7 @@
       "status": "in_progress",
       "passes": false,
       "review": "pass",
-      "note": "잡음: 2026-11-09 (목 진행 큐 3번). 목 완료, 실연결 확인 대기(필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL, HSH_STATE_DIR(선택)) + 슬랙 앱 chat:write, 봇이 #가족 채널에 들어가 있어야 함. 한 일: log.md·커밋 요약 \"세팅 완료: …\", 세팅 화면 폴링 5초(대시보드 60초), core SetupNoticeStore/FsSetupNoticeStore(상태 폴더 notice/, link 배타 claim, 24시간 만료), runSetup이 성공 뒤 알림 put(실패해도 세팅 성공), 봇 welcome/(5초 확인·재시도 백오프·환영 메시지 순수 함수, 예시 3개). 결정 0008. 리뷰 1차 반영: WebClient 재시도 0·10초·레이트리밋 즉시 실패, 토큰은 InstallationStore, claim 토큰(release는 자기 번호만), 완료 화면 문구. setup.e2e.mjs 전체(전환 대기 포함) 통과. 참고: #19 fs-connect-code.test \"같은 난수\" 테스트가 병렬 실행 때 한 번 간헐 실패(재실행 통과). | 리뷰 2차 통과(fc70cc8). 남은 낮음: 게시 직전 done 재확인 없음(주석·0008 '멈춘다' 문구 정정 필요), 10초 타임아웃인데 슬랙은 받은 경우 한 번 더 게시 가능(0008 한계에 추가), removeAll 순서 단언 약함, worker.test installation() as never. 오너 확인: 환영 문구·예시 3개 초안, 알림 24시간, 완료 화면 문구 '태블릿이 곧 대시보드로 바뀝니다', log 요약 '세팅 완료:'로 변경."
+      "note": "잡음: 2026-11-09 (목 진행 큐 3번). 목 완료, 실연결 확인 대기(필요: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_FAMILY_CHANNEL, HSH_STATE_DIR(선택)) + 슬랙 앱 chat:write, 봇이 #가족 채널에 들어가 있어야 함. 한 일: log.md·커밋 요약 \"세팅 완료: …\", 세팅 화면 폴링 5초(대시보드 60초), core SetupNoticeStore/FsSetupNoticeStore(상태 폴더 notice/, link 배타 claim, 24시간 만료), runSetup이 성공 뒤 알림 put(실패해도 세팅 성공), 봇 welcome/(5초 확인·재시도 백오프·환영 메시지 순수 함수, 예시 3개). 결정 0008. 리뷰 1차 반영: WebClient 재시도 0·10초·레이트리밋 즉시 실패, 토큰은 InstallationStore, claim 토큰(release는 자기 번호만), 완료 화면 문구. setup.e2e.mjs 전체(전환 대기 포함) 통과. 참고: #19 fs-connect-code.test \"같은 난수\" 테스트가 병렬 실행 때 한 번 간헐 실패(재실행 통과). | 리뷰 2차 통과(fc70cc8). 남은 낮음: 게시 직전 done 재확인 없음(주석·0008 '멈춘다' 문구 정정 필요), 10초 타임아웃인데 슬랙은 받은 경우 한 번 더 게시 가능(0008 한계에 추가), removeAll 순서 단언 약함, worker.test installation() as never. 오너 확인: 환영 문구·예시 3개 초안, 알림 24시간, 완료 화면 문구 '태블릿이 곧 대시보드로 바뀝니다', log 요약 '세팅 완료:'로 변경. | 실연결 확인(2026-11-11 21:37): 세팅 완료 직후 #새끼줄에 환영 메시지 1회 게시(가족 이름, 예시 3개, 확인 안내), 위키 커밋 346d3f3 '[setup] 세팅 완료: HappyHappyJainee (구성원 3명, 기념일 4건)'. 미확인: 연결된 구성원 멘션(당시 연결 0명), 태블릿 5초 전환(노트북 브라우저로만 확인), 중복 게시 없음은 1회 게시로 확인."
     },
     {
       "id": 21,
@@ -262,7 +262,7 @@
         21
       ],
       "status": "in_progress",
-      "note": "목 완료(2026-11-09, 슬랙 토큰·실제 계정 없이): core SettingsChange+WikiRepository.applySettings(member.add/color/slack/config.region, 줄 단위 수정으로 본문·모르는 필드 보존, SettingsError), ConnectScope settings, /settings(구성원·슬랙 연결·지역, 구역별 저장)+POST /api/settings(출처→PIN 세션→본문→zod, 슬랙 ID 비노출), 봇 색 변경 고정 명령(LLM 없음, 보호자만, 확인 카드, 버튼 시점 재판정). 결정 기록 docs/decisions/0010-settings.md(오너 확인 항목 포함). 실연결에 필요한 값: SLACK_BOT_TOKEN·SLACK_APP_TOKEN·SLACK_FAMILY_CHANNEL·WIKI_REPO_PATH·HSH_STATE_DIR(대시보드·봇 같은 값)·ADMIN_PIN_HASH·DASHBOARD_BASE_URL. 실제 슬랙 DM·버튼은 #3 토큰 뒤 확인. 스펙 인터페이스 절에 applySettings 갱신 필요. | 리뷰 3차 통과(6332c18): 위키 쓰기 프로세스 간 잠금(.git/hsh-write.lock), git push/pull 90초 제한. 목 완료, 실연결 확인 대기. 남은 중간(pull 연결 전 처리): pull timeout 시 자식 git 고아 → fetch(제한)·로컬 rebase 분리 또는 프로세스 그룹 kill. 남은 낮음: ssh 원격 GIT_SSH_COMMAND BatchMode·ConnectTimeout, 시간 초과 테스트 고아 sleep. 오너 확인 10건(0010).",
+      "note": "목 완료(2026-11-09, 슬랙 토큰·실제 계정 없이): core SettingsChange+WikiRepository.applySettings(member.add/color/slack/config.region, 줄 단위 수정으로 본문·모르는 필드 보존, SettingsError), ConnectScope settings, /settings(구성원·슬랙 연결·지역, 구역별 저장)+POST /api/settings(출처→PIN 세션→본문→zod, 슬랙 ID 비노출), 봇 색 변경 고정 명령(LLM 없음, 보호자만, 확인 카드, 버튼 시점 재판정). 결정 기록 docs/decisions/0010-settings.md(오너 확인 항목 포함). 실연결에 필요한 값: SLACK_BOT_TOKEN·SLACK_APP_TOKEN·SLACK_FAMILY_CHANNEL·WIKI_REPO_PATH·HSH_STATE_DIR(대시보드·봇 같은 값)·ADMIN_PIN_HASH·DASHBOARD_BASE_URL. 실제 슬랙 DM·버튼은 #3 토큰 뒤 확인. 스펙 인터페이스 절에 applySettings 갱신 필요. | 리뷰 3차 통과(6332c18): 위키 쓰기 프로세스 간 잠금(.git/hsh-write.lock), git push/pull 90초 제한. 목 완료, 실연결 확인 대기. 남은 중간(pull 연결 전 처리): pull timeout 시 자식 git 고아 → fetch(제한)·로컬 rebase 분리 또는 프로세스 그룹 kill. 남은 낮음: ssh 원격 GIT_SSH_COMMAND BatchMode·ConnectTimeout, 시간 초과 테스트 고아 sleep. 오너 확인 10건(0010). | 실연결 확인(2026-11-11 21:53, 오너 보고 '모두 통과'): 슬랙 색 변경 명령·확인 카드·/settings 시험. 세부 단계별 결과는 오너가 말한 범위만 기록. passes는 오너 반영 대기(스펙 인터페이스 절 applySettings 갱신·오너 확인 10건 남음) | 위키 커밋 확인(2026-11-11): bc383a5 '[settings] 정재인 색: 분홍 -> 초록', ee5c2b1 '초록 -> 분홍'(시험 뒤 복구).",
       "passes": false,
       "review": "pass"
     },

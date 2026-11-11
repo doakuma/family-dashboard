@@ -300,3 +300,15 @@
 - 테스트(`characters/characters.test.ts` 등): 폴더=id=CHARACTER_IDS, 스키마·original, 에셋 존재, 캐릭터 폴더에 CSS·`--*` 없음, 스킨×캐릭터 조합, 스키마 거절 사례.
 - 남은 문제: 캐릭터 그림·자리는 오너 결정 대기, 조합 e2e 캡처는 캐릭터가 생길 때. #29 passes=false, review=null. 할 일 문서 갱신 필요: #29 → in_progress(구조 구현 완료, 리뷰 대기).
 - #29 리뷰 1차 통과(9b06386, 높음·중간 없음). review=pass, passes=false(구조만 완료, 캐릭터 그림·자리 오너 결정 대기). 낮음 4건은 features #29 note·0013. pnpm check 1326 테스트.
+
+## 2026-11-10 · 슬랙 실연결 첫 시도: .env 로딩 수정
+- 발견: 봇은 `.env`를 읽는 코드가 없었다(`tsx watch src/index.ts`, `EnvConfigProvider`는 `process.env`만 읽음). 대시보드 `server.ts`의 `loadEnvConfig(process.cwd())`도 cwd가 `apps/dashboard`라서 루트 `.env`를 못 읽었다(PM2 설정도 앱 폴더별 `.env` 가정).
+- 수정(최소): 봇 `dev`/`start`에 `--env-file-if-exists=../../.env`, 대시보드 `server.ts`는 `import.meta.url` 기준 레포 루트에서 `loadEnvConfig`, `ecosystem.config.cjs`도 루트 `.env` 하나로 맞춤. 대시보드·봇이 같은 루트 `.env`를 쓴다.
+- 확인: `pnpm --filter @hsh/bot start` 15초 실행 -> "[bot] Socket Mode로 연결했습니다." (토큰 오류 없음). 구글 캘린더 복사는 `GOOGLE_SERVICE_ACCOUNT_JSON` 없어 꺼짐(정상).
+- `pnpm check`: typecheck·lint 통과, test는 20~24건 실패(실행마다 다름). 실패는 전부 git·파일 사용 시험(`fs-wiki*`, `fs-connect-code`, `fs-calendar-mapping`, `calendar/setup`)의 5초 시간 초과. 수정을 되돌린(stash) 상태에서도 `fs-wiki-lock.test.ts`가 같은 이유로 실패 -> 내 수정과 무관, 이 Windows 노트북에서 git이 느린 환경 문제. 시간 제한 조정은 오너 판단 대기.
+- 남은 일: 슬랙 실연결 확인(#새끼줄 봇 초대 여부, "내일 오후 3시 치과" 확인 카드, Ollama 켜짐). passes=true는 그 뒤. review=pending 처리와 hsh-reviewer 검토는 실연결 확인 뒤 함께.
+- (2026-11-10 밤) 의도 추출 실패 원인: Ollama qwen3:8b가 이 노트북(AMD 내장 그래픽 전용 496MB, CPU 추론, `size_vram`=0)에서 의도 추출 프롬프트에 180초 제한(`DEFAULT_OLLAMA_TIMEOUT_MS`)을 넘김(try: 180144ms). 짧은 질문은 모델 로드 56초 뒤 응답 -> Ollama 자체는 정상. 오너 결정: `LLM_PROVIDER=anthropic`(claude-haiku-5-5)로 전환. 코드 변경 없음(AnthropicClient 이미 있음). `try`·`eval:dates`에도 `--env-file-if-exists=../../.env` 추가. 비용 한도는 오너가 콘솔에서 설정. 실연결 카드 확인 대기.
+- (2026-11-11 00:15) 실연결 2차 시도 중단: 봇은 Anthropic 키 입력 뒤 정상 시작(Socket Mode 연결, ping→pong OK). #새끼줄 "내일 오후 3시 치과"에 응답·로그 없음, `pnpm --filter @hsh/bot try`도 출력 없음. 원인 후보: `.env`의 LLM_PROVIDER 누락·오타 시 `llmFromEnv`가 기본값 ollama를 써서 180초 대기(env-config.ts:50). 내일 첫 일: `.env`의 LLM_PROVIDER·ANTHROPIC_MODEL 줄과 키 길이만 확인(값 출력 금지) → 봇 재시작 → `try` 출력 첫 줄의 `[anthropic:...]` 확인 → 슬랙 재시험. 코드 변경 없음, passes 변경 없음.
+- (2026-11-11 21:50) 슬랙 실연결 성공: `.env`의 LLM_PROVIDER가 ollama였던 것이 무응답 원인(anthropic으로 수정, `try` 2313ms). 대시보드 첫 세팅(마법사)·PIN(ADMIN_PIN_HASH)·슬랙 App Home Messages 탭 설정 뒤, #새끼줄 "내일 오후 3시 치과" -> 확인 카드 -> [넣기] -> "넣었어요" -> 대시보드 11/12 반영. #20 환영 메시지가 #새끼줄에 1회 게시됨(예시 3개, 구성원 멘션은 연결 전이라 없음). #9 note 갱신. 남은 확인: 위키 커밋, /settings '연결됨' 표시, #19·#20 세부, #21 아이·미등록 계정 시험, #22 색 변경. 코드 변경 없음, passes 변경 없음(오너 반영 대기).
+- (2026-11-11 21:53) #22 실연결: 오너가 슬랙 색 변경·/settings 시험을 "모두 통과"로 보고. features #22 note 갱신. passes 변경 없음(스펙 interface 절 applySettings 갱신, 0010 오너 확인 10건 대기).
+- (2026-11-11 21:55) 위키 커밋 확인: 346d3f3 세팅 완료, 8ebb058 정순관 슬랙 연결(/settings 경로), 15db58e 치과 일정 추가, bc383a5·ee5c2b1 정재인 색 변경·복구. 커밋 제목에 슬랙 ID 없음. features #9·#19·#20·#22 note 갱신. passes 변경 없음.
