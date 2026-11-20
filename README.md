@@ -24,3 +24,7 @@ pnpm install
 cp .env.example .env   # 값 채우기
 pnpm --filter @hsh/dashboard dev
 ```
+
+- 대시보드와 봇은 레포 루트 `.env` 하나를 함께 읽는다.
+- 값에 `$`를 쓰지 않는다. 대시보드(`@next/env`)는 `$변수`를 치환하고, 봇(Node `--env-file`)은 치환하지 않아서 두 프로세스가 다른 값을 보게 된다.
+- 루트 `.env`를 고치면 dev 서버(대시보드·봇)를 재시작해야 반영된다.

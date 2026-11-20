@@ -2,6 +2,8 @@
 //   node apps/dashboard/e2e/stress.e2e.mjs [--shots]   (--shots: docs/screens에 캡처 저장)
 // fixtures/stress-wiki(80자 제목, 하루 14건)를 임시 git 레포로 복사해 운영 모드 서버를 띄우고 확인한다.
 import { cpSync, mkdtempSync } from "node:fs";
+// 서버 자식 프로세스는 루트 .env를 읽지 않는다(HSH_ENV_FILE=none, isolation.mjs).
+import { ISOLATED_ENV } from "./isolation.mjs";
 import { execFileSync, spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -31,7 +33,7 @@ g("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "stress");
 
 const server = spawn("node", ["server.ts"], {
   cwd: root,
-  env: { ...process.env, PORT: String(PORT), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: LOCAL, NODE_ENV: undefined, HSH_PREVIEW_QUERY: "1" },
+  env: { ...process.env, ...ISOLATED_ENV, PORT: String(PORT), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: LOCAL, NODE_ENV: undefined, HSH_PREVIEW_QUERY: "1" },
   stdio: "ignore",
 });
 async function waitFor(url) {

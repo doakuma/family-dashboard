@@ -5,12 +5,14 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Duplex } from "node:stream";
 import { fileURLToPath } from "node:url";
 import nextEnv from "@next/env";
+import { loadRootEnv } from "./lib/root-env.ts";
 
 const dev = process.argv.includes("--dev");
 // .env를 가장 먼저 읽는다: PORT·DASHBOARD_BASE_URL을 아래에서 쓰기 전에 반영돼야 한다(PM2로 띄워도 .env가 적용되게).
 // (Next도 나중에 읽지만 그때는 이미 이 파일이 PORT를 정한 뒤다.) 이미 있는 환경 변수는 덮어쓰지 않는다.
 // 봇과 같은 레포 루트 .env를 쓴다(cwd는 apps/dashboard라서 process.cwd()로는 루트 .env를 못 찾는다).
-nextEnv.loadEnvConfig(fileURLToPath(new URL("../..", import.meta.url)), dev);
+// 시험 전용: HSH_ENV_FILE=none이면 읽지 않는다(e2e 격리, lib/root-env.ts).
+loadRootEnv(nextEnv.loadEnvConfig, fileURLToPath(new URL("../..", import.meta.url)), dev, process.env);
 (process.env as Record<string, string | undefined>).NODE_ENV = dev ? "development" : "production";
 
 const { isAllowedHost } = await import("./lib/auth/host.ts");

@@ -1,6 +1,7 @@
 // 진입 게이트 E2E (pnpm check에는 포함되지 않음). 사전: `pnpm --filter @hsh/dashboard build`, Playwright 설치.
 //   node apps/dashboard/e2e/auth.e2e.mjs
-// 빈 임시 위키 + 임시 PIN 해시로 운영 모드 서버(server.ts)를 직접 띄운다. .env는 읽지 않는다.
+// 빈 임시 위키 + 임시 PIN 해시로 운영 모드 서버(server.ts)를 직접 띄운다. 루트 .env는 읽지 않는다(HSH_ENV_FILE=none, isolation.mjs).
+import { ISOLATED_ENV } from "./isolation.mjs";
 import { execFileSync, spawn } from "node:child_process";
 import http from "node:http";
 import { createRequire } from "node:module";
@@ -28,7 +29,7 @@ execFileSync("git", ["init", "-q", wiki]);
 const hashLine = execFileSync("node", ["scripts/pin-hash.ts"], { cwd: root, input: `${PIN}\n`, stdio: ["pipe", "pipe", "ignore"] }).toString().trim();
 assert.match(hashLine, /^ADMIN_PIN_HASH=scrypt:/);
 
-const env = { ...process.env, PORT: String(PORT), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: BASE, ADMIN_PIN_HASH: hashLine.slice("ADMIN_PIN_HASH=".length), NODE_ENV: undefined };
+const env = { ...process.env, ...ISOLATED_ENV, PORT: String(PORT), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: BASE, ADMIN_PIN_HASH: hashLine.slice("ADMIN_PIN_HASH=".length), NODE_ENV: undefined };
 const servers = [];
 function start(args, extraEnv = {}) {
   const p = spawn("node", args, { cwd: root, env: { ...env, ...extraEnv }, stdio: "ignore" });
