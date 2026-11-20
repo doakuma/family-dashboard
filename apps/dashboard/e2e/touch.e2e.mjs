@@ -3,9 +3,9 @@
 // fixtures/sample-wiki를 임시 git 레포로 복사해 서버를 띄우고, 터치 에뮬레이션(hasTouch, 1280×800)으로
 // 날짜 탭 -> 시트, 일정 상세, 스와이프 달 이동, 120초 자동 복귀(가짜 시계), 폴링 뒤 상태 유지, 핀치·길게 누르기 차단, 야간 터치를 확인한다.
 import { appendFileSync, cpSync, mkdtempSync } from "node:fs";
-// 서버 자식 프로세스는 루트 .env를 읽지 않는다(HSH_ENV_FILE=none, isolation.mjs).
-import { ISOLATED_ENV } from "./isolation.mjs";
-import { execFileSync, spawn } from "node:child_process";
+// 서버 자식 프로세스는 루트 .env를 읽지 않는다(HSH_SKIP_ROOT_ENV=1, isolation.mjs).
+import { spawnServer } from "./isolation.mjs";
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -34,10 +34,9 @@ git("init", "-q");
 git("add", ".");
 git("commit", "-qm", "sample");
 
-const server = spawn("node", ["server.ts"], {
+const server = spawnServer(["server.ts"], {
   cwd: root,
-  env: { ...process.env, ...ISOLATED_ENV, PORT: String(PORT), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: LOCAL, NODE_ENV: undefined, HSH_PREVIEW_QUERY: "1" },
-  stdio: "ignore",
+  env: { PORT: String(PORT), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: LOCAL, NODE_ENV: undefined, HSH_PREVIEW_QUERY: "1" },
 });
 async function waitFor(url) {
   for (let i = 0; i < 100; i++) {

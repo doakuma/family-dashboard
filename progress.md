@@ -315,8 +315,9 @@
 - (2026-11-11 22:35) 슬랙 실연결 중 #9 고치기 결함: "친구 기성이 만날거야" → 카드 "정순관 친구 만남", 고쳐도 "기성"이 안 들어감. 원인: 의도 추출 프롬프트가 구성원 id만 members에 허용하고 title에 사람 이름을 금지해 구성원이 아닌 이름이 버려짐(고치기는 처음 말 + "고친 내용"을 합쳐 다시 보내므로 정상). 수정: `intent/prompt.ts` title 규칙을 "자산 지도의 구성원 이름은 title에 넣지 않고, 구성원이 아닌 사람 이름은 title에 넣는다"로 바꾸고 `prompt.test.ts`에 시험 추가. `pnpm typecheck`·`lint`·bot test 446건 통과(실제 LLM 재확인은 오너 노트북에서 "친구 기성이 만날거야" 재시험 필요). hsh-reviewer 검토 전. 스펙 문구 확인 필요(title에 사람 이름 금지 여부)
 
 ## 2026-11-20 · 29100e0·9a0b21e 리뷰 지적 반영 (#9 #19 #20 #22)
-- 리뷰 통과(11-20) + 지적 반영. [중간] e2e가 실제 루트 .env를 읽던 문제: 방법 (b) 선택. `lib/root-env.ts`의 시험 전용 스위치 `HSH_ENV_FILE=none`이면 server.ts가 루트 `.env`를 읽지 않는다. e2e 6개는 `e2e/isolation.mjs`의 `ISOLATED_ENV`를 서버 자식 env에 합친다. 주석("루트 .env는 읽지 않는다")도 사실대로 고침.
+- 리뷰 통과(11-20) + 지적 반영. [중간] e2e가 실제 루트 .env를 읽던 문제: 방법 (b) 선택. `lib/root-env.ts`의 시험 전용 스위치 `HSH_SKIP_ROOT_ENV=1`이면 server.ts가 루트 `.env`를 읽지 않는다. e2e 6개는 `e2e/isolation.mjs`의 `ISOLATED_ENV`를 서버 자식 env에 합친다. 주석("루트 .env는 읽지 않는다")도 사실대로 고침.
 - 이유: (a)는 키 목록(.env.example·env-config·server.ts)이 바뀔 때마다 e2e가 뒤처지고, 빈 문자열은 `HSH_STATE_DIR` 같은 키에서 "절대 경로여야 해요" 오류나 기본값 우회를 만들 수 있다. (b)는 한 줄로 .env 전체를 끈다. 대가: server.ts에 시험 전용 분기 1개(운영은 변수 미설정). 단위 시험 `lib/root-env.test.ts`가 스위치 동작과 e2e 6개 전부의 격리 적용을 pnpm check 안에서 확인한다.
 - [낮음] 0002의 봇 PM2 줄을 `../../.env`로 고침. README·0002에 "값에 `$` 쓰지 않기"(대시보드 @next/env는 치환, 봇 --env-file은 치환 안 함)와 "루트 .env를 고치면 dev 서버(대시보드·봇) 재시작" 추가.
 - 오너 할 일: `.env.example`(.env* 접근 금지라 직접 못 고침) 맨 위에 주석 한 줄 추가: `# 값에 $를 쓰지 않는다 (대시보드는 $변수를 치환하고 봇은 치환하지 않는다). 고친 뒤에는 대시보드·봇을 재시작한다.`
 - features #9·#19·#20·#22 note에 리뷰 통과 한 줄 추가(passes 그대로 false). 할 일 문서 갱신 필요: #9·#19·#20·#22 → 리뷰 통과(passes는 남은 오너 조건 뒤).
+- (11-20 재리뷰 반영) 스위치 이름을 `HSH_SKIP_ROOT_ENV=1`로 바꿈(1이 아닌 비어 있지 않은 값은 경고 한 줄). e2e는 서버를 `isolation.mjs`의 `spawnServer`로만 띄운다(격리 값은 호출자가 덮어쓸 수 없음). `root-env.test.ts`가 e2e 파일의 직접 spawn·fork·exec·execFile 호출·import를 막고(spawnSync connect-claim·execFileSync git/npm/pin-hash는 서버가 아니라 예외), spawnServer 동작을 주입 spawn으로 확인. README·0002에 PM2 운영은 `.env` 수정 뒤 `pm2 restart` 추가.

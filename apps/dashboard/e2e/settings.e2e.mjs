@@ -1,8 +1,8 @@
 // /settings E2E (pnpm check에는 포함되지 않음). 사전: `pnpm --filter @hsh/dashboard build`, Playwright 설치, tsx(봇의 DM 연결 흉내용).
 //   node apps/dashboard/e2e/settings.e2e.mjs
-// 세팅이 끝난 임시 위키(git, 원격 없음) + 임시 상태 폴더 + 임시 PIN 해시로 운영 모드 서버를 띄운다. 루트 .env는 읽지 않는다(HSH_ENV_FILE=none, isolation.mjs).
-import { ISOLATED_ENV } from "./isolation.mjs";
-import { execFileSync, spawn, spawnSync } from "node:child_process";
+// 세팅이 끝난 임시 위키(git, 원격 없음) + 임시 상태 폴더 + 임시 PIN 해시로 운영 모드 서버를 띄운다. 루트 .env는 읽지 않는다(HSH_SKIP_ROOT_ENV=1, isolation.mjs).
+import { spawnServer } from "./isolation.mjs";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -39,8 +39,8 @@ git("commit", "-qm", "seed");
 
 const hashLine = execFileSync("node", ["scripts/pin-hash.ts"], { cwd: root, input: `${PIN}\n`, stdio: ["pipe", "pipe", "ignore"] }).toString().trim();
 const stateDir = mkdtempSync(join(tmpdir(), "hsh-settings-e2e-state-"));
-const env = { ...process.env, ...ISOLATED_ENV, PORT: String(PORT), WIKI_REPO_PATH: wiki, HSH_STATE_DIR: stateDir, DASHBOARD_BASE_URL: BASE, ADMIN_PIN_HASH: hashLine.slice("ADMIN_PIN_HASH=".length), NODE_ENV: undefined };
-const server = spawn("node", ["server.ts"], { cwd: root, env, stdio: "ignore" });
+const env = { PORT: String(PORT), WIKI_REPO_PATH: wiki, HSH_STATE_DIR: stateDir, DASHBOARD_BASE_URL: BASE, ADMIN_PIN_HASH: hashLine.slice("ADMIN_PIN_HASH=".length), NODE_ENV: undefined };
+const server = spawnServer(["server.ts"], { cwd: root, env });
 async function waitFor(url) {
   for (let i = 0; i < 100; i++) {
     try {

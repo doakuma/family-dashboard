@@ -4,9 +4,9 @@
 //   --shots                                          (docs/screens/setup-*.png 캡처 저장. 없으면 저장하지 않는다)
 // 빈 임시 위키(git init) + 임시 PIN으로 운영 모드 서버를 띄워: QR 토큰 -> PIN -> 6단계 -> 시작하기 -> 위키 커밋과 /api/state를 확인한다.
 // 단계별 캡처(390x844)는 docs/screens/setup-*.png.
-// 서버 자식 프로세스는 루트 .env를 읽지 않는다(HSH_ENV_FILE=none, isolation.mjs).
-import { ISOLATED_ENV } from "./isolation.mjs";
-import { execFileSync, spawn, spawnSync } from "node:child_process";
+// 서버 자식 프로세스는 루트 .env를 읽지 않는다(HSH_SKIP_ROOT_ENV=1, isolation.mjs).
+import { spawnServer } from "./isolation.mjs";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -38,8 +38,8 @@ git("config", "user.name", "e2e");
 const hashLine = execFileSync("node", ["scripts/pin-hash.ts"], { cwd: root, input: `${PIN}\n`, stdio: ["pipe", "pipe", "ignore"] }).toString().trim();
 
 const stateDir = mkdtempSync(join(tmpdir(), "hsh-setup-e2e-state-"));
-const env = { ...process.env, ...ISOLATED_ENV, PORT: String(PORT), WIKI_REPO_PATH: wiki, HSH_STATE_DIR: stateDir, DASHBOARD_BASE_URL: BASE, ADMIN_PIN_HASH: hashLine.slice("ADMIN_PIN_HASH=".length), NODE_ENV: undefined };
-const server = spawn("node", ["server.ts"], { cwd: root, env, stdio: "ignore" });
+const env = { PORT: String(PORT), WIKI_REPO_PATH: wiki, HSH_STATE_DIR: stateDir, DASHBOARD_BASE_URL: BASE, ADMIN_PIN_HASH: hashLine.slice("ADMIN_PIN_HASH=".length), NODE_ENV: undefined };
+const server = spawnServer(["server.ts"], { cwd: root, env });
 async function waitFor(url) {
   for (let i = 0; i < 100; i++) {
     try {

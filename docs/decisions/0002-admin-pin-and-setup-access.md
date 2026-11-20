@@ -42,7 +42,7 @@
   구현: `lib/auth/host.ts`(순수 함수, 테스트). BASE_URL을 쓰지 않는 운영(없으면 QR도 못 만든다)에서는 IP 리터럴·localhost로만 접속할 수 있다.
 - `pnpm dev`/`start`는 `node server.ts [--dev]`(Node 22.18+ 타입 제거 실행, 빌드 단계 없음; `engines`는 `>=22.18`). `next start`로 직접 띄우면 증명이 없어 전부 403이 된다(안전한 쪽으로 실패).
 - server.ts는 맨 앞에서 `@next/env`의 `loadEnvConfig`로 `.env`를 먼저 읽는다(PORT·DASHBOARD_BASE_URL을 Host 검사와 listen에 쓰기 전에). server.ts가 직접 불러오는 `lib/auth/*.ts`는 상대 import에 `.ts` 확장자를 붙인다.
-- 루트 `.env` 하나를 대시보드(`@next/env`, `$변수` 치환함)와 봇(Node `--env-file`, 치환 안 함)이 같이 읽는다. 값에 `$`를 쓰지 않는다. 시험 전용 `HSH_ENV_FILE=none`이면 server.ts가 루트 `.env`를 읽지 않는다(e2e 격리, `lib/root-env.ts`).
+- 루트 `.env` 하나를 대시보드(`@next/env`, `$변수` 치환함)와 봇(Node `--env-file`, 치환 안 함)이 같이 읽는다. 값에 `$`를 쓰지 않는다. 루트 `.env`를 고치면 dev 서버를 재시작하고, PM2 운영에서는 `pm2 restart`를 한다. 시험 전용 `HSH_SKIP_ROOT_ENV=1`이면 server.ts가 루트 `.env`를 읽지 않는다(e2e 격리, `lib/root-env.ts`, e2e는 `spawnServer`로만 서버를 띄움). 1이 아닌 비어 있지 않은 값은 무시하고 경고 한 줄을 남긴다.
 - **PM2(노트북 상시 실행)**: 루트 `ecosystem.config.cjs`. 대시보드는 `cwd: apps/dashboard`, `script: server.ts`, `interpreter: node`. 봇은 `cwd: apps/bot`, `node --env-file-if-exists=../../.env --import tsx src/index.ts`(레포 루트 `.env`). Windows에서도 `.bin` 래퍼 없이 node가 직접 실행한다. 먼저 `pnpm --filter @hsh/dashboard build`.
 - 한계: 앞에 리버스 프록시를 두면 소켓 주소가 프록시 주소가 된다(지금 구성에는 없음). 필요해지면 신뢰할 프록시 주소 목록을 따로 결정한다.
 

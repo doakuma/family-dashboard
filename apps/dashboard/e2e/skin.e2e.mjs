@@ -2,9 +2,9 @@
 //   node apps/dashboard/e2e/skin.e2e.mjs [--shots]   (--shots: docs/screens/skin-*.png 저장)
 // fixtures/sample-wiki를 임시 git 레포로 복사해 서버를 띄우고, 두 스킨 × 낮/야간(1280×800)과 폴링 전환을 확인한다.
 import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-// 서버 자식 프로세스는 루트 .env를 읽지 않는다(HSH_ENV_FILE=none, isolation.mjs).
-import { ISOLATED_ENV } from "./isolation.mjs";
-import { execFileSync, spawn } from "node:child_process";
+// 서버 자식 프로세스는 루트 .env를 읽지 않는다(HSH_SKIP_ROOT_ENV=1, isolation.mjs).
+import { spawnServer } from "./isolation.mjs";
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -32,10 +32,9 @@ git("add", ".");
 git("commit", "-qm", "sample");
 
 // 운영 빌드(server.ts는 --dev 없으면 production)에서도 ?at·?mode·?skin을 쓰도록 테스트 전용 플래그 HSH_PREVIEW_QUERY=1을 켠다. 운영 기본값은 꺼짐.
-const server = spawn("node", ["server.ts"], {
+const server = spawnServer(["server.ts"], {
   cwd: root,
-  env: { ...process.env, ...ISOLATED_ENV, PORT: String(PORT), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: LOCAL, NODE_ENV: undefined, HSH_PREVIEW_QUERY: "1" },
-  stdio: "ignore",
+  env: { PORT: String(PORT), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: LOCAL, NODE_ENV: undefined, HSH_PREVIEW_QUERY: "1" },
 });
 async function waitFor(url) {
   for (let i = 0; i < 100; i++) {
@@ -172,10 +171,9 @@ try {
   {
     const PORT2 = PORT + 1;
     const LOCAL2 = `http://127.0.0.1:${PORT2}`;
-    const prod = spawn("node", ["server.ts"], {
+    const prod = spawnServer(["server.ts"], {
       cwd: root,
-      env: { ...process.env, ...ISOLATED_ENV, PORT: String(PORT2), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: LOCAL2, NODE_ENV: undefined, HSH_PREVIEW_QUERY: undefined },
-      stdio: "ignore",
+      env: { PORT: String(PORT2), WIKI_REPO_PATH: wiki, DASHBOARD_BASE_URL: LOCAL2, NODE_ENV: undefined, HSH_PREVIEW_QUERY: undefined },
     });
     try {
       await waitFor(`${LOCAL2}/api/state`);
