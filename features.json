@@ -409,6 +409,66 @@
       "passes": false,
       "review": null,
       "note": "2026-11-11 오너 요청. 마법사 1단계 '우리 집' 값을 config.md에서 고침."
+    },
+    {
+      "id": 35,
+      "title": "대화형 봇: 도구 정의 + Claude API 도구 호출(확인 카드 대체)",
+      "area": "bot",
+      "deps": [9, 10],
+      "status": "todo",
+      "passes": false,
+      "review": null,
+      "note": "2026-11-20 오너 결정(스펙 '대화형 봇 전환'). LLM은 도구만 고르고 위키 쓰기는 코드가 결정적으로 처리."
+    },
+    {
+      "id": 36,
+      "title": "대화 기억 저장(DM·스레드마다 최근 20턴 또는 6시간 중 짧은 쪽)",
+      "area": "bot",
+      "deps": [35],
+      "status": "todo",
+      "passes": false,
+      "review": null,
+      "note": "2026-11-20 오너 결정(스펙 '대화형 봇 전환')."
+    },
+    {
+      "id": 37,
+      "title": "되돌리기: 위키 커밋 revert(쓴 뒤 24시간 안, 쓴 사람·보호자)",
+      "area": "bot",
+      "deps": [7, 35],
+      "status": "todo",
+      "passes": false,
+      "review": null,
+      "note": "2026-11-20 오너 결정(스펙 '대화형 봇 전환')."
+    },
+    {
+      "id": 38,
+      "title": "#가족 채널: 바로 기록 + ✅ 반응, 스레드 답장은 되물을 때·실패 때만",
+      "area": "bot",
+      "deps": [35],
+      "status": "todo",
+      "passes": false,
+      "review": null,
+      "note": "2026-11-20 오너 결정(스펙 '대화형 봇 전환'). 슬랙 앱에 reactions:write 스코프 추가 필요(오너)."
+    },
+    {
+      "id": 39,
+      "title": "기존 확인 카드 흐름 걷어내기 + 테스트 정리",
+      "area": "bot",
+      "deps": [35, 36, 37, 38],
+      "status": "todo",
+      "passes": false,
+      "review": null,
+      "note": "2026-11-20 오너 결정(스펙 '대화형 봇 전환')."
+    },
+    {
+      "id": 40,
+      "title": "#10 날짜 평가를 대화형 도구 호출 기준으로 맞추기",
+      "area": "bot",
+      "deps": [10, 35],
+      "status": "todo",
+      "passes": false,
+      "review": null,
+      "note": "2026-11-20 오너 결정(스펙 '대화형 봇 전환')."
     }
   ]
 }
